@@ -1,15 +1,34 @@
+/* Importar fuentes de Google PRIMERO */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
+/* Importar Tailwind CSS */
 @import "tailwindcss";
+/* @import "tailwindcss/preflight"; */
 
 :root {
+  /* Colores principales de IMSSE basados en el logo */
+  --primary: #DC2626;          /* Rojo principal del logo */
+  --primary-light: #EF4444;    /* Rojo más claro */
+  --secondary: #0891B2;        /* Azul/celeste del logo */
+  --secondary-light: #06B6D4;  /* Azul más claro */
+  --info: #0891B2;            /* Azul informativo */
+  --success: #059669;         /* Verde para éxito */
+  --warning: #D97706;         /* Naranja para advertencias */
+  --danger: #DC2626;          /* Rojo para errores (mismo que primary) */
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* Colores adicionales para el tema de seguridad contra incendios */
+  --fire-red: #DC2626;        /* Rojo fuego */
+  --safety-blue: #0891B2;     /* Azul seguridad */
+  --accent-orange: #EA580C;   /* Naranja acento */
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Open Sans', ui-sans-serif, system-ui;
+  --font-montserrat: 'Montserrat', ui-sans-serif, system-ui;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +41,110 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Open Sans', Arial, Helvetica, sans-serif;
+}
+
+.font-montserrat {
+  font-family: 'Montserrat', Arial, Helvetica, sans-serif;
+}
+
+/* Clases de colores principales */
+.text-primary {
+  color: var(--primary);
+}
+
+.text-secondary {
+  color: var(--secondary);
+}
+
+.bg-primary {
+  background-color: var(--primary);
+}
+
+.bg-secondary {
+  background-color: var(--secondary);
+}
+
+/* Clases de estado */
+.text-success {
+  color: var(--success);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.bg-success {
+  background-color: var(--success);
+}
+
+.bg-warning {
+  background-color: var(--warning);
+}
+
+.bg-danger {
+  background-color: var(--danger);
+}
+
+/* Efectos hover */
+.hover\:bg-primary-light:hover {
+  background-color: var(--primary-light);
+}
+
+.hover\:bg-secondary-light:hover {
+  background-color: var(--secondary-light);
+}
+
+/* Clases específicas para IMSSE */
+.text-fire-red {
+  color: var(--fire-red);
+}
+
+.text-safety-blue {
+  color: var(--safety-blue);
+}
+
+.bg-fire-red {
+  background-color: var(--fire-red);
+}
+
+.bg-safety-blue {
+  background-color: var(--safety-blue);
+}
+
+.border-primary {
+  border-color: var(--primary);
+}
+
+.border-secondary {
+  border-color: var(--secondary);
+}
+
+/* Gradientes para efectos especiales */
+.bg-gradient-imsse {
+  background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+}
+
+.bg-gradient-elegant {
+  background: linear-gradient(135deg, #334155 0%, #475569 50%, #64748b 100%);
+}
+
+.bg-gradient-fire {
+  background: linear-gradient(135deg, var(--fire-red) 0%, var(--accent-orange) 100%);
+}
+
+.signature-canvas {
+  border: none;
+  display: block;
+}
+
+/* Para mobile */
+@media (max-width: 640px) {
+  .signature-canvas {
+    touch-action: none;
+  }
 }
