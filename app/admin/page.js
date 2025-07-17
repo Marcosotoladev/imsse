@@ -1,468 +1,171 @@
-// app/admin/page.js
-"use client";
+// app/admin/page.jsx - Login Panel IMSSE
+'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  BarChart3, 
-  Users, 
-  FileText, 
-  Calendar, 
-  AlertTriangle, 
-  TrendingUp, 
-  Clock, 
-  Shield,
-  Settings,
-  Bell,
-  Search,
-  Filter,
-  Download,
-  Plus,
-  Eye,
-  Edit,
-  Trash2
-} from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
-export default function AdminDashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+export default function AdminLogin() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  // Datos simulados para el dashboard
-  const stats = {
-    totalClients: 142,
-    activeProjects: 28,
-    pendingQuotes: 15,
-    monthlyRevenue: 1250000,
-    emergencyCalls: 3,
-    completedJobs: 89,
-    maintenanceOrders: 45,
-    workOrders: 23,
-    pendingReminders: 8
-  };
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  const recentProjects = [
-    {
-      id: 1,
-      client: "Centro Comercial Norte",
-      type: "Detección de Incendios",
-      status: "En progreso",
-      technician: "Ing. Martinez",
-      deadline: "2024-01-15",
-      priority: "Alta"
-    },
-    {
-      id: 2,
-      client: "Industria Metalúrgica SA",
-      type: "Mantenimiento Preventivo",
-      status: "Completado",
-      technician: "Téc. Rodriguez",
-      deadline: "2024-01-10",
-      priority: "Media"
-    },
-    {
-      id: 3,
-      client: "Hospital Provincial",
-      type: "Sistema de Extinción",
-      status: "Pendiente",
-      technician: "Ing. Lopez",
-      deadline: "2024-01-20",
-      priority: "Crítica"
-    }
-  ];
-
-  const alerts = [
-    {
-      id: 1,
-      type: "emergency",
-      message: "Mantenimiento de emergencia requerido - Edificio Gobierno",
-      time: "Hace 2 horas"
-    },
-    {
-      id: 2,
-      type: "warning",
-      message: "Vencimiento de certificación - Cliente XYZ",
-      time: "Hace 1 día"
-    },
-    {
-      id: 3,
-      type: "info",
-      message: "Nuevo presupuesto solicitado - Empresa ABC",
-      time: "Hace 3 horas"
-    }
-  ];
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'Crítica': return 'bg-status-emergency text-white';
-      case 'Alta': return 'bg-status-warning text-white';
-      case 'Media': return 'bg-status-info text-white';
-      default: return 'bg-neutral-400 text-white';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Completado': return 'bg-status-success text-white';
-      case 'En progreso': return 'bg-status-info text-white';
-      case 'Pendiente': return 'bg-status-warning text-white';
-      default: return 'bg-neutral-400 text-white';
+    try {
+      // Autenticación con Firebase
+      await signInWithEmailAndPassword(auth, email, password);
+      
+      // Login exitoso, redirigir al dashboard IMSSE
+      router.push('/admin/dashboard');
+    } catch (err) {
+      console.error('Error login IMSSE:', err);
+      
+      // Mensajes de error personalizados según el código
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError('Credenciales incorrectas. Por favor, inténtelo de nuevo.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Demasiados intentos fallidos. Por favor, inténtelo más tarde.');
+      } else if (err.code === 'auth/user-disabled') {
+        setError('Esta cuenta ha sido deshabilitada. Contacte al administrador.');
+      } else {
+        setError('Error al iniciar sesión. Por favor, inténtelo de nuevo más tarde.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 pt-20">
-      {/* Header del Dashboard */}
-      <div className="bg-white border-b border-neutral-200 sticky top-16 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+    <div className="flex items-center justify-center min-h-screen px-4 py-12 bg-gray-100 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white border border-gray-200 rounded-lg shadow-lg">
+        <div>
+          <Link href="/" className="flex items-center justify-center mb-6 group">
+            {/* Logo IMSSE */}
+            <div className="mr-4">
+              <img 
+                src="/logo/imsse-logo.png" 
+                alt="IMSSE Logo" 
+                className="w-16 h-16 transition-transform group-hover:scale-110"
+              />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold text-neutral-900 font-montserrat">
-                Panel de Administración
-              </h1>
-              <p className="text-neutral-600">
-                Vista completa del sistema IMSSE
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar proyectos, clientes..."
-                  className="pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
+              <div className="text-2xl font-bold font-montserrat">
+                <span className="text-primary">IMSSE </span>
+                <span className="text-blue-600">INGENIERÍA </span>
+                <span className="text-primary">S.A.S</span>
               </div>
-              <button className="relative p-2 text-neutral-600 hover:text-primary transition-colors">
-                <Bell size={20} />
-                <span className="absolute -top-1 -right-1 bg-status-emergency text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  3
-                </span>
-              </button>
-              <Link
-                href="/admin/settings"
-                className="p-2 text-neutral-600 hover:text-primary transition-colors"
-              >
-                <Settings size={20} />
-              </Link>
+              <div className="mt-1 text-xs text-center text-gray-600">
+                Sistemas de Seguridad Contra Incendios
+              </div>
+            </div>
+          </Link>
+          
+          <h2 className="mt-6 text-2xl font-bold text-center font-montserrat text-primary">
+            Panel de Administración
+          </h2>
+          <p className="mt-2 text-sm text-center text-gray-600">
+            Acceso exclusivo para personal autorizado de IMSSE
+          </p>
+        </div>
+
+        {error && (
+          <div className="p-3 text-sm text-red-700 border border-red-200 rounded-md bg-red-50">
+            <div className="flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              {error}
             </div>
           </div>
-        </div>
-      </div>
+        )}
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Filtros y Acciones Rápidas */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 space-y-4 sm:space-y-0">
-          <div className="flex items-center space-x-4">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="email-address" className="block mb-1 text-sm font-medium text-gray-700">
+                Correo electrónico
+              </label>
+              <input
+                id="email-address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="relative block w-full px-3 py-3 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="usuario@imsseingenieria.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block mb-1 text-sm font-medium text-gray-700">
+                Contraseña
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="relative block w-full px-3 py-3 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="Ingrese su contraseña"
+              />
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="relative flex justify-center w-full px-4 py-3 text-sm font-medium text-white transition-colors border border-transparent rounded-lg group bg-primary hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="week">Esta semana</option>
-              <option value="month">Este mes</option>
-              <option value="quarter">Este trimestre</option>
-              <option value="year">Este año</option>
-            </select>
-            <button className="flex items-center px-3 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-100 transition-colors">
-              <Filter size={16} className="mr-2" />
-              Filtros
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                {loading ? (
+                  <svg className="w-5 h-5 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-white group-hover:text-gray-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </span>
+              {loading ? 'Verificando credenciales...' : 'Acceder al Panel'}
             </button>
           </div>
-          <div className="flex items-center space-x-3">
-            <button className="flex items-center px-4 py-2 text-neutral-600 border border-neutral-300 rounded-lg hover:bg-neutral-100 transition-colors">
-              <Download size={16} className="mr-2" />
-              Exportar
-            </button>
-            <button className="flex items-center px-4 py-2 bg-gradient-admin text-white rounded-lg hover:opacity-90 transition-opacity">
-              <Plus size={16} className="mr-2" />
-              Nuevo Proyecto
-            </button>
+
+          <div className="text-center">
+            <div className="mb-2 text-xs text-gray-500">
+              ¿Olvidó su contraseña? Contacte al administrador del sistema
+            </div>
+            <Link href="/" className="text-sm transition-colors text-primary hover:text-red-700">
+              ← Volver al sitio principal de IMSSE
+            </Link>
           </div>
-        </div>
+        </form>
 
-        {/* Métricas Principales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl shadow-corporate border border-neutral-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-neutral-600 text-sm font-medium">Total Clientes</p>
-                <p className="text-2xl font-bold text-neutral-900 mt-1">{stats.totalClients}</p>
-              </div>
-              <div className="bg-admin/10 p-3 rounded-lg">
-                <Users size={24} className="text-admin" />
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <TrendingUp size={16} className="text-status-success mr-1" />
-              <span className="text-status-success text-sm font-medium">+12%</span>
-              <span className="text-neutral-500 text-sm ml-2">vs mes anterior</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-corporate border border-neutral-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-neutral-600 text-sm font-medium">Proyectos Activos</p>
-                <p className="text-2xl font-bold text-neutral-900 mt-1">{stats.activeProjects}</p>
-              </div>
-              <div className="bg-technician/10 p-3 rounded-lg">
-                <Shield size={24} className="text-technician" />
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <Clock size={16} className="text-status-info mr-1" />
-              <span className="text-neutral-500 text-sm">8 por vencer esta semana</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-corporate border border-neutral-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-neutral-600 text-sm font-medium">Órdenes Mantenimiento</p>
-                <p className="text-2xl font-bold text-neutral-900 mt-1">{stats.maintenanceOrders}</p>
-              </div>
-              <div className="bg-status-info/10 p-3 rounded-lg">
-                <Settings size={24} className="text-status-info" />
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <span className="text-neutral-500 text-sm">15 programadas esta semana</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-corporate border border-neutral-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-neutral-600 text-sm font-medium">Órdenes de Obra</p>
-                <p className="text-2xl font-bold text-neutral-900 mt-1">{stats.workOrders}</p>
-              </div>
-              <div className="bg-status-warning/10 p-3 rounded-lg">
-                <Calendar size={24} className="text-status-warning" />
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <span className="text-neutral-500 text-sm">6 en progreso hoy</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-corporate border border-neutral-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-neutral-600 text-sm font-medium">Ingresos del Mes</p>
-                <p className="text-2xl font-bold text-neutral-900 mt-1">
-                  ${stats.monthlyRevenue.toLocaleString()}
-                </p>
-              </div>
-              <div className="bg-status-success/10 p-3 rounded-lg">
-                <BarChart3 size={24} className="text-status-success" />
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <TrendingUp size={16} className="text-status-success mr-1" />
-              <span className="text-status-success text-sm font-medium">+8%</span>
-              <span className="text-neutral-500 text-sm ml-2">vs mes anterior</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-corporate border border-neutral-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-neutral-600 text-sm font-medium">Recordatorios</p>
-                <p className="text-2xl font-bold text-neutral-900 mt-1">{stats.pendingReminders}</p>
-              </div>
-              <div className="bg-status-emergency/10 p-3 rounded-lg">
-                <Bell size={24} className="text-status-emergency" />
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <span className="text-neutral-500 text-sm">3 vencen hoy</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Proyectos Recientes */}
-          <div className="xl:col-span-2">
-            <div className="bg-white rounded-xl shadow-corporate border border-neutral-200">
-              <div className="p-6 border-b border-neutral-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-neutral-900 font-montserrat">
-                    Proyectos Recientes
-                  </h2>
-                  <Link
-                    href="/admin/projects"
-                    className="text-primary hover:text-primary-700 text-sm font-medium transition-colors"
-                  >
-                    Ver todos
-                  </Link>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-neutral-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Cliente
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Tipo
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Técnico
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Vencimiento
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Prioridad
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-neutral-200">
-                    {recentProjects.map((project) => (
-                      <tr key={project.id} className="hover:bg-neutral-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium text-neutral-900">{project.client}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                          {project.type}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(project.status)}`}>
-                            {project.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                          {project.technician}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                          {project.deadline}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(project.priority)}`}>
-                            {project.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <button className="text-primary hover:text-primary-700 transition-colors">
-                              <Eye size={16} />
-                            </button>
-                            <button className="text-neutral-400 hover:text-neutral-600 transition-colors">
-                              <Edit size={16} />
-                            </button>
-                            <button className="text-status-emergency hover:text-red-700 transition-colors">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Panel de Alertas */}
-          <div className="xl:col-span-1">
-            <div className="bg-white rounded-xl shadow-corporate border border-neutral-200">
-              <div className="p-6 border-b border-neutral-200">
-                <h2 className="text-xl font-bold text-neutral-900 font-montserrat">
-                  Alertas y Notificaciones
-                </h2>
-              </div>
-              <div className="p-6 space-y-4">
-                {alerts.map((alert) => (
-                  <div key={alert.id} className="flex items-start space-x-3">
-                    <div className={`p-2 rounded-full ${
-                      alert.type === 'emergency' ? 'bg-status-emergency/10' :
-                      alert.type === 'warning' ? 'bg-status-warning/10' :
-                      'bg-status-info/10'
-                    }`}>
-                      <AlertTriangle size={16} className={
-                        alert.type === 'emergency' ? 'text-status-emergency' :
-                        alert.type === 'warning' ? 'text-status-warning' :
-                        'text-status-info'
-                      } />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-neutral-900 font-medium">
-                        {alert.message}
-                      </p>
-                      <p className="text-xs text-neutral-500 mt-1">
-                        {alert.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="p-6 border-t border-neutral-200">
-                <Link
-                  href="/admin/notifications"
-                  className="text-primary hover:text-primary-700 text-sm font-medium transition-colors"
-                >
-                  Ver todas las notificaciones
-                </Link>
-              </div>
-            </div>
-
-            {/* Accesos Rápidos */}
-            <div className="bg-white rounded-xl shadow-corporate border border-neutral-200 mt-6">
-              <div className="p-6 border-b border-neutral-200">
-                <h2 className="text-xl font-bold text-neutral-900 font-montserrat">
-                  Accesos Rápidos
-                </h2>
-              </div>
-              <div className="p-6 grid grid-cols-2 gap-4">
-                <Link
-                  href="/admin/presupuestos"
-                  className="flex flex-col items-center p-4 text-center border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
-                >
-                  <FileText size={24} className="text-primary mb-2" />
-                  <span className="text-sm font-medium text-neutral-900">Presupuestos</span>
-                </Link>
-                <Link
-                  href="/admin/recibos"
-                  className="flex flex-col items-center p-4 text-center border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
-                >
-                  <BarChart3 size={24} className="text-technician mb-2" />
-                  <span className="text-sm font-medium text-neutral-900">Recibos</span>
-                </Link>
-                <Link
-                  href="/admin/remitos"
-                  className="flex flex-col items-center p-4 text-center border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
-                >
-                  <Calendar size={24} className="text-status-warning mb-2" />
-                  <span className="text-sm font-medium text-neutral-900">Remitos</span>
-                </Link>
-                <Link
-                  href="/admin/mantenimiento"
-                  className="flex flex-col items-center p-4 text-center border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
-                >
-                  <Settings size={24} className="text-status-info mb-2" />
-                  <span className="text-sm font-medium text-neutral-900">Órd. Mantenimiento</span>
-                </Link>
-                <Link
-                  href="/admin/obras"
-                  className="flex flex-col items-center p-4 text-center border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
-                >
-                  <Shield size={24} className="text-admin mb-2" />
-                  <span className="text-sm font-medium text-neutral-900">Órd. de Obra</span>
-                </Link>
-                <Link
-                  href="/admin/recordatorios"
-                  className="flex flex-col items-center p-4 text-center border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
-                >
-                  <Bell size={24} className="text-status-emergency mb-2" />
-                  <span className="text-sm font-medium text-neutral-900">Recordatorios</span>
-                </Link>
-              </div>
+        {/* Información adicional de seguridad */}
+        <div className="p-4 mt-6 border border-blue-200 rounded-lg bg-blue-50">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <h4 className="mb-1 text-sm font-medium text-blue-800">Acceso Seguro</h4>
+              <p className="text-xs text-blue-700">
+                Este panel está protegido con autenticación Firebase. Solo personal autorizado de IMSSE puede acceder al sistema de gestión.
+              </p>
             </div>
           </div>
         </div>

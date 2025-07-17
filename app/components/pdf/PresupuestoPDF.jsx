@@ -1,4 +1,4 @@
-// components/pdf/PresupuestoPDF.js - Versión limpia y profesional
+// components/pdf/PresupuestoPDF.js - Versión corregida para IMSSE
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
@@ -295,22 +295,44 @@ const styles = StyleSheet.create({
 });
 
 export default function PresupuestoPDF({ presupuesto }) {
-  // Funciones helper
+  // Funciones helper seguras
   const formatCurrency = (amount) => {
+    if (!amount || isNaN(amount)) return '$0,00';
+    const num = parseFloat(amount);
+    if (isNaN(num)) return '$0,00';
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'ARS',
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(num);
   };
 
   const formatDate = (date) => {
-    return new Intl.DateTimeFormat('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(new Date(date));
+    if (!date) return '';
+    try {
+      const dateObj = date.toDate ? date.toDate() : new Date(date);
+      if (isNaN(dateObj.getTime())) return '';
+      return new Intl.DateTimeFormat('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(dateObj);
+    } catch (e) {
+      return '';
+    }
   };
+
+  // Datos seguros con validaciones robustas
+  const safePresupuesto = presupuesto || {};
+  const cliente = safePresupuesto.cliente || {};
+  const items = safePresupuesto.items || [];
+  const observaciones = safePresupuesto.observaciones?.trim() || null;
+  
+  // Asegurar valores numéricos
+  const subtotal = parseFloat(safePresupuesto.subtotal) || 0;
+  const iva = parseFloat(safePresupuesto.iva) || 0;
+  const total = parseFloat(safePresupuesto.total) || 0;
+  const mostrarIva = Boolean(safePresupuesto.mostrarIva);
 
   return (
     <Document>
@@ -352,15 +374,11 @@ export default function PresupuestoPDF({ presupuesto }) {
             <Text style={styles.sectionTitle}>Detalles del Presupuesto</Text>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Número:</Text>
-              <Text style={styles.value}>{presupuesto.numero}</Text>
+              <Text style={styles.value}>{safePresupuesto.numero || 'N/A'}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Fecha:</Text>
-              <Text style={styles.value}>{formatDate(presupuesto.fecha)}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.label}>Validez:</Text>
-              <Text style={styles.value}>{presupuesto.validez}</Text>
+              <Text style={styles.value}>{formatDate(safePresupuesto.fecha)}</Text>
             </View>
           </View>
 
@@ -369,26 +387,38 @@ export default function PresupuestoPDF({ presupuesto }) {
             <Text style={styles.sectionTitle}>Cliente</Text>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Empresa:</Text>
-              <Text style={styles.value}>{presupuesto.cliente.nombre}</Text>
+              <Text style={styles.value}>{cliente.empresa || ''}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Contacto:</Text>
-              <Text style={styles.value}>{presupuesto.cliente.contacto}</Text>
+              <Text style={styles.value}>{cliente.nombre || ''}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Email:</Text>
-              <Text style={styles.value}>{presupuesto.cliente.email}</Text>
+              <Text style={styles.value}>{cliente.email || ''}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Teléfono:</Text>
-              <Text style={styles.value}>{presupuesto.cliente.telefono}</Text>
+              <Text style={styles.value}>{cliente.telefono || ''}</Text>
             </View>
+            {cliente.cuit && (
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>CUIT:</Text>
+                <Text style={styles.value}>{cliente.cuit}</Text>
+              </View>
+            )}
+            {cliente.direccion && (
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Dirección:</Text>
+                <Text style={styles.value}>{cliente.direccion}</Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Tabla de items */}
         <View style={styles.itemsSection}>
-          <Text style={styles.itemsTitle}>Detalle de Items</Text>
+          <Text style={styles.itemsTitle}>Detalle de Servicios y Productos</Text>
           
           {/* Header de la tabla */}
           <View style={styles.tableHeader}>
@@ -399,60 +429,63 @@ export default function PresupuestoPDF({ presupuesto }) {
           </View>
           
           {/* Filas de items */}
-          {presupuesto.items?.map((item, index) => (
+          {items.length > 0 ? items.map((item, index) => (
             <View 
               key={item.id || index} 
               style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]}
             >
-              <Text style={[styles.tableCell, styles.col50]}>{item.descripcion}</Text>
+              <Text style={[styles.tableCell, styles.col50]}>
+                {item.descripcion || 'Sin descripción'}
+              </Text>
               <Text style={[styles.tableCell, styles.col15, styles.textCenter]}>
-                {item.cantidad} {item.unidad}
+                {parseFloat(item.cantidad) || 0} {item.unidad || 'ud.'}
               </Text>
               <Text style={[styles.tableCell, styles.col20, styles.textRight]}>
-                {formatCurrency(item.precioUnitario)}
+                {formatCurrency(parseFloat(item.precioUnitario) || 0)}
               </Text>
               <Text style={[styles.tableCell, styles.col15, styles.textRight]}>
-                {formatCurrency(item.subtotal)}
+                {formatCurrency(parseFloat(item.subtotal) || 0)}
               </Text>
             </View>
-          ))}
+          )) : (
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, styles.col50]}>No hay items</Text>
+              <Text style={[styles.tableCell, styles.col15, styles.textCenter]}>-</Text>
+              <Text style={[styles.tableCell, styles.col20, styles.textRight]}>-</Text>
+              <Text style={[styles.tableCell, styles.col15, styles.textRight]}>-</Text>
+            </View>
+          )}
         </View>
 
         {/* Totales simplificados */}
         <View style={styles.totalsSection}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(presupuesto.subtotal)}</Text>
+            <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
           </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>IVA (21%):</Text>
-            <Text style={styles.totalValue}>{formatCurrency(presupuesto.iva)}</Text>
-          </View>
+          {mostrarIva && iva > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>IVA (21%):</Text>
+              <Text style={styles.totalValue}>{formatCurrency(iva)}</Text>
+            </View>
+          )}
           <View style={styles.finalTotal}>
             <Text style={styles.finalTotalLabel}>TOTAL:</Text>
-            <Text style={styles.finalTotalValue}>{formatCurrency(presupuesto.total)}</Text>
+            <Text style={styles.finalTotalValue}>{formatCurrency(total)}</Text>
           </View>
         </View>
 
-        {/* Observaciones solo si existen */}
-        {presupuesto.observaciones && (
+        {/* Observaciones solo si existen y tienen contenido */}
+        {observaciones && (
           <View style={styles.observaciones}>
             <Text style={styles.observacionesTitle}>Observaciones:</Text>
-            <Text style={styles.observacionesText}>{presupuesto.observaciones}</Text>
+            <Text style={styles.observacionesText}>{observaciones}</Text>
           </View>
         )}
 
-        {/* Condiciones básicas */}
-        <View style={styles.condiciones}>
-          <Text style={styles.condicionesTitle}>Condiciones:</Text>
-          <Text style={styles.condicionesText}>
-            Este presupuesto tiene una validez de {presupuesto.validez} desde la fecha de emisión. Los precios incluyen IVA.
-          </Text>
-        </View>
-
         {/* Footer minimalista */}
         <Text style={styles.footer}>
-          IMSSE INGENIERÍA - info@imsseingenieria.com | www.imsseingenieria.com | Córdoba, Argentina
+          IMSSE INGENIERÍA S.A.S - info@imsseingenieria.com | www.imsseingenieria.com | Córdoba, Argentina
         </Text>
       </Page>
     </Document>
