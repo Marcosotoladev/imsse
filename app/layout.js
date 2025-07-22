@@ -9,11 +9,17 @@ export const metadata = {
   keywords: 'sistemas contra incendios, detección de incendios, supresión de incendios, alarmas contra incendio, rociadores automáticos, seguridad industrial',
   author: 'IMSSE Ingeniería SAS',
   robots: 'index, follow',
-  viewport: 'width=device-width, initial-scale=1',
   'og:title': 'IMSSE Ingeniería SAS - Sistemas de Seguridad Contra Incendios',
   'og:description': 'Protegemos vidas y patrimonio con sistemas de seguridad contra incendios de última generación',
   'og:type': 'website',
   'og:site_name': 'IMSSE Ingeniería SAS',
+}
+
+// ✅ VIEWPORT SEPARADO (requerido en Next.js 14+)
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#DC2626'
 }
 
 export default function RootLayout({ children }) {
@@ -22,7 +28,6 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="theme-color" content="#DC2626" />
       </head>
       <body className="flex flex-col min-h-screen">
         <Header/>

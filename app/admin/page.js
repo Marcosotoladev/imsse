@@ -1,4 +1,4 @@
-// app/admin/page.jsx - Login Panel IMSSE
+// app/admin/page.jsx - Login Panel IMSSE (con espacio arriba)
 'use client';
 
 import { useState } from 'react';
@@ -44,7 +44,7 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4 py-12 bg-gray-100 sm:px-6 lg:px-8">
+    <div className="flex items-center justify-center min-h-screen px-4 py-12 pt-24 bg-gray-100 sm:px-6 lg:px-8">
       <div className="w-full max-w-md p-8 space-y-8 bg-white border border-gray-200 rounded-lg shadow-lg">
         <div>
           <Link href="/" className="flex items-center justify-center mb-6 group">

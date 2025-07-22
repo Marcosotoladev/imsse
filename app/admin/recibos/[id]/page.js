@@ -1,16 +1,16 @@
-// app/admin/recibos/[id]/page.jsx - Ver Recibo IMSSE
+// app/admin/recibos/[id]/page.jsx - Ver Recibo IMSSE (Arreglado)
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Edit, ArrowLeft, Download } from 'lucide-react';
+import { Home, LogOut, Edit, ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import { obtenerReciboPorId } from '../../../lib/firestore';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 import { use } from 'react';
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import ReciboPDF from '../../../components/pdf/ReciboPDF';
 
 export default function VerRecibo({ params }) {
   const resolvedParams = use(params);
@@ -20,7 +20,6 @@ export default function VerRecibo({ params }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recibo, setRecibo] = useState(null);
-  const [mostrarPDF, setMostrarPDF] = useState(false);
 
   // Función para formatear fechas
   const formatDate = (dateString) => {
@@ -80,12 +79,63 @@ export default function VerRecibo({ params }) {
     }
   };
 
+  const handleDeleteRecibo = async () => {
+    if (confirm(`¿Está seguro de que desea eliminar el recibo ${recibo.numero}?`)) {
+      try {
+        await deleteDoc(doc(db, 'recibos', id));
+        alert('Recibo eliminado exitosamente.');
+        router.push('/admin/recibos');
+      } catch (error) {
+        console.error('Error al eliminar recibo:', error);
+        alert('Error al eliminar el recibo.');
+      }
+    }
+  };
+
+  const handleDescargarPDF = async () => {
+    try {
+      const { pdf } = await import('@react-pdf/renderer');
+      const { default: ReciboPDF } = await import('../../../components/pdf/ReciboPDF');
+      
+      const blob = await pdf(<ReciboPDF recibo={recibo} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${recibo.numero}.pdf`;
+      link.click();
+      
+      URL.revokeObjectURL(url);
+      alert(`✅ Recibo ${recibo.numero} descargado exitosamente`);
+      
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-12 h-12 mx-auto border-b-2 rounded-full animate-spin border-primary"></div>
           <p className="mt-4">Cargando recibo IMSSE...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!recibo) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="mb-2 text-xl font-semibold text-gray-900">Recibo no encontrado</h2>
+          <Link
+            href="/admin/recibos"
+            className="inline-flex items-center px-4 py-2 mt-4 text-white rounded-md bg-primary hover:bg-primary/90"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Volver a Recibos
+          </Link>
         </div>
       </div>
     );
@@ -154,32 +204,17 @@ export default function VerRecibo({ params }) {
                 <Edit size={18} className="mr-2" /> Editar
               </Link>
               <button
-                onClick={() => setMostrarPDF(true)}
+                onClick={handleDeleteRecibo}
+                className="flex items-center px-4 py-2 text-white transition-colors bg-red-500 rounded-md hover:bg-red-600"
+              >
+                <Trash2 size={18} className="mr-2" /> Eliminar
+              </button>
+              <button
+                onClick={handleDescargarPDF}
                 className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
               >
                 <Download size={18} className="mr-2" /> Descargar PDF
               </button>
-              
-              {/* PDF bajo demanda */}
-              {mostrarPDF && (
-                <div style={{position: 'absolute', left: '-9999px'}}>
-                  <PDFDownloadLink
-                    document={<ReciboPDF recibo={recibo} />}
-                    fileName={`${recibo.numero}.pdf`}
-                  >
-                    {({ blob, url, loading, error }) => {
-                      if (url) {
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `${recibo.numero}.pdf`;
-                        link.click();
-                        setMostrarPDF(false);
-                      }
-                      return null;
-                    }}
-                  </PDFDownloadLink>
-                </div>
-              )}
             </div>
           </div>
         </div>

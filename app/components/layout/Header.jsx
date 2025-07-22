@@ -1,18 +1,32 @@
-// components/layout/Header.js - Con acceso al login IMSSE
+// components/layout/Header.js - Con estado de autenticación IMSSE
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Menu, X, Home, Shield, Wrench, Users, MessageSquare, ChevronDown, Flame, Eye, Zap, LogIn } from 'lucide-react';
+import { Menu, X, Home, Shield, Wrench, Users, MessageSquare, ChevronDown, Flame, Eye, Zap, LogIn, LogOut } from 'lucide-react';
 import Image from 'next/image';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from '../../lib/firebase';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const dropdownRef = useRef(null);
   const pathname = usePathname();
+
+  // Efecto para detectar el estado de autenticación
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Efecto para detectar el scroll y página actual
   useEffect(() => {
@@ -72,6 +86,18 @@ const Header = () => {
       setActiveDropdown(null);
     } else {
       setActiveDropdown(id);
+    }
+  };
+
+  // Función para cerrar sesión
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // Opcional: mostrar mensaje de confirmación
+      alert('Sesión cerrada exitosamente');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      alert('Error al cerrar sesión. Inténtelo de nuevo.');
     }
   };
 
@@ -178,18 +204,36 @@ const Header = () => {
               <span>Contacto</span>
             </Link>
 
-            {/* Botón de Ingresar al Sistema */}
-            <Link
-              href="/admin"
-              className={`border-2 border-primary hover:bg-primary hover:text-white px-4 py-2 rounded-md transition-all duration-300 flex items-center ml-2 transform hover:scale-105 ${
-                scrolled 
-                  ? 'text-primary bg-white shadow-md' 
-                  : 'text-white bg-white/10 backdrop-blur-sm'
-              }`}
-            >
-              <LogIn size={16} className="mr-1" />
-              <span>Ingresar</span>
-            </Link>
+            {/* Botón dinámico de Ingresar/Salir */}
+            {!authLoading && (
+              user ? (
+                // Usuario logueado - Mostrar botón Salir
+                <button
+                  onClick={handleLogout}
+                  className={`border-2 border-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-md transition-all duration-300 flex items-center ml-2 transform hover:scale-105 ${
+                    scrolled 
+                      ? 'text-red-500 bg-white shadow-md' 
+                      : 'text-white bg-red-500/20 backdrop-blur-sm'
+                  }`}
+                >
+                  <LogOut size={16} className="mr-1" />
+                  <span>Salir</span>
+                </button>
+              ) : (
+                // Usuario no logueado - Mostrar botón Ingresar
+                <Link
+                  href="/admin"
+                  className={`border-2 border-primary hover:bg-primary hover:text-white px-4 py-2 rounded-md transition-all duration-300 flex items-center ml-2 transform hover:scale-105 ${
+                    scrolled 
+                      ? 'text-primary bg-white shadow-md' 
+                      : 'text-white bg-white/10 backdrop-blur-sm'
+                  }`}
+                >
+                  <LogIn size={16} className="mr-1" />
+                  <span>Ingresar</span>
+                </Link>
+              )
+            )}
           </nav>
 
           {/* Mobile menu button */}
@@ -294,15 +338,32 @@ const Header = () => {
               <span>Contacto</span>
             </Link>
 
-            {/* Botón de Ingresar para móvil */}
-            <Link
-              href="/admin"
-              className="flex items-center px-4 py-3 mx-4 mt-2 transition-colors border-2 rounded-md text-primary border-primary hover:bg-primary hover:text-white"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <LogIn size={18} className="mr-2" />
-              <span>Ingresar al Sistema</span>
-            </Link>
+            {/* Botón dinámico de Ingresar/Salir para móvil */}
+            {!authLoading && (
+              user ? (
+                // Usuario logueado - Mostrar botón Salir
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="flex items-center w-full px-4 py-3 mx-4 mt-2 text-red-500 transition-colors border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"
+                >
+                  <LogOut size={18} className="mr-2" />
+                  <span>Salir del Sistema</span>
+                </button>
+              ) : (
+                // Usuario no logueado - Mostrar botón Ingresar
+                <Link
+                  href="/admin"
+                  className="flex items-center px-4 py-3 mx-4 mt-2 transition-colors border-2 rounded-md text-primary border-primary hover:bg-primary hover:text-white"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <LogIn size={18} className="mr-2" />
+                  <span>Ingresar al Sistema</span>
+                </Link>
+              )
+            )}
           </nav>
         )}
       </div>

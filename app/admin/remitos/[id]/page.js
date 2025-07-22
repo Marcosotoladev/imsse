@@ -1,26 +1,13 @@
-// app/admin/remitos/[id]/page.jsx - Ver Remito IMSSE
+// app/admin/remitos/[id]/page.jsx - Ver Remito IMSSE (Formato como ReciboPDF)
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  ArrowLeft, 
-  Edit, 
-  Download, 
-  Package,
-  User,
-  MapPin,
-  Calendar,
-  Truck,
-  FileText,
-  CheckCircle,
-  Clock,
-  AlertCircle
-} from 'lucide-react';
+import { Home, LogOut, Edit, ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../../../lib/firebase';
 
 export default function VerRemito() {
@@ -29,45 +16,77 @@ export default function VerRemito() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [remito, setRemito] = useState(null);
-  const [descargando, setDescargando] = useState(false);
+  const [mostrarPDF, setMostrarPDF] = useState(false);
+
+  // Función para formatear fechas
+  const formatDate = (fecha) => {
+    if (!fecha) return '';
+    
+    try {
+      const dateObj = fecha.toDate ? fecha.toDate() : new Date(fecha);
+      return dateObj.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return fecha?.toString() || '';
+    }
+  };
 
   useEffect(() => {
+    if (!params.id) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        await cargarRemito();
-        setLoading(false);
+        try {
+          const docRef = doc(db, 'remitos', params.id);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            setRemito({ id: docSnap.id, ...docSnap.data() });
+          } else {
+            alert('Remito no encontrado.');
+            router.push('/admin/remitos');
+          }
+          setLoading(false);
+        } catch (error) {
+          console.error('Error al cargar remito IMSSE:', error);
+          alert('Error al cargar los datos del remito.');
+          router.push('/admin/remitos');
+        }
       } else {
         router.push('/admin');
       }
     });
 
     return () => unsubscribe();
-  }, [router, params.id]);
+  }, [params.id, router]);
 
-  const cargarRemito = async () => {
+  const handleLogout = async () => {
     try {
-      const docRef = doc(db, 'remitos', params.id);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        setRemito({ id: docSnap.id, ...docSnap.data() });
-      } else {
-        alert('Remito no encontrado');
-        router.push('/admin/remitos');
-      }
+      await signOut(auth);
+      router.push('/admin');
     } catch (error) {
-      console.error('Error al cargar remito:', error);
-      alert('Error al cargar el remito');
-      router.push('/admin/remitos');
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
+
+  const handleDeleteRemito = async () => {
+    if (confirm('¿Está seguro de que desea eliminar este remito?')) {
+      try {
+        await deleteDoc(doc(db, 'remitos', params.id));
+        alert('Remito eliminado exitosamente.');
+        router.push('/admin/remitos');
+      } catch (error) {
+        console.error('Error al eliminar remito:', error);
+        alert('Error al eliminar el remito.');
+      }
     }
   };
 
   const handleDescargarPDF = async () => {
-    if (descargando) return;
-    
-    setDescargando(true);
-    
     try {
       const { pdf } = await import('@react-pdf/renderer');
       const { default: RemitoPDF } = await import('../../../components/pdf/RemitoPDF');
@@ -80,28 +99,11 @@ export default function VerRemito() {
       link.click();
       
       URL.revokeObjectURL(url);
-      setDescargando(false);
       alert(`✅ Remito ${remito.numero} descargado exitosamente`);
       
     } catch (error) {
       console.error('Error al generar PDF:', error);
-      setDescargando(false);
       alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
-    }
-  };
-
-  // Función para formatear fechas
-  const formatDate = (fecha) => {
-    if (!fecha) return '';
-    try {
-      const dateObj = fecha.toDate ? fecha.toDate() : new Date(fecha);
-      return dateObj.toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (e) {
-      return fecha.toString();
     }
   };
 
@@ -115,19 +117,6 @@ export default function VerRemito() {
       case 'pendiente':
       default:
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    }
-  };
-
-  // Función para obtener icono del estado
-  const getStatusIcon = (estado) => {
-    switch (estado?.toLowerCase()) {
-      case 'entregado':
-        return <CheckCircle size={16} className="text-green-600" />;
-      case 'en_transito':
-        return <Truck size={16} className="text-blue-600" />;
-      case 'pendiente':
-      default:
-        return <Clock size={16} className="text-yellow-600" />;
     }
   };
 
@@ -146,9 +135,7 @@ export default function VerRemito() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
           <h2 className="mb-2 text-xl font-semibold text-gray-900">Remito no encontrado</h2>
-          <p className="text-gray-600">El remito que buscas no existe o ha sido eliminado.</p>
           <Link
             href="/admin/remitos"
             className="inline-flex items-center px-4 py-2 mt-4 text-white rounded-md bg-primary hover:bg-primary/90"
@@ -163,305 +150,383 @@ export default function VerRemito() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container px-4 py-8 mx-auto">
-        {/* Header */}
-        <div className="flex flex-col items-start justify-between mb-8 md:flex-row md:items-center">
-          <div className="flex items-center mb-4 md:mb-0">
-            <Link
-              href="/admin/remitos"
-              className="flex items-center p-2 mr-4 text-gray-600 rounded-md hover:bg-gray-100"
-            >
-              <ArrowLeft size={20} />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold font-montserrat text-primary">
-                Remito {remito.numero}
-              </h1>
-              <p className="text-gray-600">
-                Detalles de entrega - Equipos contra incendios IMSSE
-              </p>
-            </div>
+      {/* Header IMSSE */}
+      <header className="text-white shadow bg-primary">
+        <div className="container flex items-center justify-between px-4 py-4 mx-auto">
+          <div className="flex items-center">
+            <img 
+              src="/logo/imsse-logo.png" 
+              alt="IMSSE Logo" 
+              className="w-8 h-8 mr-3"
+            />
+            <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
           </div>
-
-          <div className="flex space-x-2">
-            <Link
-              href={`/admin/remitos/editar/${remito.id}`}
-              className="flex items-center px-4 py-2 text-white transition-colors bg-orange-600 rounded-md hover:bg-orange-700"
-            >
-              <Edit size={18} className="mr-2" />
-              Editar
-            </Link>
+          <div className="flex items-center space-x-4">
+            <span className="hidden md:inline">{user?.email}</span>
             <button
-              onClick={handleDescargarPDF}
-              disabled={descargando}
-              className={`flex items-center px-4 py-2 text-white transition-colors rounded-md ${
-                descargando 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700'
-              }`}
+              onClick={handleLogout}
+              className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
             >
-              {descargando ? (
-                <>
-                  <div className="w-4 h-4 mr-2 border-b-2 border-white rounded-full animate-spin"></div>
-                  Generando...
-                </>
-              ) : (
-                <>
-                  <Download size={18} className="mr-2" />
-                  Descargar PDF
-                </>
-              )}
+              <LogOut size={18} className="mr-2" /> Salir
             </button>
           </div>
         </div>
+      </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Columna principal */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Información del remito */}
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h2 className="flex items-center mb-4 text-lg font-semibold text-primary">
-                <FileText size={20} className="mr-2" />
-                Información del Remito
-              </h2>
-              
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Número</label>
-                  <p className="text-lg font-semibold text-gray-900">{remito.numero}</p>
+      {/* Navegación y controles */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="container px-4 py-4 mx-auto">
+          <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+            {/* Breadcrumb */}
+            <div className="flex items-center">
+              <Link
+                href="/admin/panel-control"
+                className="flex items-center mr-4 text-primary hover:underline"
+              >
+                <Home size={16} className="mr-1" /> Panel de Control
+              </Link>
+              <span className="mx-2 text-gray-500">/</span>
+              <Link
+                href="/admin/remitos"
+                className="flex items-center mr-4 text-primary hover:underline"
+              >
+                Remitos
+              </Link>
+              <span className="mx-2 text-gray-500">/</span>
+              <span className="text-gray-700">Detalles</span>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/admin/remitos"
+                className="flex items-center px-4 py-2 text-gray-700 transition-colors bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                <ArrowLeft size={18} className="mr-2" /> Volver
+              </Link>
+              <Link
+                href={`/admin/remitos/editar/${params.id}`}
+                className="flex items-center px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                <Edit size={18} className="mr-2" /> Editar
+              </Link>
+              <button
+                onClick={handleDeleteRemito}
+                className="flex items-center px-4 py-2 text-white transition-colors bg-red-500 rounded-md hover:bg-red-600"
+              >
+                <Trash2 size={18} className="mr-2" /> Eliminar
+              </button>
+              <button
+                onClick={handleDescargarPDF}
+                className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
+              >
+                <Download size={18} className="mr-2" /> Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido principal - Responsive */}
+      <div className="container px-4 py-8 mx-auto">
+        <div className="max-w-4xl mx-auto space-y-6">
+          
+          {/* Header del remito */}
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <div className="flex flex-col items-start justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 font-montserrat">
+                  Remito {remito.numero}
+                </h1>
+                <p className="text-gray-600">
+                  Sistema de Entregas IMSSE Ingeniería
+                </p>
+              </div>
+              <div className="text-right">
+                <div className={`inline-block px-4 py-2 rounded-full border font-semibold ${getStatusColor(remito.estado)}`}>
+                  {remito.estado?.toUpperCase() || 'PENDIENTE'}
                 </div>
-                
+                <p className="mt-1 text-sm text-gray-500">Estado del remito</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Vista estilo remito */}
+          <div className="bg-white shadow-lg">
+            {/* Encabezado IMSSE */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-red-600">
+              <div className="flex items-center">
+                <img 
+                  src="/logo/imsse-logo.png" 
+                  alt="IMSSE Logo" 
+                  className="w-10 h-10 mr-4"
+                />
                 <div>
-                  <label className="block text-sm font-medium text-gray-600">Fecha</label>
-                  <p className="text-gray-900">{formatDate(remito.fecha)}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Estado</label>
-                  <div className="flex items-center mt-1">
-                    {getStatusIcon(remito.estado)}
-                    <span className={`ml-2 px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(remito.estado)}`}>
-                      {remito.estado || 'pendiente'}
-                    </span>
+                  <div className="text-xl font-bold">
+                    <span className="text-red-600">IMSSE </span>
+                    <span className="text-blue-500">INGENIERÍA </span>
+                    <span className="text-red-600">S.A.S</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Instalación y Mantenimiento de Sistemas de Seguridad Electrónicos
                   </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Fecha de Creación</label>
-                  <p className="text-gray-900">{formatDate(remito.fechaCreacion)}</p>
-                </div>
               </div>
+              <div className="text-xs text-right text-gray-600">
+                <div>Córdoba, Argentina</div>
+                <div>📧 info@imsseingenieria.com</div>
+                <div>🌐 www.imsseingenieria.com</div>
+              </div>
+            </div>
 
-              {(remito.destino || remito.transportista) && (
-                <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2">
+            {/* Título y número */}
+            <div className="flex items-center justify-between px-8 py-6">
+              <h1 className="text-3xl font-bold text-red-600">REMITO DE ENTREGA</h1>
+              <div className="text-xl font-semibold text-red-600">N° {remito.numero}</div>
+            </div>
+
+            {/* Estado destacado */}
+            <div className="px-8 py-4">
+              <div className={`p-4 text-center rounded-lg border font-bold text-lg ${getStatusColor(remito.estado)}`}>
+                {remito.estado?.toUpperCase() || 'PENDIENTE'}
+              </div>
+            </div>
+
+            {/* Información en dos columnas */}
+            <div className="flex flex-col px-8 py-6 space-y-6 md:flex-row md:space-y-0 md:space-x-8">
+              {/* Datos del remito */}
+              <div className="flex-1 p-4 rounded-lg bg-gray-50">
+                <h3 className="mb-4 text-lg font-bold text-red-600">DATOS DEL REMITO</h3>
+                
+                <div className="space-y-4">
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">FECHA:</div>
+                      <div className="flex-1 text-sm text-black">{formatDate(remito.fecha)}</div>
+                    </div>
+                  </div>
+
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">ESTADO:</div>
+                      <div className="flex-1">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(remito.estado)}`}>
+                          {remito.estado?.toUpperCase() || 'PENDIENTE'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   {remito.destino && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600">Destino</label>
-                      <p className="text-gray-900">{remito.destino}</p>
+                    <div className="pb-3 border-b border-gray-200">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">DESTINO:</div>
+                        <div className="flex-1 text-sm text-black">{remito.destino}</div>
+                      </div>
                     </div>
                   )}
-                  
-                  {remito.transportista && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600">Transportista</label>
-                      <p className="text-gray-900">{remito.transportista}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
-            {/* Información del cliente */}
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h2 className="flex items-center mb-4 text-lg font-semibold text-primary">
-                <User size={20} className="mr-2" />
-                Datos del Cliente
-              </h2>
-              
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Nombre</label>
-                  <p className="text-gray-900">{remito.cliente?.nombre || 'No especificado'}</p>
+                  {remito.transportista && (
+                    <div className="pb-3 border-b border-gray-200">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">TRANSPORT:</div>
+                        <div className="flex-1 text-sm text-black">{remito.transportista}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Datos del cliente */}
+              <div className="flex-1 p-4 rounded-lg bg-gray-50">
+                <h3 className="mb-4 text-lg font-bold text-red-600">DATOS DEL CLIENTE</h3>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Empresa</label>
-                  <p className="text-gray-900">{remito.cliente?.empresa || 'No especificado'}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Email</label>
-                  <p className="text-gray-900">{remito.cliente?.email || 'No especificado'}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Teléfono</label>
-                  <p className="text-gray-900">{remito.cliente?.telefono || 'No especificado'}</p>
-                </div>
-                
-                {remito.cliente?.direccion && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-600">Dirección</label>
-                    <p className="text-gray-900">{remito.cliente.direccion}</p>
+                <div className="space-y-4">
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">NOMBRE:</div>
+                      <div className="flex-1 text-sm text-black">{remito.cliente?.nombre || 'No especificado'}</div>
+                    </div>
                   </div>
-                )}
+
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">EMPRESA:</div>
+                      <div className="flex-1 text-sm text-black">{remito.cliente?.empresa || 'No especificado'}</div>
+                    </div>
+                  </div>
+
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">EMAIL:</div>
+                      <div className="flex-1 text-sm text-black break-all">{remito.cliente?.email || 'No especificado'}</div>
+                    </div>
+                  </div>
+
+                  <div className="pb-3 border-b border-gray-200">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">TELÉFONO:</div>
+                      <div className="flex-1 text-sm text-black">{remito.cliente?.telefono || 'No especificado'}</div>
+                    </div>
+                  </div>
+
+                  {remito.cliente?.direccion && (
+                    <div className="pb-3 border-b border-gray-200">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">DIRECCIÓN:</div>
+                        <div className="flex-1 text-sm text-black">{remito.cliente.direccion}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Items del remito */}
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h2 className="flex items-center mb-4 text-lg font-semibold text-primary">
-                <Package size={20} className="mr-2" />
-                Equipos Contra Incendios ({remito.items?.length || 0} items)
-              </h2>
+            {/* Tabla de equipos */}
+            <div className="px-8 py-6">
+              <h3 className="mb-4 text-lg font-bold text-center text-red-600">
+                EQUIPOS DE PROTECCIÓN CONTRA INCENDIOS ({remito.items?.length || 0} items)
+              </h3>
               
               {remito.items && remito.items.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                          Descripción
+                  <table className="w-full border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="px-4 py-3 text-sm font-bold text-left text-gray-700 border-b border-gray-300">
+                          DESCRIPCIÓN DEL EQUIPO
                         </th>
-                        <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                          Cantidad
+                        <th className="px-4 py-3 text-sm font-bold text-center text-gray-700 border-b border-l border-gray-300">
+                          CANTIDAD
                         </th>
-                        <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                          Unidad
+                        <th className="px-4 py-3 text-sm font-bold text-center text-gray-700 border-b border-l border-gray-300">
+                          UNIDAD
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody>
                       {remito.items.map((item, index) => (
                         <tr key={item.id || index} className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}>
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                              {item.descripcion || 'Sin descripción'}
-                            </p>
+                          <td className="px-4 py-3 text-sm text-black whitespace-pre-wrap border-b border-gray-200">
+                            {item.descripcion || 'Sin descripción'}
                           </td>
-                          <td className="px-6 py-4 text-center whitespace-nowrap">
-                            <span className="text-sm font-medium text-gray-900">
-                              {item.cantidad || 0}
-                            </span>
+                          <td className="px-4 py-3 text-sm font-semibold text-center text-black border-b border-l border-gray-200">
+                            {item.cantidad || '0'}
                           </td>
-                          <td className="px-6 py-4 text-center whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
-                              {item.unidad || 'unidad'}
-                            </span>
+                          <td className="px-4 py-3 text-sm text-center text-black border-b border-l border-gray-200">
+                            {item.unidad || 'unidad'}
                           </td>
                         </tr>
                       ))}
+                      
+                      {/* Fila de total */}
+                      <tr className="font-bold bg-gray-200">
+                        <td className="px-4 py-3 text-sm font-bold text-black border-b border-gray-300">
+                          TOTAL DE EQUIPOS
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-center text-black border-b border-l border-gray-300">
+                          {remito.items.reduce((sum, item) => sum + Number(item.cantidad || 0), 0)}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-center text-black border-b border-l border-gray-300">
+                          ITEMS
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <div className="p-8 text-center">
-                  <Package size={48} className="mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500">No hay items en este remito</p>
+                <div className="p-8 text-center rounded-lg bg-gray-50">
+                  <p className="text-gray-500">No hay equipos registrados en este remito</p>
                 </div>
               )}
             </div>
 
             {/* Observaciones */}
             {remito.observaciones && (
-              <div className="p-6 bg-white rounded-lg shadow-md">
-                <h2 className="mb-4 text-lg font-semibold text-primary">Observaciones</h2>
-                <p className="text-gray-900 whitespace-pre-wrap">{remito.observaciones}</p>
+              <div className="px-8 py-6">
+                <div className="p-4 rounded-lg bg-gray-50">
+                  <h3 className="mb-3 text-lg font-bold text-red-600">OBSERVACIONES</h3>
+                  <div className="text-sm text-black whitespace-pre-line">{remito.observaciones}</div>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Resumen */}
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h3 className="mb-4 text-lg font-semibold text-primary">Resumen</h3>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Total Items:</span>
-                  <span className="font-medium text-gray-900">
-                    {remito.totalItems || remito.items?.reduce((sum, item) => sum + Number(item.cantidad || 0), 0) || 0}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Estado:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(remito.estado)}`}>
-                    {remito.estado || 'pendiente'}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Creado por:</span>
-                  <span className="text-sm text-gray-900">{remito.usuarioCreador || 'Sistema'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Firma */}
-            {remito.firma && (
-              <div className="p-6 bg-white rounded-lg shadow-md">
-                <h3 className="mb-4 text-lg font-semibold text-primary">Firma de Recepción</h3>
-                
-                <div className="text-center">
-                  <img
-                    src={remito.firma}
-                    alt="Firma de recepción"
-                    className="mx-auto mb-3 border border-gray-300 rounded"
-                    style={{ maxWidth: '200px', height: '120px', objectFit: 'contain' }}
-                  />
-                  {remito.aclaracionFirma && (
-                    <p className="text-sm font-medium text-gray-700">
-                      {remito.aclaracionFirma}
-                    </p>
+            {/* Sección de firmas */}
+            {(remito.firma || remito.aclaracionFirma) && (
+              <div className="flex justify-around px-8 py-12 mt-8">
+                <div className="flex flex-col items-center w-2/5">
+                  {remito.firma && (
+                    <div className="flex items-center justify-center w-40 h-20 mb-4 border border-gray-200 rounded bg-gray-50">
+                      <img 
+                        src={remito.firma} 
+                        alt="Firma de recepción" 
+                        className="object-contain max-w-full max-h-full"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                      <span style={{display: 'none'}} className="text-xs text-gray-400">Firma no disponible</span>
+                    </div>
                   )}
+                  <div className="w-full pt-2 border-t border-gray-800">
+                    <div className="mt-2 text-xs text-center text-gray-600">RECIBÍ CONFORME</div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center w-2/5">
+                  <div className="flex items-end justify-center w-40 h-20 mb-4">
+                    {remito.aclaracionFirma && (
+                      <div className="text-sm text-center">{remito.aclaracionFirma}</div>
+                    )}
+                  </div>
+                  <div className="w-full pt-2 border-t border-gray-800">
+                    <div className="mt-2 text-xs text-center text-gray-600">ACLARACIÓN</div>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Información técnica */}
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h3 className="mb-4 text-lg font-semibold text-primary">Información Técnica</h3>
-              
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="font-medium">ID:</span>
-                  <span className="ml-2 font-mono text-gray-600">{remito.id}</span>
-                </div>
-                
-                <div>
-                  <span className="font-medium">Empresa:</span>
-                  <span className="ml-2 text-gray-600">{remito.empresa || 'IMSSE INGENIERÍA S.A.S'}</span>
-                </div>
-                
-                <div>
-                  <span className="font-medium">Tipo:</span>
-                  <span className="ml-2 text-gray-600">{remito.tipo || 'remito_entrega'}</span>
-                </div>
-                
-                {remito.fechaModificacion && (
-                  <div>
-                    <span className="font-medium">Última modificación:</span>
-                    <span className="ml-2 text-gray-600">{formatDate(remito.fechaModificacion)}</span>
-                  </div>
-                )}
+            {/* Pie de página IMSSE */}
+            <div className="px-8 py-4 text-xs text-center text-gray-500 border-t border-gray-200">
+              <div className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</div>
+              <div>Especialistas en sistemas de protección contra incendios desde 1994</div>
+              <div className="mt-1">
+                <span className="font-medium">Certificaciones:</span> Notifier | Mircom | Inim | Secutron | Bosch
+              </div>
+              <div className="mt-2">
+                📧 info@imsseingenieria.com | 🌐 www.imsseingenieria.com | 📍 Córdoba, Argentina
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer con información IMSSE */}
-        <div className="p-6 mt-8 text-center bg-white rounded-lg shadow-md">
-          <div className="text-sm text-gray-600">
-            <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-            <p>Sistema de entregas para equipos de protección contra incendios</p>
-            <p className="mt-2">
-              <span className="font-medium">Especialistas en:</span> Detección | Supresión | Rociadores | Alarmas
-            </p>
-            <p className="mt-2">
-              📧 info@imsseingenieria.com | 🌐 www.imsseingenieria.com | 📍 Córdoba, Argentina
-            </p>
+          {/* Información de auditoría */}
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h3 className="mb-4 text-lg font-semibold text-gray-700">Información de Auditoría</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <span className="block mb-1 text-sm font-medium text-gray-600">Usuario creador:</span>
+                <span className="text-gray-900">{remito.usuarioCreador || 'No disponible'}</span>
+              </div>
+              <div>
+                <span className="block mb-1 text-sm font-medium text-gray-600">Fecha de creación:</span>
+                <span className="text-gray-900">
+                  {remito.fechaCreacion && remito.fechaCreacion.toDate 
+                    ? new Date(remito.fechaCreacion.toDate()).toLocaleString('es-AR')
+                    : 'No disponible'}
+                </span>
+              </div>
+              {remito.fechaModificacion && (
+                <div className="md:col-span-2">
+                  <span className="block mb-1 text-sm font-medium text-gray-600">Última modificación:</span>
+                  <span className="text-gray-900">
+                    {remito.fechaModificacion.toDate 
+                      ? new Date(remito.fechaModificacion.toDate()).toLocaleString('es-AR')
+                      : 'No disponible'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
