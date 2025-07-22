@@ -22,7 +22,8 @@ import {
   Shield,
   Bell,
   Settings,
-  Wrench
+  Wrench,
+  CreditCard
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, getDocs } from 'firebase/firestore';
@@ -35,6 +36,7 @@ export default function Dashboard() {
     presupuestos: 0,
     recibos: 0,
     remitos: 0,
+    estadosCuenta: 0,
     ordenesMantenimiento: 0,
     ordenesObra: 0,
     recordatorios: 0
@@ -69,6 +71,10 @@ export default function Dashboard() {
       const remitosRef = collection(db, 'remitos');
       const remitosSnapshot = await getDocs(remitosRef);
 
+      // Total de estados de cuenta
+      const estadosCuentaRef = collection(db, 'estados_cuenta');
+      const estadosCuentaSnapshot = await getDocs(estadosCuentaRef);
+
       // Total de órdenes de mantenimiento
       const ordenesMantenimientoRef = collection(db, 'ordenes_mantenimiento');
       const ordenesMantenimientoSnapshot = await getDocs(ordenesMantenimientoRef);
@@ -85,6 +91,7 @@ export default function Dashboard() {
         presupuestos: presupuestosSnapshot.size,
         recibos: recibosSnapshot.size,
         remitos: remitosSnapshot.size,
+        estadosCuenta: estadosCuentaSnapshot.size,
         ordenesMantenimiento: ordenesMantenimientoSnapshot.size,
         ordenesObra: ordenesObraSnapshot.size,
         recordatorios: recordatoriosSnapshot.size
@@ -148,6 +155,19 @@ export default function Dashboard() {
       }
     },
     {
+      id: 'estadosCuenta',
+      titulo: 'Estados de Cuenta',
+      icono: CreditCard,
+      color: 'bg-indigo-600',
+      colorHover: 'hover:bg-indigo-700',
+      descripcion: 'Resúmenes financieros',
+      total: totales.estadosCuenta,
+      rutas: {
+        nuevo: '/admin/estados-cuenta/nuevo',
+        historial: '/admin/estados-cuenta'
+      }
+    },
+    {
       id: 'ordenesMantenimiento',
       titulo: 'Mantenimiento',
       icono: Wrench,
@@ -208,27 +228,14 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Información de la empresa */}
-{/*       <div className="p-6 mb-8 border border-red-200 rounded-lg bg-gradient-to-r from-red-50 to-blue-50">
-        <div className="flex items-center mb-4">
-          <Shield size={24} className="mr-3 text-primary" />
-          <h3 className="text-lg font-bold text-gray-800">
-            Sistemas de Protección Contra Incendios
-          </h3>
-        </div>
-        <p className="text-sm text-gray-700">
-          Especialistas en instalación y mantenimiento de sistemas de seguridad electrónicos desde 1994. 
-          Certificados internacionalmente: <span className="font-semibold">Notifier | Mircom | Inim | Secutron | Bosch</span>
-        </p>
-      </div>
- */}
+
       {/* Módulos del sistema - Diseño corregido */}
       <h3 className="flex items-center mb-6 text-xl font-bold text-gray-800">
         <Settings size={20} className="mr-2 text-primary" />
         Módulos del Sistema
       </h3>
       
-      <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-7">
         {modulos.map(modulo => {
           const Icono = modulo.icono;
           return (
@@ -263,7 +270,7 @@ export default function Dashboard() {
           <Clock size={20} className="mr-2 text-primary" />
           Acciones Rápidas
         </h3>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
           <Link
             href="/admin/presupuestos/nuevo"
             className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-red-50 hover:border-red-300 hover:shadow-md group"
@@ -284,6 +291,13 @@ export default function Dashboard() {
           >
             <FileCheck size={20} className="mb-2 text-blue-600 transition-transform group-hover:scale-110" />
             <span className="text-xs font-medium text-gray-900 group-hover:text-blue-700">Nuevo Remito</span>
+          </Link>
+          <Link
+            href="/admin/estados-cuenta/nuevo"
+            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md group"
+          >
+            <CreditCard size={20} className="mb-2 text-indigo-600 transition-transform group-hover:scale-110" />
+            <span className="text-xs font-medium text-gray-900 group-hover:text-indigo-700">Nuevo Estado Cuenta</span>
           </Link>
           <Link
             href="/admin/mantenimiento/nuevo"

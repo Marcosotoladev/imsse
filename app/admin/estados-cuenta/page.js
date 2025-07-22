@@ -407,8 +407,32 @@ export default function EstadosCuenta() {
                             <Edit size={18} />
                           </Link>
                           <button
+                            onClick={async () => {
+                              try {
+                                const { pdf } = await import('@react-pdf/renderer');
+                                const { default: EstadoCuentaPDF } = await import('../../components/pdf/EstadoCuentaPDF');
+                                
+                                const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estado} />).toBlob();
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = `${estado.numero}.pdf`;
+                                link.click();
+                                
+                                URL.revokeObjectURL(url);
+                              } catch (error) {
+                                console.error('Error al descargar PDF:', error);
+                                alert('Error al generar el PDF');
+                              }
+                            }}
+                            className="text-purple-600 transition-colors cursor-pointer hover:text-purple-900"
+                            title="Descargar PDF"
+                          >
+                            <Download size={18} />
+                          </button>
+                          <button
                             onClick={() => handleDelete(estado.id, estado.numero)}
-                            className="text-red-600 transition-colors hover:text-red-900"
+                            className="text-red-600 transition-colors cursor-pointer hover:text-red-900"
                             title="Eliminar estado"
                           >
                             <Trash2 size={18} />
