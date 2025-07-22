@@ -287,10 +287,10 @@ export default function EditarPresupuesto({ params }) {
         <div className="flex flex-wrap items-center justify-between mb-8">
           <div className="flex items-center mb-4">
             <Link 
-              href="/admin/dashboard"
+              href="/admin/panel-control"
               className="flex items-center mr-4 text-primary hover:underline"
             >
-              <Home size={16} className="mr-1" /> Dashboard
+              <Home size={16} className="mr-1" /> Panel de Control
             </Link>
             <span className="mx-2 text-gray-500">/</span>
             <Link 

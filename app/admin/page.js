@@ -24,7 +24,7 @@ export default function AdminLogin() {
       await signInWithEmailAndPassword(auth, email, password);
       
       // Login exitoso, redirigir al dashboard IMSSE
-      router.push('/admin/dashboard');
+      router.push('/admin/panel-control');
     } catch (err) {
       console.error('Error login IMSSE:', err);
       

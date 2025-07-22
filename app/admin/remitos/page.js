@@ -178,7 +178,8 @@ export default function ListaRemitos() {
     } else {
       const filtrados = remitos.filter(remito =>
         remito.numero?.toLowerCase().includes(term.toLowerCase()) ||
-        remito.cliente?.toLowerCase().includes(term.toLowerCase()) ||
+        remito.cliente?.nombre?.toLowerCase().includes(term.toLowerCase()) ||
+        remito.cliente?.empresa?.toLowerCase().includes(term.toLowerCase()) ||
         remito.destino?.toLowerCase().includes(term.toLowerCase())
       );
       setRemitosFiltrados(filtrados);
@@ -381,8 +382,13 @@ export default function ListaRemitos() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {remito.cliente}
+                          {remito.cliente?.nombre || remito.cliente?.empresa || 'Sin cliente'}
                         </div>
+                        {remito.cliente?.empresa && remito.cliente?.nombre && (
+                          <div className="text-xs text-gray-500">
+                            {remito.cliente.empresa}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
