@@ -1,10 +1,10 @@
-// components/layout/Header.js
+// components/layout/Header.js - Con acceso al login IMSSE
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Menu, X, Home, Shield, Wrench, Users, MessageSquare, ChevronDown, Flame, Eye, Zap } from 'lucide-react';
+import { Menu, X, Home, Shield, Wrench, Users, MessageSquare, ChevronDown, Flame, Eye, Zap, LogIn } from 'lucide-react';
 import Image from 'next/image';
 
 const Header = () => {
@@ -132,28 +132,28 @@ const Header = () => {
 
               {/* Dropdown - Servicios de Seguridad Contra Incendios */}
               <div className={`absolute top-full left-0 w-64 mt-1 bg-white shadow-xl rounded-md overflow-hidden transition-all duration-300 border border-gray-200 ${activeDropdown === 'servicios' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
-                <Link href="/servicios/deteccion-incendios" className="group flex items-center px-4 py-3 text-gray-700 transition-all duration-200 hover:bg-red-50 hover:text-primary hover:pl-6 border-b border-gray-100">
-                  <Eye size={16} className="mr-3 text-primary group-hover:scale-110 transition-transform" />
+                <Link href="/servicios/deteccion-incendios" className="flex items-center px-4 py-3 text-gray-700 transition-all duration-200 border-b border-gray-100 group hover:bg-red-50 hover:text-primary hover:pl-6">
+                  <Eye size={16} className="mr-3 transition-transform text-primary group-hover:scale-110" />
                   <span className="font-medium">Detección de Incendios</span>
                 </Link>
-                <Link href="/servicios/supresion-incendios" className="group flex items-center px-4 py-3 text-gray-700 transition-all duration-200 hover:bg-blue-50 hover:text-secondary hover:pl-6 border-b border-gray-100">
-                  <Flame size={16} className="mr-3 text-secondary group-hover:scale-110 transition-transform" />
+                <Link href="/servicios/supresion-incendios" className="flex items-center px-4 py-3 text-gray-700 transition-all duration-200 border-b border-gray-100 group hover:bg-blue-50 hover:text-secondary hover:pl-6">
+                  <Flame size={16} className="mr-3 transition-transform text-secondary group-hover:scale-110" />
                   <span className="font-medium">Supresión de Incendios</span>
                 </Link>
-                <Link href="/servicios/sistemas-alarma" className="group flex items-center px-4 py-3 text-gray-700 transition-all duration-200 hover:bg-orange-50 hover:text-warning hover:pl-6 border-b border-gray-100">
-                  <Zap size={16} className="mr-3 text-warning group-hover:scale-110 transition-transform" />
+                <Link href="/servicios/sistemas-alarma" className="flex items-center px-4 py-3 text-gray-700 transition-all duration-200 border-b border-gray-100 group hover:bg-orange-50 hover:text-warning hover:pl-6">
+                  <Zap size={16} className="mr-3 transition-transform text-warning group-hover:scale-110" />
                   <span className="font-medium">Sistemas de Alarma</span>
                 </Link>
-                <Link href="/servicios/rociadores" className="group flex items-center px-4 py-3 text-gray-700 transition-all duration-200 hover:bg-cyan-50 hover:text-info hover:pl-6 border-b border-gray-100">
-                  <Shield size={16} className="mr-3 text-info group-hover:scale-110 transition-transform" />
+                <Link href="/servicios/rociadores" className="flex items-center px-4 py-3 text-gray-700 transition-all duration-200 border-b border-gray-100 group hover:bg-cyan-50 hover:text-info hover:pl-6">
+                  <Shield size={16} className="mr-3 transition-transform text-info group-hover:scale-110" />
                   <span className="font-medium">Rociadores Automáticos</span>
                 </Link>
-                <Link href="/servicios/mantenimiento" className="group flex items-center px-4 py-3 text-gray-700 transition-all duration-200 hover:bg-green-50 hover:text-success hover:pl-6 border-b border-gray-100">
-                  <Wrench size={16} className="mr-3 text-success group-hover:scale-110 transition-transform" />
+                <Link href="/servicios/mantenimiento" className="flex items-center px-4 py-3 text-gray-700 transition-all duration-200 border-b border-gray-100 group hover:bg-green-50 hover:text-success hover:pl-6">
+                  <Wrench size={16} className="mr-3 transition-transform text-success group-hover:scale-110" />
                   <span className="font-medium">Mantenimiento</span>
                 </Link>
-                <Link href="/servicios" className="group flex items-center px-4 py-3 font-bold text-primary transition-all duration-200 hover:bg-primary hover:text-white hover:pl-6">
-                  <Shield size={16} className="mr-3 group-hover:scale-110 transition-transform" />
+                <Link href="/servicios" className="flex items-center px-4 py-3 font-bold transition-all duration-200 group text-primary hover:bg-primary hover:text-white hover:pl-6">
+                  <Shield size={16} className="mr-3 transition-transform group-hover:scale-110" />
                   <span>Ver todos los servicios</span>
                 </Link>
               </div>
@@ -176,6 +176,19 @@ const Header = () => {
             >
               <MessageSquare size={16} className="mr-1" />
               <span>Contacto</span>
+            </Link>
+
+            {/* Botón de Ingresar al Sistema */}
+            <Link
+              href="/admin"
+              className={`border-2 border-primary hover:bg-primary hover:text-white px-4 py-2 rounded-md transition-all duration-300 flex items-center ml-2 transform hover:scale-105 ${
+                scrolled 
+                  ? 'text-primary bg-white shadow-md' 
+                  : 'text-white bg-white/10 backdrop-blur-sm'
+              }`}
+            >
+              <LogIn size={16} className="mr-1" />
+              <span>Ingresar</span>
             </Link>
           </nav>
 
@@ -214,47 +227,47 @@ const Header = () => {
                 <div className="pl-4 mt-2 ml-6 space-y-2 border-l-2 border-primary">
                   <Link
                     href="/servicios/deteccion-incendios"
-                    className="group flex items-center py-2 text-gray-700 hover:text-primary transition-all duration-200 hover:pl-2"
+                    className="flex items-center py-2 text-gray-700 transition-all duration-200 group hover:text-primary hover:pl-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Eye size={14} className="mr-2 group-hover:scale-110 transition-transform" />
+                    <Eye size={14} className="mr-2 transition-transform group-hover:scale-110" />
                     <span>Detección de Incendios</span>
                   </Link>
                   <Link
                     href="/servicios/supresion-incendios"
-                    className="group flex items-center py-2 text-gray-700 hover:text-secondary transition-all duration-200 hover:pl-2"
+                    className="flex items-center py-2 text-gray-700 transition-all duration-200 group hover:text-secondary hover:pl-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Flame size={14} className="mr-2 group-hover:scale-110 transition-transform" />
+                    <Flame size={14} className="mr-2 transition-transform group-hover:scale-110" />
                     <span>Supresión de Incendios</span>
                   </Link>
                   <Link
                     href="/servicios/sistemas-alarma"
-                    className="group flex items-center py-2 text-gray-700 hover:text-warning transition-all duration-200 hover:pl-2"
+                    className="flex items-center py-2 text-gray-700 transition-all duration-200 group hover:text-warning hover:pl-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Zap size={14} className="mr-2 group-hover:scale-110 transition-transform" />
+                    <Zap size={14} className="mr-2 transition-transform group-hover:scale-110" />
                     <span>Sistemas de Alarma</span>
                   </Link>
                   <Link
                     href="/servicios/rociadores"
-                    className="group flex items-center py-2 text-gray-700 hover:text-info transition-all duration-200 hover:pl-2"
+                    className="flex items-center py-2 text-gray-700 transition-all duration-200 group hover:text-info hover:pl-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Shield size={14} className="mr-2 group-hover:scale-110 transition-transform" />
+                    <Shield size={14} className="mr-2 transition-transform group-hover:scale-110" />
                     <span>Rociadores Automáticos</span>
                   </Link>
                   <Link
                     href="/servicios/mantenimiento"
-                    className="group flex items-center py-2 text-gray-700 hover:text-success transition-all duration-200 hover:pl-2"
+                    className="flex items-center py-2 text-gray-700 transition-all duration-200 group hover:text-success hover:pl-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Wrench size={14} className="mr-2 group-hover:scale-110 transition-transform" />
+                    <Wrench size={14} className="mr-2 transition-transform group-hover:scale-110" />
                     <span>Mantenimiento</span>
                   </Link>
                   <Link
                     href="/servicios"
-                    className="block py-2 font-medium text-primary hover:pl-2 transition-all duration-200"
+                    className="block py-2 font-medium transition-all duration-200 text-primary hover:pl-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Ver todos los servicios
@@ -279,6 +292,16 @@ const Header = () => {
             >
               <MessageSquare size={18} className="mr-2" />
               <span>Contacto</span>
+            </Link>
+
+            {/* Botón de Ingresar para móvil */}
+            <Link
+              href="/admin"
+              className="flex items-center px-4 py-3 mx-4 mt-2 transition-colors border-2 rounded-md text-primary border-primary hover:bg-primary hover:text-white"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <LogIn size={18} className="mr-2" />
+              <span>Ingresar al Sistema</span>
             </Link>
           </nav>
         )}
