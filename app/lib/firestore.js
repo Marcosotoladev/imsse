@@ -441,3 +441,110 @@ export const obtenerEstadisticasDashboard = async () => {
     throw error;
   }
 };
+
+
+// Agregar estas funciones al archivo lib/firestore.js existente
+
+// ========== FUNCIONES ADICIONALES PARA ÓRDENES DE TRABAJO ==========
+
+// Obtener todas las órdenes de trabajo
+export const obtenerOrdenesTrabajo = async () => {
+  try {
+    const q = query(ordenesTrabajoCollection, orderBy('fechaCreacion', 'desc'));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error al obtener órdenes de trabajo IMSSE:', error);
+    throw error;
+  }
+};
+
+// Obtener una orden de trabajo por ID
+export const obtenerOrdenTrabajoPorId = async (id) => {
+  try {
+    const docRef = doc(db, 'ordenes_trabajo', id);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() };
+    } else {
+      throw new Error('Orden de trabajo no encontrada');
+    }
+  } catch (error) {
+    console.error('Error al obtener orden de trabajo IMSSE:', error);
+    throw error;
+  }
+};
+
+// Actualizar una orden de trabajo
+export const actualizarOrdenTrabajo = async (id, ordenData) => {
+  try {
+    const docRef = doc(db, 'ordenes_trabajo', id);
+    await updateDoc(docRef, {
+      ...ordenData,
+      fechaModificacion: serverTimestamp()
+    });
+    console.log('Orden de trabajo IMSSE actualizada');
+  } catch (error) {
+    console.error('Error al actualizar orden de trabajo IMSSE:', error);
+    throw error;
+  }
+};
+
+// Eliminar una orden de trabajo
+export const eliminarOrdenTrabajo = async (id) => {
+  try {
+    const docRef = doc(db, 'ordenes_trabajo', id);
+    await deleteDoc(docRef);
+    console.log('Orden de trabajo IMSSE eliminada');
+    return { id };
+  } catch (error) {
+    console.error('Error al eliminar orden de trabajo IMSSE:', error);
+    throw error;
+  }
+};
+
+// Obtener órdenes de trabajo por fecha
+export const obtenerOrdenesTrabajoEntreFechas = async (fechaInicio, fechaFin) => {
+  try {
+    const q = query(
+      ordenesTrabajoCollection,
+      where('fechaTrabajo', '>=', fechaInicio),
+      where('fechaTrabajo', '<=', fechaFin),
+      orderBy('fechaTrabajo', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error al obtener órdenes de trabajo por fecha:', error);
+    throw error;
+  }
+};
+
+// Obtener órdenes de trabajo por cliente
+export const obtenerOrdenesTrabajoCliente = async (nombreCliente) => {
+  try {
+    const q = query(
+      ordenesTrabajoCollection,
+      where('cliente.empresa', '==', nombreCliente),
+      orderBy('fechaCreacion', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error al obtener órdenes de trabajo por cliente:', error);
+    throw error;
+  }
+};

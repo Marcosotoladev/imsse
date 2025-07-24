@@ -5,111 +5,37 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  Home, 
-  LogOut, 
-  FilePlus, 
+  Plus, 
+  Search, 
+  Filter, 
   Eye, 
   Edit, 
   Trash2, 
-  Search, 
+  Home, 
+  LogOut,
   Bell,
-  Calendar,
-  AlertTriangle,
-  CheckCircle,
   Clock,
-  AlertCircle
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  Calendar,
+  User,
+  ChevronDown
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, getDocs, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 
 export default function ListaRecordatorios() {
-  const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recordatorios, setRecordatorios] = useState([]);
-  const [recordatoriosFiltrados, setRecordatoriosFiltrados] = useState([]);
+  const [filteredRecordatorios, setFilteredRecordatorios] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [estadisticas, setEstadisticas] = useState({
-    total: 0,
-    vencidos: 0,
-    porVencer: 0,
-    completados: 0,
-    pendientes: 0,
-    estaSemana: 0
-  });
-
-  // Función para formatear fechas
-  const formatDate = (fecha) => {
-    if (!fecha) return '';
-    try {
-      const dateObj = fecha.toDate ? fecha.toDate() : new Date(fecha);
-      return dateObj.toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (e) {
-      return fecha.toString();
-    }
-  };
-
-  // Función para calcular días hasta vencimiento
-  const diasHastaVencimiento = (fechaVencimiento) => {
-    if (!fechaVencimiento) return null;
-    const hoy = new Date();
-    const vencimiento = fechaVencimiento.toDate ? fechaVencimiento.toDate() : new Date(fechaVencimiento);
-    const diffTime = vencimiento - hoy;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  // Función para obtener color del estado
-  const getStatusColor = (estado, fechaVencimiento) => {
-    const dias = diasHastaVencimiento(fechaVencimiento);
-    
-    if (estado === 'completado') {
-      return 'bg-green-100 text-green-800 border-green-200';
-    }
-    
-    if (dias !== null) {
-      if (dias < 0) {
-        return 'bg-red-100 text-red-800 border-red-200'; // Vencido
-      } else if (dias <= 7) {
-        return 'bg-orange-100 text-orange-800 border-orange-200'; // Por vencer
-      }
-    }
-    
-    return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // Pendiente
-  };
-
-  // Función para obtener el texto del estado
-  const getStatusText = (estado, fechaVencimiento) => {
-    if (estado === 'completado') return 'Completado';
-    
-    const dias = diasHastaVencimiento(fechaVencimiento);
-    if (dias !== null) {
-      if (dias < 0) return 'Vencido';
-      if (dias === 0) return 'Vence hoy';
-      if (dias === 1) return 'Vence mañana';
-      if (dias <= 7) return `${dias} días`;
-    }
-    
-    return 'Pendiente';
-  };
-
-  // Función para obtener color de prioridad
-  const getPriorityColor = (prioridad) => {
-    switch (prioridad?.toLowerCase()) {
-      case 'alta':
-        return 'bg-red-100 text-red-800';
-      case 'media':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'baja':
-      default:
-        return 'bg-green-100 text-green-800';
-    }
-  };
+  const [filterEstado, setFilterEstado] = useState('todos');
+  const [filterPrioridad, setFilterPrioridad] = useState('todos');
+  const [sortBy, setSortBy] = useState('fecha');
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -127,57 +53,39 @@ export default function ListaRecordatorios() {
 
   const cargarRecordatorios = async () => {
     try {
-      const q = query(
-        collection(db, 'recordatorios'),
-        orderBy('fechaVencimiento', 'asc')
-      );
-      const querySnapshot = await getDocs(q);
-      const recordatoriosData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const recordatoriosRef = collection(db, 'recordatorios');
+      const querySnapshot = await getDocs(recordatoriosRef);
+      
+      const recordatoriosData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        
+        // Calcular estado automáticamente
+        const fechaVencimiento = new Date(data.fechaVencimiento);
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        fechaVencimiento.setHours(0, 0, 0, 0);
+        
+        let estadoCalculado = data.estado;
+        if (data.estado === 'pendiente' && fechaVencimiento < hoy) {
+          estadoCalculado = 'vencido';
+        }
+        
+        return {
+          id: doc.id,
+          ...data,
+          estadoCalculado
+        };
+      });
 
+      // Ordenar por fecha de vencimiento por defecto
+      recordatoriosData.sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+      
       setRecordatorios(recordatoriosData);
-      setRecordatoriosFiltrados(recordatoriosData);
-      calcularEstadisticas(recordatoriosData);
+      setFilteredRecordatorios(recordatoriosData);
     } catch (error) {
       console.error('Error al cargar recordatorios IMSSE:', error);
-      alert('Error al cargar los recordatorios');
+      alert('Error al cargar los recordatorios. Inténtelo de nuevo más tarde.');
     }
-  };
-
-  const calcularEstadisticas = (recordatoriosData) => {
-    const hoy = new Date();
-    const finSemana = new Date();
-    finSemana.setDate(hoy.getDate() + 7);
-
-    const estadisticas = {
-      total: recordatoriosData.length,
-      vencidos: 0,
-      porVencer: 0,
-      completados: recordatoriosData.filter(r => r.estado === 'completado').length,
-      pendientes: recordatoriosData.filter(r => r.estado !== 'completado').length,
-      estaSemana: 0
-    };
-
-    recordatoriosData.forEach(recordatorio => {
-      const dias = diasHastaVencimiento(recordatorio.fechaVencimiento);
-      const fechaVenc = recordatorio.fechaVencimiento?.toDate ? recordatorio.fechaVencimiento.toDate() : new Date(recordatorio.fechaVencimiento);
-      
-      if (recordatorio.estado !== 'completado') {
-        if (dias !== null && dias < 0) {
-          estadisticas.vencidos++;
-        } else if (dias !== null && dias <= 7) {
-          estadisticas.porVencer++;
-        }
-      }
-      
-      if (fechaVenc <= finSemana && fechaVenc >= hoy) {
-        estadisticas.estaSemana++;
-      }
-    });
-
-    setEstadisticas(estadisticas);
   };
 
   const handleLogout = async () => {
@@ -189,32 +97,146 @@ export default function ListaRecordatorios() {
     }
   };
 
-  const handleEliminarRecordatorio = async (id, titulo) => {
+  const handleDelete = async (id, titulo) => {
     if (confirm(`¿Está seguro de que desea eliminar el recordatorio "${titulo}"?`)) {
       try {
         await deleteDoc(doc(db, 'recordatorios', id));
+        alert('Recordatorio eliminado exitosamente.');
         await cargarRecordatorios();
-        alert('Recordatorio eliminado exitosamente');
       } catch (error) {
         console.error('Error al eliminar recordatorio:', error);
-        alert('Error al eliminar el recordatorio');
+        alert('Error al eliminar el recordatorio.');
       }
     }
   };
 
-  const handleSearch = (term) => {
-    setSearchTerm(term);
-    if (term === '') {
-      setRecordatoriosFiltrados(recordatorios);
-    } else {
-      const filtrados = recordatorios.filter(recordatorio =>
-        recordatorio.titulo?.toLowerCase().includes(term.toLowerCase()) ||
-        recordatorio.cliente?.toLowerCase().includes(term.toLowerCase()) ||
-        recordatorio.descripcion?.toLowerCase().includes(term.toLowerCase()) ||
-        recordatorio.tipo?.toLowerCase().includes(term.toLowerCase())
-      );
-      setRecordatoriosFiltrados(filtrados);
+  const handleToggleCompletado = async (id, estadoActual) => {
+    try {
+      const nuevoEstado = estadoActual === 'completado' ? 'pendiente' : 'completado';
+      await updateDoc(doc(db, 'recordatorios', id), {
+        estado: nuevoEstado,
+        fechaCompletado: nuevoEstado === 'completado' ? new Date().toISOString() : null
+      });
+      await cargarRecordatorios();
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
+      alert('Error al actualizar el estado del recordatorio.');
     }
+  };
+
+  // Filtros y búsqueda
+  useEffect(() => {
+    let filtered = [...recordatorios];
+
+    // Filtro por búsqueda
+    if (searchTerm) {
+      filtered = filtered.filter(recordatorio =>
+        recordatorio.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        recordatorio.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        recordatorio.usuarioCreador?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtro por estado
+    if (filterEstado !== 'todos') {
+      filtered = filtered.filter(recordatorio => recordatorio.estadoCalculado === filterEstado);
+    }
+
+    // Filtro por prioridad
+    if (filterPrioridad !== 'todos') {
+      filtered = filtered.filter(recordatorio => recordatorio.prioridad === filterPrioridad);
+    }
+
+    // Ordenamiento
+    if (sortBy === 'fecha') {
+      filtered.sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+    } else if (sortBy === 'prioridad') {
+      const prioridadOrder = { 'alta': 1, 'media': 2, 'baja': 3 };
+      filtered.sort((a, b) => prioridadOrder[a.prioridad] - prioridadOrder[b.prioridad]);
+    } else if (sortBy === 'estado') {
+      const estadoOrder = { 'vencido': 1, 'pendiente': 2, 'completado': 3 };
+      filtered.sort((a, b) => estadoOrder[a.estadoCalculado] - estadoOrder[b.estadoCalculado]);
+    }
+
+    setFilteredRecordatorios(filtered);
+  }, [searchTerm, filterEstado, filterPrioridad, sortBy, recordatorios]);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      const today = new Date();
+      const diffTime = date - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      const formatted = date.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      
+      if (diffDays === 0) return `${formatted} (Hoy)`;
+      if (diffDays === 1) return `${formatted} (Mañana)`;
+      if (diffDays === -1) return `${formatted} (Ayer)`;
+      if (diffDays < 0) return `${formatted} (${Math.abs(diffDays)} días atrás)`;
+      if (diffDays <= 7) return `${formatted} (En ${diffDays} días)`;
+      
+      return formatted;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  const getEstadoConfig = (estado) => {
+    switch (estado) {
+      case 'vencido':
+        return {
+          color: 'bg-red-100 text-red-800 border-red-200',
+          icon: AlertTriangle,
+          text: 'VENCIDO'
+        };
+      case 'pendiente':
+        return {
+          color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+          icon: Clock,
+          text: 'PENDIENTE'
+        };
+      case 'completado':
+        return {
+          color: 'bg-green-100 text-green-800 border-green-200',
+          icon: CheckCircle,
+          text: 'COMPLETADO'
+        };
+      default:
+        return {
+          color: 'bg-gray-100 text-gray-800 border-gray-200',
+          icon: AlertCircle,
+          text: estado?.toUpperCase() || 'DESCONOCIDO'
+        };
+    }
+  };
+
+  const getPrioridadConfig = (prioridad) => {
+    switch (prioridad) {
+      case 'alta':
+        return { color: 'bg-red-500', text: 'ALTA' };
+      case 'media':
+        return { color: 'bg-yellow-500', text: 'MEDIA' };
+      case 'baja':
+        return { color: 'bg-green-500', text: 'BAJA' };
+      default:
+        return { color: 'bg-gray-500', text: 'SIN DEFINIR' };
+    }
+  };
+
+  const contarPorEstado = () => {
+    const todos = recordatorios.length;
+    const vencidos = recordatorios.filter(r => r.estadoCalculado === 'vencido').length;
+    const pendientes = recordatorios.filter(r => r.estadoCalculado === 'pendiente').length;
+    const completados = recordatorios.filter(r => r.estadoCalculado === 'completado').length;
+    
+    return { todos, vencidos, pendientes, completados };
   };
 
   if (loading) {
@@ -227,6 +249,8 @@ export default function ListaRecordatorios() {
       </div>
     );
   }
+
+  const estadisticas = contarPorEstado();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -256,254 +280,279 @@ export default function ListaRecordatorios() {
       {/* Navegación */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="container px-4 py-4 mx-auto">
-          <div className="flex items-center">
+          <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+            {/* Breadcrumb */}
+            <div className="flex items-center">
+              <Link href="/admin/panel-control" className="text-primary hover:underline">
+                <Home size={16} className="inline mr-1" />
+                Panel de Control
+              </Link>
+              <span className="mx-2 text-gray-500">/</span>
+              <span className="font-medium text-gray-700">Recordatorios</span>
+            </div>
+
+            {/* Botón nuevo */}
             <Link
-              href="/admin/panel-control"
-              className="flex items-center mr-4 text-primary hover:underline"
+              href="/admin/recordatorios/nuevo"
+              className="flex items-center px-4 py-2 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
             >
-              <Home size={16} className="mr-1" /> Panel de Control
+              <Plus size={18} className="mr-2" />
+              Nuevo Recordatorio
             </Link>
-            <span className="mx-2 text-gray-500">/</span>
-            <span className="text-gray-700">Recordatorios</span>
           </div>
         </div>
       </div>
 
       <div className="container px-4 py-8 mx-auto">
-        {/* Header de página */}
-        <div className="flex flex-col items-start justify-between mb-8 md:flex-row md:items-center">
-          <div className="mb-4 md:mb-0">
-            <h2 className="text-2xl font-bold font-montserrat text-primary">
-              Recordatorios IMSSE
-            </h2>
-            <p className="text-gray-600">
-              Vencimientos y notificaciones - Sistemas contra incendios
-            </p>
-          </div>
-          <Link
-            href="/admin/recordatorios/nuevo"
-            className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
-          >
-            <FilePlus size={18} className="mr-2" /> Nuevo Recordatorio
-          </Link>
-        </div>
-
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3 lg:grid-cols-6">
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <div className="flex items-center">
-              <Bell size={24} className="mr-3 text-yellow-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{estadisticas.total}</p>
+        {/* Título y estadísticas */}
+        <div className="mb-6">
+          <h2 className="mb-4 text-2xl font-bold font-montserrat text-primary">
+            Gestión de Recordatorios
+          </h2>
+          
+          {/* Estadísticas rápidas */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="p-4 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center">
+                <Bell className="w-8 h-8 mr-3 text-blue-500" />
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{estadisticas.todos}</p>
+                  <p className="text-sm text-gray-600">Total</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <div className="flex items-center">
-              <AlertTriangle size={24} className="mr-3 text-red-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Vencidos</p>
-                <p className="text-2xl font-bold text-gray-900">{estadisticas.vencidos}</p>
+            
+            <div className="p-4 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center">
+                <AlertTriangle className="w-8 h-8 mr-3 text-red-500" />
+                <div>
+                  <p className="text-2xl font-bold text-red-600">{estadisticas.vencidos}</p>
+                  <p className="text-sm text-gray-600">Vencidos</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <div className="flex items-center">
-              <AlertCircle size={24} className="mr-3 text-orange-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Por Vencer</p>
-                <p className="text-2xl font-bold text-gray-900">{estadisticas.porVencer}</p>
+            
+            <div className="p-4 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center">
+                <Clock className="w-8 h-8 mr-3 text-yellow-500" />
+                <div>
+                  <p className="text-2xl font-bold text-yellow-600">{estadisticas.pendientes}</p>
+                  <p className="text-sm text-gray-600">Pendientes</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <div className="flex items-center">
-              <CheckCircle size={24} className="mr-3 text-green-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completados</p>
-                <p className="text-2xl font-bold text-gray-900">{estadisticas.completados}</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <div className="flex items-center">
-              <Clock size={24} className="mr-3 text-blue-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                <p className="text-2xl font-bold text-gray-900">{estadisticas.pendientes}</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <div className="flex items-center">
-              <Calendar size={24} className="mr-3 text-purple-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Esta Semana</p>
-                <p className="text-2xl font-bold text-gray-900">{estadisticas.estaSemana}</p>
+            
+            <div className="p-4 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center">
+                <CheckCircle className="w-8 h-8 mr-3 text-green-500" />
+                <div>
+                  <p className="text-2xl font-bold text-green-600">{estadisticas.completados}</p>
+                  <p className="text-sm text-gray-600">Completados</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Búsqueda */}
-        <div className="p-6 mb-8 bg-white rounded-lg shadow-md">
-          <div className="flex items-center">
-            <Search size={20} className="mr-3 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por título, cliente, descripción o tipo..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
+        {/* Filtros y búsqueda */}
+        <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {/* Búsqueda */}
+            <div className="lg:col-span-2">
+              <div className="relative">
+                <Search className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar recordatorios..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Filtro por estado */}
+            <div>
+              <select
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="todos">Todos los estados</option>
+                <option value="vencido">Vencidos</option>
+                <option value="pendiente">Pendientes</option>
+                <option value="completado">Completados</option>
+              </select>
+            </div>
+
+            {/* Filtro por prioridad */}
+            <div>
+              <select
+                value={filterPrioridad}
+                onChange={(e) => setFilterPrioridad(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="todos">Todas las prioridades</option>
+                <option value="alta">Alta prioridad</option>
+                <option value="media">Media prioridad</option>
+                <option value="baja">Baja prioridad</option>
+              </select>
+            </div>
+
+            {/* Ordenamiento */}
+            <div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="fecha">Ordenar por fecha</option>
+                <option value="prioridad">Ordenar por prioridad</option>
+                <option value="estado">Ordenar por estado</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Tabla de recordatorios */}
-        <div className="bg-white rounded-lg shadow-md">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Lista de Recordatorios ({recordatoriosFiltrados.length})
-            </h3>
-          </div>
-
-          {recordatoriosFiltrados.length === 0 ? (
-            <div className="p-12 text-center">
+        {/* Lista de recordatorios tipo tarjetas */}
+        <div className="space-y-4">
+          {filteredRecordatorios.length === 0 ? (
+            <div className="p-8 text-center bg-white rounded-lg shadow-md">
               <Bell size={48} className="mx-auto mb-4 text-gray-400" />
-              <h3 className="mb-2 text-lg font-medium text-gray-900">
-                {searchTerm ? 'No se encontraron recordatorios' : 'No hay recordatorios'}
-              </h3>
-              <p className="text-gray-500">
-                {searchTerm 
-                  ? 'Intenta con otros términos de búsqueda'
-                  : 'Comienza creando tu primer recordatorio IMSSE'
-                }
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">No hay recordatorios</h3>
+              <p className="text-gray-600">
+                {searchTerm || filterEstado !== 'todos' || filterPrioridad !== 'todos'
+                  ? 'No se encontraron recordatorios que coincidan con los filtros seleccionados.'
+                  : 'Aún no has creado ningún recordatorio.'}
               </p>
-              {!searchTerm && (
+              {!searchTerm && filterEstado === 'todos' && filterPrioridad === 'todos' && (
                 <Link
                   href="/admin/recordatorios/nuevo"
-                  className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
+                  className="inline-flex items-center px-4 py-2 mt-4 text-white rounded-md bg-primary hover:bg-red-700"
                 >
-                  <FilePlus size={18} className="mr-2" /> Crear Primer Recordatorio
+                  <Plus size={16} className="mr-2" />
+                  Crear primer recordatorio
                 </Link>
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Título
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Tipo
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Vencimiento
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                      Prioridad
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {recordatoriosFiltrados.map((recordatorio, index) => (
-                    <tr 
-                      key={recordatorio.id} 
-                      className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{recordatorio.titulo}</div>
-                        <div className="text-xs text-gray-500">
-                          {recordatorio.descripcion ? 
-                            (recordatorio.descripcion.length > 50 
-                              ? `${recordatorio.descripcion.substring(0, 50)}...` 
-                              : recordatorio.descripcion
-                            ) : ''
-                          }
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{recordatorio.cliente}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{recordatorio.tipo}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatDate(recordatorio.fechaVencimiento)}</div>
-                        <div className="text-xs text-gray-500">
-                          {diasHastaVencimiento(recordatorio.fechaVencimiento) !== null && (
-                            `${Math.abs(diasHastaVencimiento(recordatorio.fechaVencimiento))} días`
+            filteredRecordatorios.map((recordatorio) => {
+              const estadoConfig = getEstadoConfig(recordatorio.estadoCalculado);
+              const prioridadConfig = getPrioridadConfig(recordatorio.prioridad);
+              const IconoEstado = estadoConfig.icon;
+
+              return (
+                <div
+                  key={recordatorio.id}
+                  className={`p-6 bg-white rounded-lg shadow-md border-l-4 ${
+                    recordatorio.estadoCalculado === 'vencido' ? 'border-red-500' :
+                    recordatorio.estadoCalculado === 'pendiente' ? 'border-yellow-500' :
+                    'border-green-500'
+                  }`}
+                >
+                  <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-y-0 md:space-x-4">
+                    {/* Checkbox de completado */}
+                    <div className="flex-shrink-0">
+                      <button
+                        onClick={() => handleToggleCompletado(recordatorio.id, recordatorio.estado)}
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          recordatorio.estadoCalculado === 'completado'
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : 'border-gray-300 hover:border-green-500'
+                        }`}
+                        title={recordatorio.estadoCalculado === 'completado' ? 'Marcar como pendiente' : 'Marcar como completado'}
+                      >
+                        {recordatorio.estadoCalculado === 'completado' && <CheckCircle size={16} />}
+                      </button>
+                    </div>
+
+                    {/* Contenido principal */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col space-y-2 md:flex-row md:items-start md:justify-between md:space-y-0">
+                        {/* Título y descripción */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className={`text-lg font-semibold ${
+                            recordatorio.estadoCalculado === 'completado' ? 'line-through text-gray-500' : 'text-gray-900'
+                          }`}>
+                            {recordatorio.titulo}
+                          </h3>
+                          {recordatorio.descripcion && (
+                            <p className={`text-sm mt-1 ${
+                              recordatorio.estadoCalculado === 'completado' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              {recordatorio.descripcion}
+                            </p>
                           )}
+                          
+                          {/* Información adicional */}
+                          <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-500">
+                            <div className="flex items-center">
+                              <Calendar size={14} className="mr-1" />
+                              {formatDate(recordatorio.fechaVencimiento)}
+                            </div>
+                            <div className="flex items-center">
+                              <User size={14} className="mr-1" />
+                              {recordatorio.usuarioCreador}
+                            </div>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(recordatorio.prioridad)}`}>
-                          {recordatorio.prioridad || 'baja'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(recordatorio.estado, recordatorio.fechaVencimiento)}`}>
-                          {getStatusText(recordatorio.estado, recordatorio.fechaVencimiento)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                        <div className="flex justify-center space-x-1">
-                          <Link
-                            href={`/admin/recordatorios/${recordatorio.id}`}
-                            className="p-2 text-blue-600 transition-colors rounded-md hover:bg-blue-100"
-                            title="Ver recordatorio"
-                          >
-                            <Eye size={16} />
-                          </Link>
-                          <Link
-                            href={`/admin/recordatorios/editar/${recordatorio.id}`}
-                            className="p-2 text-orange-600 transition-colors rounded-md hover:bg-orange-100"
-                            title="Editar recordatorio"
-                          >
-                            <Edit size={16} />
-                          </Link>
-                          <button
-                            onClick={() => handleEliminarRecordatorio(recordatorio.id, recordatorio.titulo)}
-                            className="p-2 text-red-600 transition-colors rounded-md hover:bg-red-100"
-                            title="Eliminar recordatorio"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+
+                        {/* Estados y acciones */}
+                        <div className="flex flex-col items-start space-y-2 md:items-end">
+                          {/* Badges */}
+                          <div className="flex flex-wrap gap-2">
+                            {/* Prioridad */}
+                            <span className={`inline-block w-3 h-3 rounded-full ${prioridadConfig.color}`} title={`Prioridad ${prioridadConfig.text}`}></span>
+                            
+                            {/* Estado */}
+                            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${estadoConfig.color}`}>
+                              <IconoEstado size={12} className="mr-1" />
+                              {estadoConfig.text}
+                            </span>
+                          </div>
+
+                          {/* Acciones */}
+                          <div className="flex space-x-2">
+                            <Link
+                              href={`/admin/recordatorios/${recordatorio.id}`}
+                              className="text-blue-600 transition-colors hover:text-blue-900"
+                              title="Ver recordatorio"
+                            >
+                              <Eye size={18} />
+                            </Link>
+                            <Link
+                              href={`/admin/recordatorios/editar/${recordatorio.id}`}
+                              className="text-green-600 transition-colors hover:text-green-900"
+                              title="Editar recordatorio"
+                            >
+                              <Edit size={18} />
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(recordatorio.id, recordatorio.titulo)}
+                              className="text-red-600 transition-colors cursor-pointer hover:text-red-900"
+                              title="Eliminar recordatorio"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
 
-        {/* Footer con información IMSSE */}
-        <div className="p-6 mt-8 text-center bg-white rounded-lg shadow-md">
-          <div className="text-sm text-gray-600">
-            <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-            <p>Sistema de recordatorios y vencimientos para sistemas contra incendios</p>
-            <p className="mt-2">
-              <span className="font-medium">Certificaciones:</span> Notifier | Mircom | Inim | Secutron | Bosch
-            </p>
-            <p className="mt-2">
-              📧 info@imsseingenieria.com | 🌐 www.imsseingenieria.com | 📍 Córdoba, Argentina
+        {/* Información adicional */}
+        {filteredRecordatorios.length > 0 && (
+          <div className="mt-6 text-center text-gray-500">
+            <p className="text-sm">
+              Mostrando {filteredRecordatorios.length} de {recordatorios.length} recordatorios
             </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
