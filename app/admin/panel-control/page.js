@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  FilePlus, 
-  FileText, 
-  Home, 
-  BarChart3, 
-  DollarSign, 
-  FileCheck, 
-  Receipt, 
+import {
+  FilePlus,
+  FileText,
+  Home,
+  BarChart3,
+  DollarSign,
+  FileCheck,
+  Receipt,
   ScrollText,
   TrendingUp,
   Users,
@@ -37,8 +37,7 @@ export default function Dashboard() {
     recibos: 0,
     remitos: 0,
     estadosCuenta: 0,
-    ordenesMantenimiento: 0,
-    ordenesObra: 0,
+    ordenesTrabajo: 0,
     recordatorios: 0
   });
   const router = useRouter();
@@ -62,7 +61,7 @@ export default function Dashboard() {
       // Total de presupuestos
       const presupuestosRef = collection(db, 'presupuestos');
       const presupuestosSnapshot = await getDocs(presupuestosRef);
-      
+
       // Total de recibos
       const recibosRef = collection(db, 'recibos');
       const recibosSnapshot = await getDocs(recibosRef);
@@ -76,12 +75,8 @@ export default function Dashboard() {
       const estadosCuentaSnapshot = await getDocs(estadosCuentaRef);
 
       // Total de órdenes de mantenimiento
-      const ordenesMantenimientoRef = collection(db, 'ordenes_mantenimiento');
-      const ordenesMantenimientoSnapshot = await getDocs(ordenesMantenimientoRef);
-
-      // Total de órdenes de obra
-      const ordenesObraRef = collection(db, 'ordenes_obra');
-      const ordenesObraSnapshot = await getDocs(ordenesObraRef);
+      const ordenesTrabajoRef = collection(db, 'ordenes_trabajo');
+      const ordenesTrabajoSnapshot = await getDocs(ordenesTrabajoRef);
 
       // Total de recordatorios
       const recordatoriosRef = collection(db, 'recordatorios');
@@ -92,8 +87,7 @@ export default function Dashboard() {
         recibos: recibosSnapshot.size,
         remitos: remitosSnapshot.size,
         estadosCuenta: estadosCuentaSnapshot.size,
-        ordenesMantenimiento: ordenesMantenimientoSnapshot.size,
-        ordenesObra: ordenesObraSnapshot.size,
+        ordenesTrabajo: ordenesTrabajoSnapshot.size,
         recordatorios: recordatoriosSnapshot.size
       });
     } catch (error) {
@@ -129,6 +123,19 @@ export default function Dashboard() {
       }
     },
     {
+      id: 'estadosCuenta',
+      titulo: 'Estados de Cuenta',
+      icono: CreditCard,
+      color: 'bg-indigo-600',
+      colorHover: 'hover:bg-indigo-700',
+      descripcion: 'Resúmenes financieros',
+      total: totales.estadosCuenta,
+      rutas: {
+        nuevo: '/admin/estados-cuenta/nuevo',
+        historial: '/admin/estados-cuenta'
+      }
+    },
+    {
       id: 'recibos',
       titulo: 'Recibos',
       icono: Receipt,
@@ -154,43 +161,18 @@ export default function Dashboard() {
         historial: '/admin/remitos'
       }
     },
+
     {
-      id: 'estadosCuenta',
-      titulo: 'Estados de Cuenta',
-      icono: CreditCard,
-      color: 'bg-indigo-600',
-      colorHover: 'hover:bg-indigo-700',
-      descripcion: 'Resúmenes financieros',
-      total: totales.estadosCuenta,
-      rutas: {
-        nuevo: '/admin/estados-cuenta/nuevo',
-        historial: '/admin/estados-cuenta'
-      }
-    },
-    {
-      id: 'ordenesMantenimiento',
-      titulo: 'Mantenimiento',
-      icono: Wrench,
-      color: 'bg-orange-600',
-      colorHover: 'hover:bg-orange-700',
-      descripcion: 'Órdenes preventivas',
-      total: totales.ordenesMantenimiento,
-      rutas: {
-        nuevo: '/admin/mantenimiento/nuevo',
-        historial: '/admin/mantenimiento'
-      }
-    },
-    {
-      id: 'ordenesObra',
-      titulo: 'Órdenes Obra',
+      id: 'ordenes',
+      titulo: 'Órdenes de Trabajo',
       icono: Shield,
       color: 'bg-purple-600',
       colorHover: 'hover:bg-purple-700',
       descripcion: 'Instalaciones',
-      total: totales.ordenesObra,
+      total: totales.ordenesTrabajo,
       rutas: {
-        nuevo: '/admin/obras/nuevo',
-        historial: '/admin/obras'
+        nuevo: '/admin/ordenes/nuevo',
+        historial: '/admin/ordenes'
       }
     },
     {
@@ -219,11 +201,11 @@ export default function Dashboard() {
           Sistema de Gestión IMSSE Ingeniería S.A.S
         </p>
         <p className="text-sm text-gray-500">
-          {new Date().toLocaleDateString('es-AR', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
+          {new Date().toLocaleDateString('es-AR', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
           })}
         </p>
       </div>
@@ -234,8 +216,8 @@ export default function Dashboard() {
         <Settings size={20} className="mr-2 text-primary" />
         Módulos del Sistema
       </h3>
-      
-      <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-7">
+
+      <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-6">
         {modulos.map(modulo => {
           const Icono = modulo.icono;
           return (
@@ -279,6 +261,13 @@ export default function Dashboard() {
             <span className="text-xs font-medium text-gray-900 group-hover:text-red-700">Nuevo Presupuesto</span>
           </Link>
           <Link
+            href="/admin/estados-cuenta/nuevo"
+            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md group"
+          >
+            <CreditCard size={20} className="mb-2 text-indigo-600 transition-transform group-hover:scale-110" />
+            <span className="text-xs font-medium text-gray-900 group-hover:text-indigo-700">Nuevo Estado Cuenta</span>
+          </Link>
+          <Link
             href="/admin/recibos/nuevo"
             className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 hover:shadow-md group"
           >
@@ -293,25 +282,18 @@ export default function Dashboard() {
             <span className="text-xs font-medium text-gray-900 group-hover:text-blue-700">Nuevo Remito</span>
           </Link>
           <Link
-            href="/admin/estados-cuenta/nuevo"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md group"
-          >
-            <CreditCard size={20} className="mb-2 text-indigo-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-indigo-700">Nuevo Estado Cuenta</span>
-          </Link>
-          <Link
-            href="/admin/mantenimiento/nuevo"
+            href="/admin/orden/nuevo"
             className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-orange-50 hover:border-orange-300 hover:shadow-md group"
           >
-            <Wrench size={20} className="mb-2 text-orange-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-orange-700">Orden Mantenimiento</span>
+            <Shield size={20} className="mb-2 text-orange-600 transition-transform group-hover:scale-110" />
+            <span className="text-xs font-medium text-gray-900 group-hover:text-orange-700">Nueva Orden de Trabajo</span>
           </Link>
           <Link
-            href="/"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 hover:shadow-md group"
+            href="/admin/recordatorio/nuevo"
+            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-yellow-50 hover:border-yellow-300 hover:shadow-md group"
           >
-            <Home size={20} className="mb-2 text-gray-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900">Sitio Web</span>
+            <Bell size={20} className="mb-2 text-yellow-600 transition-transform group-hover:scale-110" />
+            <span className="text-xs font-medium text-gray-900 group-hover:text-yellow-700">Nuevo Recordatorio</span>
           </Link>
         </div>
       </div>

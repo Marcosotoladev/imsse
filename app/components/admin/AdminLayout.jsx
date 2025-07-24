@@ -10,6 +10,8 @@ import {
   Menu, 
   X,
   FileText,
+  FileChartColumn,
+  CreditCard,
   Receipt,
   FileCheck,
   Wrench,
@@ -79,11 +81,8 @@ export default function AdminLayout({ children }) {
         case 'remitos':
           displayName = 'Remitos';
           break;
-        case 'mantenimiento':
-          displayName = 'Mantenimiento';
-          break;
-        case 'obras':
-          displayName = 'Obras';
+        case 'ordenes':
+          displayName = 'Ordenes';
           break;
         case 'recordatorios':
           displayName = 'Recordatorios';
@@ -121,6 +120,11 @@ export default function AdminLayout({ children }) {
       icon: FileText
     },
     {
+      name: 'Estados de Cuentas',
+      path: '/admin/estados-cuenta',
+      icon: CreditCard
+    },
+    {
       name: 'Recibos',
       path: '/admin/recibos',
       icon: Receipt
@@ -131,13 +135,8 @@ export default function AdminLayout({ children }) {
       icon: FileCheck
     },
     {
-      name: 'Mantenimiento',
-      path: '/admin/mantenimiento',
-      icon: Wrench
-    },
-    {
-      name: 'Obras',
-      path: '/admin/obras',
+      name: 'Ordenes de Trabajo',
+      path: '/admin/ordenes',
       icon: Shield
     },
     {
@@ -160,15 +159,37 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="min-h-screen pt-20 bg-gray-50"> {/* Espacio para navbar principal */}
-      {/* Header eliminado - cada página maneja el suyo */}
-
-      {/* Breadcrumb eliminado - cada página maneja el suyo */}
+      
+      {/* Botón hamburguesa para móvil - AGREGADO */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed z-40 p-2 transition-colors bg-white rounded-lg shadow-lg top-18 left-1 lg:hidden hover:bg-gray-50"
+        aria-label="Abrir menú"
+      >
+        {sidebarOpen ? (
+          <X size={24} className="text-gray-600" />
+        ) : (
+          <Menu size={24} className="text-gray-600" />
+        )}
+      </button>
 
       <div className="flex">
         {/* Sidebar */}
         <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:block mt-20`}>
+          
+          {/* Header del sidebar en móvil */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 lg:hidden">
+            <h2 className="text-lg font-semibold text-gray-800">IMSSE Admin</h2>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-1 text-gray-500 hover:text-gray-700"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
           <nav className="p-4 space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -197,10 +218,20 @@ export default function AdminLayout({ children }) {
             <Link
               href="/"
               className="flex items-center px-4 py-2 text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+              onClick={() => setSidebarOpen(false)}
             >
               <Home size={20} className="mr-3" />
               Sitio Web IMSSE
             </Link>
+            
+            {/* Botón de logout en móvil */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center w-full px-4 py-2 mt-2 text-red-600 transition-colors rounded-lg hover:bg-red-50 lg:hidden"
+            >
+              <LogOut size={20} className="mr-3" />
+              Cerrar Sesión
+            </button>
           </div>
         </aside>
 

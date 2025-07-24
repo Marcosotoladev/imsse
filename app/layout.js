@@ -4,7 +4,7 @@ import Footer from './components/layout/Footer';
 import WhatsAppBadge from './components/ui/WhatsAppBadge';
 
 export const metadata = {
-  title: 'IMSSE Ingeniería SAS - Sistemas de Seguridad Contra Incendios',
+  title: 'IMSSE',
   description: 'Instalación y mantenimiento de sistemas de seguridad electrónicos contra incendios. Detección, supresión, alarmas y rociadores automáticos.',
   keywords: 'sistemas contra incendios, detección de incendios, supresión de incendios, alarmas contra incendio, rociadores automáticos, seguridad industrial',
   author: 'IMSSE Ingeniería SAS',
