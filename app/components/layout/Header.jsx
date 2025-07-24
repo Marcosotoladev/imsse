@@ -1,10 +1,10 @@
-// components/layout/Header.js - Con estado de autenticación IMSSE
+// components/layout/Header.js - Con estado de autenticación IMSSE y navegación mejorada
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Menu, X, Home, Shield, Wrench, Users, MessageSquare, ChevronDown, Flame, Eye, Zap, LogIn, LogOut } from 'lucide-react';
+import { Menu, X, Home, Shield, Wrench, Users, MessageSquare, ChevronDown, Flame, Eye, Zap, LogIn, LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
@@ -133,7 +133,7 @@ const Header = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="items-center hidden space-x-1 md:flex">
+          <nav className="items-center hidden space-x-1 lg:flex">
             <Link
               href="/"
               className={`group relative px-3 py-2 rounded-md transition-all duration-200 ${scrolled ? 'text-gray-700 hover:text-primary' : 'text-white hover:text-white'}`}
@@ -198,47 +198,50 @@ const Header = () => {
 
             <Link
               href="/contacto"
-              className={`bg-gradient-imsse hover:bg-primary text-white px-4 py-2 rounded-md transition-all duration-300 flex items-center ml-2 shadow-lg hover:shadow-fire transform hover:scale-105 ${scrolled ? 'shadow-md' : ''}`}
+              className={`group relative px-3 py-2 rounded-md transition-all duration-200 ${scrolled ? 'text-gray-700 hover:text-primary' : 'text-white hover:text-white'}`}
             >
-              <MessageSquare size={16} className="mr-1" />
-              <span>Contacto</span>
+              <span className="flex items-center">
+                <MessageSquare size={16} className="mr-1 transition-transform group-hover:scale-110" />
+                <span>Contacto</span>
+              </span>
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
             </Link>
 
-            {/* Botón dinámico de Ingresar/Salir */}
+            {/* Separador visual */}
+            <div className={`h-6 w-px mx-2 ${scrolled ? 'bg-gray-300' : 'bg-white/30'}`}></div>
+
+            {/* Botón de Cuenta */}
             {!authLoading && (
-              user ? (
-                // Usuario logueado - Mostrar botón Salir
-                <button
-                  onClick={handleLogout}
-                  className={`border-2 border-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-md transition-all duration-300 flex items-center ml-2 transform hover:scale-105 ${
-                    scrolled 
-                      ? 'text-red-500 bg-white shadow-md' 
-                      : 'text-white bg-red-500/20 backdrop-blur-sm'
-                  }`}
-                >
-                  <LogOut size={16} className="mr-1" />
+              <Link
+                href={user ? "/admin/panel-control" : "/admin"}
+                className={`group relative px-3 py-2 rounded-md transition-all duration-200 ${scrolled ? 'text-gray-700 hover:text-primary' : 'text-white hover:text-white'}`}
+              >
+                <span className="flex items-center">
+                  <User size={16} className="mr-1 transition-transform group-hover:scale-110" />
+                  <span>Cuenta</span>
+                </span>
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
+              </Link>
+            )}
+
+            {/* Botón dinámico de Ingresar/Salir */}
+            {!authLoading && user && (
+              <button
+                onClick={handleLogout}
+                className={`group relative px-3 py-2 rounded-md transition-all duration-200 ${scrolled ? 'text-red-600 hover:text-red-700' : 'text-red-300 hover:text-red-200'}`}
+              >
+                <span className="flex items-center">
+                  <LogOut size={16} className="mr-1 transition-transform group-hover:scale-110" />
                   <span>Salir</span>
-                </button>
-              ) : (
-                // Usuario no logueado - Mostrar botón Ingresar
-                <Link
-                  href="/admin"
-                  className={`border-2 border-primary hover:bg-primary hover:text-white px-4 py-2 rounded-md transition-all duration-300 flex items-center ml-2 transform hover:scale-105 ${
-                    scrolled 
-                      ? 'text-primary bg-white shadow-md' 
-                      : 'text-white bg-white/10 backdrop-blur-sm'
-                  }`}
-                >
-                  <LogIn size={16} className="mr-1" />
-                  <span>Ingresar</span>
-                </Link>
-              )
+                </span>
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-500 transition-all duration-300 group-hover:w-full"></span>
+              </button>
             )}
           </nav>
 
           {/* Mobile menu button */}
           <button
-            className={`md:hidden p-2 rounded-md ${scrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
+            className={`lg:hidden p-2 rounded-md ${scrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -247,7 +250,7 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <nav className="md:hidden mt-4 py-3 bg-white shadow-lg rounded-lg max-h-[70vh] overflow-y-auto">
+          <nav className="lg:hidden mt-4 py-3 bg-white shadow-lg rounded-lg max-h-[70vh] overflow-y-auto">
             <Link
               href="/"
               className="flex items-center px-4 py-3 text-gray-700 transition-colors rounded-md hover:bg-primary hover:text-white"
@@ -331,38 +334,40 @@ const Header = () => {
 
             <Link
               href="/contacto"
-              className="flex items-center px-4 py-3 mx-4 mt-2 text-white transition-colors rounded-md bg-gradient-imsse hover:bg-primary"
+              className="flex items-center px-4 py-3 text-gray-700 transition-colors rounded-md hover:bg-primary hover:text-white"
               onClick={() => setIsMenuOpen(false)}
             >
               <MessageSquare size={18} className="mr-2" />
               <span>Contacto</span>
             </Link>
 
-            {/* Botón dinámico de Ingresar/Salir para móvil */}
+            {/* Separador en móvil */}
+            <hr className="mx-4 my-3 border-gray-200" />
+
+            {/* Botón de Cuenta para móvil */}
             {!authLoading && (
-              user ? (
-                // Usuario logueado - Mostrar botón Salir
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setIsMenuOpen(false);
-                  }}
-                  className="flex items-center w-full px-4 py-3 mx-4 mt-2 text-red-500 transition-colors border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"
-                >
-                  <LogOut size={18} className="mr-2" />
-                  <span>Salir del Sistema</span>
-                </button>
-              ) : (
-                // Usuario no logueado - Mostrar botón Ingresar
-                <Link
-                  href="/admin"
-                  className="flex items-center px-4 py-3 mx-4 mt-2 transition-colors border-2 rounded-md text-primary border-primary hover:bg-primary hover:text-white"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <LogIn size={18} className="mr-2" />
-                  <span>Ingresar al Sistema</span>
-                </Link>
-              )
+              <Link
+                href={user ? "/admin/panel-control" : "/admin"}
+                className="flex items-center px-4 py-3 text-gray-700 transition-colors rounded-md hover:bg-blue-50 hover:text-primary"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <User size={18} className="mr-2" />
+                <span>{user ? "Panel de Control" : "Iniciar Sesión"}</span>
+              </Link>
+            )}
+
+            {/* Botón dinámico de Salir para móvil (solo si está logueado) */}
+            {!authLoading && user && (
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setIsMenuOpen(false);
+                }}
+                className="flex items-center w-full px-4 py-3 text-red-600 transition-colors rounded-md hover:bg-red-50 hover:text-red-700"
+              >
+                <LogOut size={18} className="mr-2" />
+                <span>Cerrar Sesión</span>
+              </button>
             )}
           </nav>
         )}

@@ -166,7 +166,8 @@ const styles = StyleSheet.create({
   signatureSection: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 30,
+    marginTop: 40,
+    marginBottom: 30,
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb'
@@ -296,49 +297,52 @@ const OrdenTrabajoPDF = ({ orden }) => {
           <Text style={styles.ordenNumber}>N° {safeOrden.numero || ''}</Text>
         </View>
 
-        {/* Información básica */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información Básica</Text>
-          <View style={styles.field}>
-            <Text style={styles.label}>Fecha:</Text>
-            <Text style={styles.value}>{formatDate(safeOrden.fechaTrabajo)}</Text>
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Horario:</Text>
-            <Text style={styles.value}>
-              {formatTime(safeOrden.horarioInicio)} - {formatTime(safeOrden.horarioFin)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Datos del cliente */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Datos del Cliente</Text>
-          <View style={styles.field}>
-            <Text style={styles.label}>Empresa:</Text>
-            <Text style={styles.value}>{safeCliente.empresa || ''}</Text>
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Contacto:</Text>
-            <Text style={styles.value}>{safeCliente.nombre || ''}</Text>
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Teléfono:</Text>
-            <Text style={styles.value}>{safeCliente.telefono || ''}</Text>
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Dirección:</Text>
-            <Text style={styles.value}>{safeCliente.direccion || ''}</Text>
-          </View>
-          {safeCliente.solicitadoPor && (
+        {/* Información básica y cliente en fila horizontal */}
+        <View style={{ flexDirection: 'row', marginBottom: 15 }}>
+          {/* Información básica - lado izquierdo */}
+          <View style={[styles.section, { flex: 1, marginRight: 10 }]}>
+            <Text style={styles.sectionTitle}>Información Básica</Text>
             <View style={styles.field}>
-              <Text style={styles.label}>Solicitado por:</Text>
-              <Text style={styles.value}>{safeCliente.solicitadoPor}</Text>
+              <Text style={styles.label}>Fecha:</Text>
+              <Text style={styles.value}>{formatDate(safeOrden.fechaTrabajo)}</Text>
             </View>
-          )}
+            <View style={styles.field}>
+              <Text style={styles.label}>Horario:</Text>
+              <Text style={styles.value}>
+                {formatTime(safeOrden.horarioInicio)} - {formatTime(safeOrden.horarioFin)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Datos del cliente - lado derecho */}
+          <View style={[styles.section, { flex: 1, marginLeft: 10 }]}>
+            <Text style={styles.sectionTitle}>Datos del Cliente</Text>
+            <View style={styles.field}>
+              <Text style={styles.label}>Empresa:</Text>
+              <Text style={styles.value}>{safeCliente.empresa || ''}</Text>
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Contacto:</Text>
+              <Text style={styles.value}>{safeCliente.nombre || ''}</Text>
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Teléfono:</Text>
+              <Text style={styles.value}>{safeCliente.telefono || ''}</Text>
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Dirección:</Text>
+              <Text style={styles.value}>{safeCliente.direccion || ''}</Text>
+            </View>
+            {safeCliente.solicitadoPor && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Solicitado por:</Text>
+                <Text style={styles.value}>{safeCliente.solicitadoPor}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Técnicos */}
+        {/* Técnicos - debajo, ancho completo */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Técnicos Asignados</Text>
           <View style={styles.tecnicos}>
@@ -377,32 +381,34 @@ const OrdenTrabajoPDF = ({ orden }) => {
           </View>
         )}
 
-        {/* Sección de firmas */}
-        <View style={styles.signatureSection}>
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureTitle}>TÉCNICO RESPONSABLE</Text>
-            {safeFirmas.tecnico?.firma && (
-              <Image src={safeFirmas.tecnico.firma} style={styles.signatureImage} />
-            )}
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureLabel}>FIRMA</Text>
-            {safeFirmas.tecnico?.aclaracion && (
-              <Text style={styles.aclaracionText}>{safeFirmas.tecnico.aclaracion}</Text>
-            )}
-          </View>
+        {/* Sección de firmas - movida al final */}
+        {(safeFirmas.tecnico?.firma || safeFirmas.cliente?.firma) && (
+          <View style={styles.signatureSection}>
+            <View style={styles.signatureBox}>
+              <Text style={styles.signatureTitle}>TÉCNICO RESPONSABLE</Text>
+              {safeFirmas.tecnico?.firma && (
+                <Image src={safeFirmas.tecnico.firma} style={styles.signatureImage} />
+              )}
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureLabel}>FIRMA</Text>
+              {safeFirmas.tecnico?.aclaracion && (
+                <Text style={styles.aclaracionText}>{safeFirmas.tecnico.aclaracion}</Text>
+              )}
+            </View>
 
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureTitle}>CONFORME CLIENTE</Text>
-            {safeFirmas.cliente?.firma && (
-              <Image src={safeFirmas.cliente.firma} style={styles.signatureImage} />
-            )}
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureLabel}>FIRMA Y ACLARACIÓN</Text>
-            {safeFirmas.cliente?.aclaracion && (
-              <Text style={styles.aclaracionText}>{safeFirmas.cliente.aclaracion}</Text>
-            )}
+            <View style={styles.signatureBox}>
+              <Text style={styles.signatureTitle}>CONFORME CLIENTE</Text>
+              {safeFirmas.cliente?.firma && (
+                <Image src={safeFirmas.cliente.firma} style={styles.signatureImage} />
+              )}
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureLabel}>FIRMA Y ACLARACIÓN</Text>
+              {safeFirmas.cliente?.aclaracion && (
+                <Text style={styles.aclaracionText}>{safeFirmas.cliente.aclaracion}</Text>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Pie de página IMSSE */}
         <View style={styles.footer}>

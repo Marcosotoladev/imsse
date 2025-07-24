@@ -35,6 +35,13 @@ export default function VerOrdenTrabajo({ params }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [orden, setOrden] = useState(null);
+  
+  // Estado para el modal de fotos
+  const [modalFoto, setModalFoto] = useState({
+    isOpen: false,
+    fotoActual: null,
+    indiceActual: 0
+  });
 
   // Función para formatear fechas
   const formatDate = (dateString) => {
@@ -123,6 +130,59 @@ export default function VerOrdenTrabajo({ params }) {
       alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
     }
   };
+
+  // Funciones para el modal de fotos
+  const abrirModalFoto = (foto, indice) => {
+    setModalFoto({
+      isOpen: true,
+      fotoActual: foto,
+      indiceActual: indice
+    });
+  };
+
+  const cerrarModalFoto = () => {
+    setModalFoto({
+      isOpen: false,
+      fotoActual: null,
+      indiceActual: 0
+    });
+  };
+
+  const siguienteFoto = () => {
+    const siguienteIndice = (modalFoto.indiceActual + 1) % orden.fotos.length;
+    setModalFoto({
+      ...modalFoto,
+      fotoActual: orden.fotos[siguienteIndice],
+      indiceActual: siguienteIndice
+    });
+  };
+
+  const anteriorFoto = () => {
+    const anteriorIndice = modalFoto.indiceActual === 0 ? orden.fotos.length - 1 : modalFoto.indiceActual - 1;
+    setModalFoto({
+      ...modalFoto,
+      fotoActual: orden.fotos[anteriorIndice],
+      indiceActual: anteriorIndice
+    });
+  };
+
+  // Manejar teclas de navegación
+  useEffect(() => {
+    const manejarTeclas = (e) => {
+      if (!modalFoto.isOpen) return;
+      
+      if (e.key === 'Escape') {
+        cerrarModalFoto();
+      } else if (e.key === 'ArrowLeft') {
+        anteriorFoto();
+      } else if (e.key === 'ArrowRight') {
+        siguienteFoto();
+      }
+    };
+
+    document.addEventListener('keydown', manejarTeclas);
+    return () => document.removeEventListener('keydown', manejarTeclas);
+  }, [modalFoto.isOpen, modalFoto.indiceActual]);
 
   if (loading) {
     return (
@@ -383,14 +443,17 @@ export default function VerOrdenTrabajo({ params }) {
                   </h3>
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     {orden.fotos.map((foto, index) => (
-                      <div key={foto.id || index} className="relative group">
+                      <div 
+                        key={foto.id || index} 
+                        className="relative cursor-pointer group"
+                        onClick={() => abrirModalFoto(foto, index)}
+                      >
                         <img
                           src={foto.url}
                           alt={foto.nombre || `Foto ${index + 1}`}
-                          className="object-cover w-full h-48 transition-shadow border border-gray-200 rounded-md cursor-pointer hover:shadow-lg"
-                          onClick={() => window.open(foto.url, '_blank')}
+                          className="object-cover w-full h-48 transition-shadow border border-gray-200 rounded-md hover:shadow-lg"
                         />
-                        <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 rounded-md opacity-0 group-hover:opacity-100">
+                        <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 rounded-md opacity-0 pointer-events-none group-hover:opacity-100">
                           <Camera size={32} className="text-white" />
                         </div>
                         <p className="mt-2 text-sm text-center text-gray-600 truncate">
@@ -509,6 +572,81 @@ export default function VerOrdenTrabajo({ params }) {
           </div>
         </div>
       </div>
+
+      {/* Modal de foto en pantalla completa */}
+      {modalFoto.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
+          <div className="relative flex items-center justify-center w-full h-full">
+            
+            {/* Botón cerrar */}
+            <button
+              onClick={cerrarModalFoto}
+              className="absolute z-10 p-2 text-white transition-all bg-black bg-opacity-50 rounded-full top-4 right-4 hover:bg-opacity-70"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Navegación anterior */}
+            {orden.fotos.length > 1 && (
+              <button
+                onClick={anteriorFoto}
+                className="absolute z-10 p-3 text-white transition-all transform -translate-y-1/2 bg-black bg-opacity-50 rounded-full left-4 top-1/2 hover:bg-opacity-70"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Navegación siguiente */}
+            {orden.fotos.length > 1 && (
+              <button
+                onClick={siguienteFoto}
+                className="absolute z-10 p-3 text-white transition-all transform -translate-y-1/2 bg-black bg-opacity-50 rounded-full right-4 top-1/2 hover:bg-opacity-70"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                </button>
+            )}
+
+            {/* Imagen principal */}
+            <div className="max-w-full max-h-full p-4">
+              <img
+                src={modalFoto.fotoActual?.url}
+                alt={modalFoto.fotoActual?.nombre || 'Foto del trabajo'}
+                className="object-contain max-w-full max-h-full rounded-lg shadow-2xl"
+                onClick={cerrarModalFoto}
+              />
+            </div>
+
+            {/* Información de la foto */}
+            <div className="absolute px-4 py-2 text-white transform -translate-x-1/2 bg-black rounded-lg bottom-4 left-1/2 bg-opacity-70">
+              <div className="text-center">
+                <div className="text-sm font-medium">
+                  {modalFoto.fotoActual?.nombre || `Foto ${modalFoto.indiceActual + 1}`}
+                </div>
+                {orden.fotos.length > 1 && (
+                  <div className="mt-1 text-xs text-gray-300">
+                    {modalFoto.indiceActual + 1} de {orden.fotos.length}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Indicadores de navegación por teclado */}
+            <div className="absolute px-3 py-2 text-xs text-white bg-black rounded-lg top-4 left-4 bg-opacity-70">
+              <div>ESC: Cerrar</div>
+              {orden.fotos.length > 1 && (
+                <div>← → : Navegar</div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
