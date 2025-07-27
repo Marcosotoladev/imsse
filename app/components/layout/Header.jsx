@@ -118,8 +118,8 @@ const Header = () => {
                 <Image 
                   src={'/logo/imsse-logo.png'} 
                   alt="IMSSE Logo" 
-                  width={40} 
-                  height={40}
+                  width={60} 
+                  height={60}
                   className="transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
@@ -131,7 +131,7 @@ const Header = () => {
                   INGENIERÍA SAS
                 </span>
                 <span className={`block text-xs ${scrolled ? 'text-gray-600' : 'text-gray-200'} font-sans drop-shadow-lg`}>
-                  Sistemas de Seguridad Contra Incendios
+                  Sistemas de Seguridad Electrónicos
                 </span>
               </div>
             </div>
