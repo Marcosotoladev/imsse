@@ -279,6 +279,9 @@ class ApiService {
     return await this.makeRequest('/api/statistics/cliente');
   }
 
+  async obtenerEstadisticasUsuarios() {
+  return await this.makeRequest('/api/statistics/usuarios');
+}
   // ========== FILTROS POR ROL ==========
   
   // Para técnicos - órdenes asignadas

@@ -1,18 +1,18 @@
-// app/admin/usuarios/page.jsx - Gestión de Usuarios IMSSE
+// app/admin/usuarios/page.jsx - Gestión de Usuarios IMSSE con Modal
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
-  Users, 
-  Shield, 
-  UserCheck, 
-  UserX, 
-  Clock, 
-  Building, 
+import {
+  Home,
+  LogOut,
+  Users,
+  Shield,
+  UserCheck,
+  UserX,
+  Clock,
+  Building,
   Calendar,
   Search,
   MoreVertical,
@@ -20,13 +20,7 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
-import { 
-  obtenerTodosLosUsuarios, 
-  actualizarRolUsuario,
-  actualizarEstadoUsuario,
-  obtenerPerfilUsuario,
-  obtenerEstadisticasUsuarios
-} from '../../lib/firestore';
+import apiService from '../../lib/services/apiService';
 
 export default function GestionUsuarios() {
   const router = useRouter();
@@ -43,17 +37,21 @@ export default function GestionUsuarios() {
   });
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [procesando, setProcesando] = useState(false);
+  
+  // Estados para el modal
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         try {
-          const perfil = await obtenerPerfilUsuario(currentUser.uid);
+          const perfil = await apiService.obtenerPerfilUsuario(currentUser.uid);
           if (perfil.rol !== 'admin') {
             router.push('/admin');
             return;
           }
-          
+
           setUser(currentUser);
           await cargarDatos();
         } catch (error) {
@@ -71,14 +69,25 @@ export default function GestionUsuarios() {
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      const [usuariosData, estadisticasData] = await Promise.all([
-        obtenerTodosLosUsuarios(),
-        obtenerEstadisticasUsuarios()
-      ]);
+      const usuariosData = await apiService.obtenerUsuarios();
       
-      setUsuarios(usuariosData);
-      setUsuariosFiltrados(usuariosData);
-      setEstadisticas(estadisticasData);
+      // La estructura correcta es usuariosData.users
+      const usuarios = usuariosData.users || [];
+      
+      // Calcular estadísticas
+      const estadisticas = {
+        total: usuarios.length,
+        admins: usuarios.filter(u => u.rol === 'admin').length,
+        tecnicos: usuarios.filter(u => u.rol === 'tecnico').length,
+        clientes: usuarios.filter(u => u.rol === 'cliente').length,
+        activos: usuarios.filter(u => u.estado === 'activo').length,
+        pendientes: usuarios.filter(u => u.estado === 'pendiente').length,
+        inactivos: usuarios.filter(u => u.estado === 'inactivo').length
+      };
+      
+      setUsuarios(usuarios);
+      setUsuariosFiltrados(usuarios);
+      setEstadisticas(estadisticas);
     } catch (error) {
       console.error('Error al cargar datos de usuarios:', error);
     } finally {
@@ -91,7 +100,7 @@ export default function GestionUsuarios() {
 
     if (filtros.busqueda) {
       const busqueda = filtros.busqueda.toLowerCase();
-      resultado = resultado.filter(usuario => 
+      resultado = resultado.filter(usuario =>
         usuario.nombreCompleto?.toLowerCase().includes(busqueda) ||
         usuario.email?.toLowerCase().includes(busqueda) ||
         usuario.empresa?.toLowerCase().includes(busqueda)
@@ -126,15 +135,29 @@ export default function GestionUsuarios() {
     }
   };
 
-  const handleCambiarRol = async (uid, nuevoRol) => {
-    if (!confirm(`¿Cambiar rol a "${nuevoRol}"?`)) return;
+  // Funciones para el modal
+  const abrirModal = (usuario) => {
+    setUsuarioSeleccionado(usuario);
+    setModalAbierto(true);
+    setUsuarioEditando(null); // Cerrar dropdown si estaba abierto
+  };
+
+  const cerrarModal = () => {
+    setModalAbierto(false);
+    setUsuarioSeleccionado(null);
+  };
+
+  const handleCambiarRolModal = async (nuevoRol) => {
+    if (!usuarioSeleccionado) return;
+    
+    if (!confirm(`¿Cambiar rol de "${usuarioSeleccionado.nombreCompleto || usuarioSeleccionado.email}" a "${nuevoRol}"?`)) return;
     
     setProcesando(true);
     try {
-      await actualizarRolUsuario(uid, nuevoRol);
+      await apiService.actualizarUsuario(usuarioSeleccionado.id, { rol: nuevoRol });
       await cargarDatos();
       alert(`✅ Rol actualizado a "${nuevoRol}"`);
-      setUsuarioEditando(null);
+      cerrarModal();
     } catch (error) {
       console.error('Error al cambiar rol:', error);
       alert('❌ Error al cambiar el rol');
@@ -143,21 +166,23 @@ export default function GestionUsuarios() {
     }
   };
 
-  const handleCambiarEstado = async (uid, nuevoEstado) => {
+  const handleCambiarEstadoModal = async (nuevoEstado) => {
+    if (!usuarioSeleccionado) return;
+    
     const mensajes = {
       activo: '¿Activar este usuario?',
       inactivo: '¿Desactivar este usuario?',
       pendiente: '¿Marcar como pendiente?'
     };
     
-    if (!confirm(mensajes[nuevoEstado])) return;
+    if (!confirm(`${mensajes[nuevoEstado]} Usuario: ${usuarioSeleccionado.nombreCompleto || usuarioSeleccionado.email}`)) return;
     
     setProcesando(true);
     try {
-      await actualizarEstadoUsuario(uid, nuevoEstado);
+      await apiService.actualizarUsuario(usuarioSeleccionado.id, { estado: nuevoEstado });
       await cargarDatos();
       alert(`✅ Estado actualizado a "${nuevoEstado}"`);
-      setUsuarioEditando(null);
+      cerrarModal();
     } catch (error) {
       console.error('Error al cambiar estado:', error);
       alert('❌ Error al cambiar el estado');
@@ -171,7 +196,7 @@ export default function GestionUsuarios() {
     const fecha = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return fecha.toLocaleDateString('es-AR', {
       day: '2-digit',
-      month: '2-digit', 
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -195,7 +220,7 @@ export default function GestionUsuarios() {
         email: 'bg-blue-100 text-blue-800'
       }
     };
-    
+
     return colores[tipo]?.[valor] || 'bg-gray-100 text-gray-800';
   };
 
@@ -217,9 +242,9 @@ export default function GestionUsuarios() {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <img 
-                src="/logo/imsse-logo.png" 
-                alt="IMSSE Logo" 
+              <img
+                src="/logo/imsse-logo.png"
+                alt="IMSSE Logo"
                 className="w-6 h-6 mr-2 md:w-8 md:h-8 md:mr-3"
               />
               <h1 className="text-lg font-bold md:text-xl font-montserrat">IMSSE</h1>
@@ -284,7 +309,7 @@ export default function GestionUsuarios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white rounded-lg shadow">
               <div className="flex items-center">
                 <Shield className="w-8 h-8 text-red-600" />
@@ -294,7 +319,7 @@ export default function GestionUsuarios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white rounded-lg shadow">
               <div className="flex items-center">
                 <UserCheck className="w-8 h-8 text-blue-600" />
@@ -304,7 +329,7 @@ export default function GestionUsuarios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white rounded-lg shadow">
               <div className="flex items-center">
                 <Building className="w-8 h-8 text-green-600" />
@@ -314,7 +339,7 @@ export default function GestionUsuarios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white rounded-lg shadow">
               <div className="flex items-center">
                 <Clock className="w-8 h-8 text-yellow-600" />
@@ -324,7 +349,7 @@ export default function GestionUsuarios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white rounded-lg shadow">
               <div className="flex items-center">
                 <UserCheck className="w-8 h-8 text-green-600" />
@@ -353,7 +378,7 @@ export default function GestionUsuarios() {
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">Rol</label>
               <select
@@ -367,7 +392,7 @@ export default function GestionUsuarios() {
                 <option value="cliente">Clientes</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">Estado</label>
               <select
@@ -381,7 +406,7 @@ export default function GestionUsuarios() {
                 <option value="inactivo">Inactivos</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">Método</label>
               <select
@@ -394,7 +419,7 @@ export default function GestionUsuarios() {
                 <option value="email">Email</option>
               </select>
             </div>
-            
+
             <div className="flex items-end">
               <button
                 onClick={() => setFiltros({ busqueda: '', rol: 'todos', estado: 'todos', metodo: 'todos' })}
@@ -474,60 +499,20 @@ export default function GestionUsuarios() {
                       {formatearFecha(usuario.fechaCreacion)}
                     </td>
                     <td className="relative px-6 py-4">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setUsuarioEditando(usuarioEditando === usuario.id ? null : usuario.id)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                      </div>
-                      
-                      {usuarioEditando === usuario.id && (
-                        <div className="absolute right-0 z-10 w-48 mt-2 bg-white border border-gray-200 rounded-md shadow-lg">
-                          <div className="py-1">
-                            <div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">
-                              Cambiar rol
-                            </div>
-                            {['admin', 'tecnico', 'cliente'].map(rol => (
-                              <button
-                                key={rol}
-                                onClick={() => handleCambiarRol(usuario.id, rol)}
-                                disabled={procesando || usuario.rol === rol}
-                                className={`block w-full px-4 py-2 text-left text-sm hover:bg-gray-100 disabled:opacity-50 ${
-                                  usuario.rol === rol ? 'text-primary font-medium' : 'text-gray-700'
-                                }`}
-                              >
-                                {rol === usuario.rol ? '✓ ' : ''}{rol}
-                              </button>
-                            ))}
-                            
-                            <div className="border-t border-gray-100"></div>
-                            <div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">
-                              Cambiar estado
-                            </div>
-                            {['activo', 'pendiente', 'inactivo'].map(estado => (
-                              <button
-                                key={estado}
-                                onClick={() => handleCambiarEstado(usuario.id, estado)}
-                                disabled={procesando || usuario.estado === estado}
-                                className={`block w-full px-4 py-2 text-left text-sm hover:bg-gray-100 disabled:opacity-50 ${
-                                  usuario.estado === estado ? 'text-primary font-medium' : 'text-gray-700'
-                                }`}
-                              >
-                                {usuario.estado === estado ? '✓ ' : ''}{estado}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <button
+                        onClick={() => abrirModal(usuario)}
+                        className="p-2 text-gray-600 transition-colors rounded-md hover:bg-gray-100 hover:text-gray-900"
+                        title="Gestionar usuario"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          
+
           {usuariosFiltrados.length === 0 && (
             <div className="py-12 text-center">
               <Users className="w-12 h-12 mx-auto text-gray-400" />
@@ -552,7 +537,7 @@ export default function GestionUsuarios() {
                   Usuarios pendientes de aprobación
                 </h3>
                 <p className="text-sm text-yellow-700">
-                  Hay {estadisticas.pendientes} usuario(s) esperando aprobación. 
+                  Hay {estadisticas.pendientes} usuario(s) esperando aprobación.
                   Use los filtros para verlos y aprobarlos.
                 </p>
               </div>
@@ -579,6 +564,113 @@ export default function GestionUsuarios() {
           </div>
         </div>
       </div>
+
+      {/* Modal de gestión de usuarios */}
+      {modalAbierto && usuarioSeleccionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md mx-4 bg-white rounded-lg shadow-xl">
+            {/* Header del modal */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900">Gestionar Usuario</h3>
+                <button
+                  onClick={cerrarModal}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={procesando}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Información del usuario */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 w-12 h-12">
+                  <div className="flex items-center justify-center w-12 h-12 bg-gray-300 rounded-full">
+                    <span className="text-lg font-medium text-gray-700">
+                      {usuarioSeleccionado.nombreCompleto?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <div className="text-sm font-medium text-gray-900">
+                    {usuarioSeleccionado.nombreCompleto || 'Sin nombre'}
+                  </div>
+                  <div className="text-sm text-gray-500">{usuarioSeleccionado.email}</div>
+                  {usuarioSeleccionado.empresa && (
+                    <div className="text-xs text-gray-400">{usuarioSeleccionado.empresa}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Contenido del modal */}
+            <div className="px-6 py-4">
+              {/* Cambiar rol */}
+              <div className="mb-6">
+                <h4 className="mb-3 text-sm font-medium text-gray-700">Cambiar Rol</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {['admin', 'tecnico', 'cliente'].map(rol => (
+                    <button
+                      key={rol}
+                      onClick={() => handleCambiarRolModal(rol)}
+                      disabled={procesando || usuarioSeleccionado.rol === rol}
+                      className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                        usuarioSeleccionado.rol === rol
+                          ? 'bg-primary text-white cursor-default'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50'
+                      }`}
+                    >
+                      {usuarioSeleccionado.rol === rol ? '✓ ' : ''}{rol}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cambiar estado */}
+              <div className="mb-4">
+                <h4 className="mb-3 text-sm font-medium text-gray-700">Cambiar Estado</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'activo', label: 'Activo', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
+                    { key: 'pendiente', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' },
+                    { key: 'inactivo', label: 'Inactivo', color: 'bg-gray-100 text-gray-800 hover:bg-gray-200' }
+                  ].map(estado => (
+                    <button
+                      key={estado.key}
+                      onClick={() => handleCambiarEstadoModal(estado.key)}
+                      disabled={procesando || usuarioSeleccionado.estado === estado.key}
+                      className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                        usuarioSeleccionado.estado === estado.key
+                          ? 'bg-primary text-white cursor-default'
+                          : estado.color + ' disabled:opacity-50'
+                      }`}
+                    >
+                      {usuarioSeleccionado.estado === estado.key ? '✓ ' : ''}{estado.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer del modal */}
+            <div className="px-6 py-4 rounded-b-lg bg-gray-50">
+              <div className="flex justify-end">
+                <button
+                  onClick={cerrarModal}
+                  disabled={procesando}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {procesando ? 'Procesando...' : 'Cerrar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
