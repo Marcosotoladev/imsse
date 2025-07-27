@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  Home, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
+  Trash2,
+  Home,
   LogOut,
   Bell,
   Clock,
@@ -23,8 +23,8 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
+import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
 export default function ListaRecordatorios() {
   const [user, setUser] = useState(null);
@@ -51,37 +51,36 @@ export default function ListaRecordatorios() {
     return () => unsubscribe();
   }, [router]);
 
+  // ❌ REEMPLAZAR todo el contenido de la función:
   const cargarRecordatorios = async () => {
     try {
-      const recordatoriosRef = collection(db, 'recordatorios');
-      const querySnapshot = await getDocs(recordatoriosRef);
-      
-      const recordatoriosData = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        
-        // Calcular estado automáticamente
-        const fechaVencimiento = new Date(data.fechaVencimiento);
+      // ✅ NUEVO CÓDIGO:
+      const response = await apiService.obtenerRecordatorios();
+      const recordatoriosData = response.documents || response || [];
+
+      // Procesar datos (calcular estado automáticamente)
+      const recordatoriosProcesados = recordatoriosData.map(recordatorio => {
+        const fechaVencimiento = new Date(recordatorio.fechaVencimiento);
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
         fechaVencimiento.setHours(0, 0, 0, 0);
-        
-        let estadoCalculado = data.estado;
-        if (data.estado === 'pendiente' && fechaVencimiento < hoy) {
+
+        let estadoCalculado = recordatorio.estado;
+        if (recordatorio.estado === 'pendiente' && fechaVencimiento < hoy) {
           estadoCalculado = 'vencido';
         }
-        
+
         return {
-          id: doc.id,
-          ...data,
+          ...recordatorio,
           estadoCalculado
         };
       });
 
       // Ordenar por fecha de vencimiento por defecto
-      recordatoriosData.sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
-      
-      setRecordatorios(recordatoriosData);
-      setFilteredRecordatorios(recordatoriosData);
+      recordatoriosProcesados.sort((a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+
+      setRecordatorios(recordatoriosProcesados);
+      setFilteredRecordatorios(recordatoriosProcesados);
     } catch (error) {
       console.error('Error al cargar recordatorios IMSSE:', error);
       alert('Error al cargar los recordatorios. Inténtelo de nuevo más tarde.');
@@ -100,7 +99,7 @@ export default function ListaRecordatorios() {
   const handleDelete = async (id, titulo) => {
     if (confirm(`¿Está seguro de que desea eliminar el recordatorio "${titulo}"?`)) {
       try {
-        await deleteDoc(doc(db, 'recordatorios', id));
+        await apiService.eliminarRecordatorio(id);
         alert('Recordatorio eliminado exitosamente.');
         await cargarRecordatorios();
       } catch (error) {
@@ -110,19 +109,21 @@ export default function ListaRecordatorios() {
     }
   };
 
-  const handleToggleCompletado = async (id, estadoActual) => {
-    try {
-      const nuevoEstado = estadoActual === 'completado' ? 'pendiente' : 'completado';
-      await updateDoc(doc(db, 'recordatorios', id), {
-        estado: nuevoEstado,
-        fechaCompletado: nuevoEstado === 'completado' ? new Date().toISOString() : null
-      });
-      await cargarRecordatorios();
-    } catch (error) {
-      console.error('Error al actualizar estado:', error);
-      alert('Error al actualizar el estado del recordatorio.');
-    }
-  };
+const handleToggleCompletado = async (id, estadoActual) => {
+  try {
+    const nuevoEstado = estadoActual === 'completado' ? 'pendiente' : 'completado';
+    const datosActualizacion = {
+      estado: nuevoEstado,
+      fechaCompletado: nuevoEstado === 'completado' ? new Date().toISOString() : null
+    };
+    
+    await apiService.actualizarRecordatorio(id, datosActualizacion);
+    await cargarRecordatorios();
+  } catch (error) {
+    console.error('Error al actualizar estado:', error);
+    alert('Error al actualizar el estado del recordatorio.');
+  }
+};
 
   // Filtros y búsqueda
   useEffect(() => {
@@ -163,25 +164,25 @@ export default function ListaRecordatorios() {
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    
+
     try {
       const date = new Date(dateString);
       const today = new Date();
       const diffTime = date - today;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       const formatted = date.toLocaleDateString('es-AR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
-      
+
       if (diffDays === 0) return `${formatted} (Hoy)`;
       if (diffDays === 1) return `${formatted} (Mañana)`;
       if (diffDays === -1) return `${formatted} (Ayer)`;
       if (diffDays < 0) return `${formatted} (${Math.abs(diffDays)} días atrás)`;
       if (diffDays <= 7) return `${formatted} (En ${diffDays} días)`;
-      
+
       return formatted;
     } catch (e) {
       return dateString;
@@ -235,7 +236,7 @@ export default function ListaRecordatorios() {
     const vencidos = recordatorios.filter(r => r.estadoCalculado === 'vencido').length;
     const pendientes = recordatorios.filter(r => r.estadoCalculado === 'pendiente').length;
     const completados = recordatorios.filter(r => r.estadoCalculado === 'completado').length;
-    
+
     return { todos, vencidos, pendientes, completados };
   };
 
@@ -258,9 +259,9 @@ export default function ListaRecordatorios() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -309,7 +310,7 @@ export default function ListaRecordatorios() {
           <h2 className="mb-4 text-2xl font-bold font-montserrat text-primary">
             Gestión de Recordatorios
           </h2>
-          
+
           {/* Estadísticas rápidas */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
@@ -321,7 +322,7 @@ export default function ListaRecordatorios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
               <div className="flex items-center">
                 <AlertTriangle className="w-8 h-8 mr-3 text-red-500" />
@@ -331,7 +332,7 @@ export default function ListaRecordatorios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
               <div className="flex items-center">
                 <Clock className="w-8 h-8 mr-3 text-yellow-500" />
@@ -341,7 +342,7 @@ export default function ListaRecordatorios() {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 bg-white border border-gray-200 rounded-lg">
               <div className="flex items-center">
                 <CheckCircle className="w-8 h-8 mr-3 text-green-500" />
@@ -444,22 +445,20 @@ export default function ListaRecordatorios() {
               return (
                 <div
                   key={recordatorio.id}
-                  className={`p-6 bg-white rounded-lg shadow-md border-l-4 ${
-                    recordatorio.estadoCalculado === 'vencido' ? 'border-red-500' :
-                    recordatorio.estadoCalculado === 'pendiente' ? 'border-yellow-500' :
-                    'border-green-500'
-                  }`}
+                  className={`p-6 bg-white rounded-lg shadow-md border-l-4 ${recordatorio.estadoCalculado === 'vencido' ? 'border-red-500' :
+                      recordatorio.estadoCalculado === 'pendiente' ? 'border-yellow-500' :
+                        'border-green-500'
+                    }`}
                 >
                   <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-y-0 md:space-x-4">
                     {/* Checkbox de completado */}
                     <div className="flex-shrink-0">
                       <button
                         onClick={() => handleToggleCompletado(recordatorio.id, recordatorio.estado)}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          recordatorio.estadoCalculado === 'completado'
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${recordatorio.estadoCalculado === 'completado'
                             ? 'bg-green-500 border-green-500 text-white'
                             : 'border-gray-300 hover:border-green-500'
-                        }`}
+                          }`}
                         title={recordatorio.estadoCalculado === 'completado' ? 'Marcar como pendiente' : 'Marcar como completado'}
                       >
                         {recordatorio.estadoCalculado === 'completado' && <CheckCircle size={16} />}
@@ -471,19 +470,17 @@ export default function ListaRecordatorios() {
                       <div className="flex flex-col space-y-2 md:flex-row md:items-start md:justify-between md:space-y-0">
                         {/* Título y descripción */}
                         <div className="flex-1 min-w-0">
-                          <h3 className={`text-lg font-semibold ${
-                            recordatorio.estadoCalculado === 'completado' ? 'line-through text-gray-500' : 'text-gray-900'
-                          }`}>
+                          <h3 className={`text-lg font-semibold ${recordatorio.estadoCalculado === 'completado' ? 'line-through text-gray-500' : 'text-gray-900'
+                            }`}>
                             {recordatorio.titulo}
                           </h3>
                           {recordatorio.descripcion && (
-                            <p className={`text-sm mt-1 ${
-                              recordatorio.estadoCalculado === 'completado' ? 'text-gray-400' : 'text-gray-600'
-                            }`}>
+                            <p className={`text-sm mt-1 ${recordatorio.estadoCalculado === 'completado' ? 'text-gray-400' : 'text-gray-600'
+                              }`}>
                               {recordatorio.descripcion}
                             </p>
                           )}
-                          
+
                           {/* Información adicional */}
                           <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-500">
                             <div className="flex items-center">
@@ -503,7 +500,7 @@ export default function ListaRecordatorios() {
                           <div className="flex flex-wrap gap-2">
                             {/* Prioridad */}
                             <span className={`inline-block w-3 h-3 rounded-full ${prioridadConfig.color}`} title={`Prioridad ${prioridadConfig.text}`}></span>
-                            
+
                             {/* Estado */}
                             <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${estadoConfig.color}`}>
                               <IconoEstado size={12} className="mr-1" />

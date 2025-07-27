@@ -1,4 +1,4 @@
-// app/admin/estados-cuenta/page.jsx - Lista Estados de Cuenta IMSSE
+// app/admin/estados-cuenta/page.jsx - Lista Estados de Cuenta IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -22,8 +22,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, getDocs, query, orderBy, deleteDoc, doc, where } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
+import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
 export default function EstadosCuenta() {
   const [user, setUser] = useState(null);
@@ -52,20 +52,18 @@ export default function EstadosCuenta() {
 
   const cargarEstados = async () => {
     try {
-      const estadosRef = collection(db, 'estados_cuenta');
-      const q = query(estadosRef, orderBy('fechaCreacion', 'desc'));
-      const querySnapshot = await getDocs(q);
-      
-      const estadosData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // ✅ USAR apiService
+      const response = await apiService.obtenerEstadosCuenta();
+      const estadosData = response.documents || response || [];
       
       setEstados(estadosData);
       setFilteredEstados(estadosData);
     } catch (error) {
       console.error('Error al cargar estados de cuenta:', error);
       alert('Error al cargar los estados de cuenta');
+      // Fallback para evitar crashes
+      setEstados([]);
+      setFilteredEstados([]);
     }
   };
 
@@ -81,7 +79,8 @@ export default function EstadosCuenta() {
   const handleDelete = async (id, numero) => {
     if (confirm(`¿Está seguro de que desea eliminar el estado de cuenta ${numero}?`)) {
       try {
-        await deleteDoc(doc(db, 'estados_cuenta', id));
+        // ✅ USAR apiService
+        await apiService.eliminarEstadoCuenta(id);
         alert('Estado de cuenta eliminado exitosamente');
         await cargarEstados();
       } catch (error) {
@@ -93,12 +92,12 @@ export default function EstadosCuenta() {
 
   // Efectos para filtros y búsqueda
   useEffect(() => {
-    let result = estados;
+    let result = [...estados]; // ✅ Asegurar que es array
 
     // Filtro por búsqueda
     if (searchTerm) {
       result = result.filter(estado =>
-        estado.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        estado.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         estado.cliente?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         estado.cliente?.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -117,15 +116,19 @@ export default function EstadosCuenta() {
     setCurrentPage(1);
   }, [searchTerm, filterPeriodo, estados]);
 
-  // Paginación
+  // Paginación - ✅ Con verificación de array
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredEstados.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredEstados.length / itemsPerPage);
+  const currentItems = Array.isArray(filteredEstados) ? filteredEstados.slice(indexOfFirstItem, indexOfLastItem) : [];
+  const totalPages = Math.ceil((filteredEstados?.length || 0) / itemsPerPage);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('es-AR');
+    try {
+      return new Date(dateString).toLocaleDateString('es-AR');
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const formatCurrency = (amount) => {
@@ -147,6 +150,33 @@ export default function EstadosCuenta() {
     if (saldo > 0) return 'Debe';
     if (saldo < 0) return 'A favor';
     return 'Sin saldo';
+  };
+
+  // ✅ Funciones de estadísticas con validación
+  const calcularTotalSaldosPendientes = () => {
+    return Array.isArray(estados) 
+      ? estados.reduce((sum, estado) => sum + (estado.saldoActual > 0 ? estado.saldoActual : 0), 0)
+      : 0;
+  };
+
+  const contarClientesUnicos = () => {
+    if (!Array.isArray(estados)) return 0;
+    return new Set(estados.map(e => e.cliente?.empresa).filter(Boolean)).size;
+  };
+
+  const contarEstadosEsteMes = () => {
+    if (!Array.isArray(estados)) return 0;
+    const mesActual = new Date().getMonth() + 1;
+    const añoActual = new Date().getFullYear();
+    return estados.filter(e => {
+      if (!e.periodo?.desde) return false;
+      try {
+        const fechaEstado = new Date(e.periodo.desde);
+        return fechaEstado.getMonth() + 1 === mesActual && fechaEstado.getFullYear() === añoActual;
+      } catch {
+        return false;
+      }
+    }).length;
   };
 
   if (loading) {
@@ -227,7 +257,7 @@ export default function EstadosCuenta() {
                 <BarChart3 size={24} className="mr-3 text-blue-600" />
                 <div>
                   <p className="text-sm text-gray-600">Total Estados</p>
-                  <p className="text-xl font-bold text-gray-900">{estados.length}</p>
+                  <p className="text-xl font-bold text-gray-900">{estados?.length || 0}</p>
                 </div>
               </div>
             </div>
@@ -238,7 +268,7 @@ export default function EstadosCuenta() {
                 <div>
                   <p className="text-sm text-gray-600">Saldos Pendientes</p>
                   <p className="text-xl font-bold text-green-600">
-                    {formatCurrency(estados.reduce((sum, estado) => sum + (estado.saldoActual > 0 ? estado.saldoActual : 0), 0))}
+                    {formatCurrency(calcularTotalSaldosPendientes())}
                   </p>
                 </div>
               </div>
@@ -250,7 +280,7 @@ export default function EstadosCuenta() {
                 <div>
                   <p className="text-sm text-gray-600">Clientes</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {new Set(estados.map(e => e.cliente?.empresa)).size}
+                    {contarClientesUnicos()}
                   </p>
                 </div>
               </div>
@@ -262,12 +292,7 @@ export default function EstadosCuenta() {
                 <div>
                   <p className="text-sm text-gray-600">Este Mes</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {estados.filter(e => {
-                      const mesActual = new Date().getMonth() + 1;
-                      const añoActual = new Date().getFullYear();
-                      const fechaEstado = new Date(e.periodo?.desde);
-                      return fechaEstado.getMonth() + 1 === mesActual && fechaEstado.getFullYear() === añoActual;
-                    }).length}
+                    {contarEstadosEsteMes()}
                   </p>
                 </div>
               </div>
@@ -306,7 +331,7 @@ export default function EstadosCuenta() {
 
             <div className="flex items-center">
               <span className="text-sm text-gray-600">
-                {filteredEstados.length} de {estados.length} estados
+                {filteredEstados?.length || 0} de {estados?.length || 0} estados
               </span>
             </div>
           </div>
@@ -335,7 +360,7 @@ export default function EstadosCuenta() {
                     Saldo Actual
                   </th>
                   <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Estado
+                    Estado Financiero
                   </th>
                   <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                     Acciones
@@ -352,7 +377,9 @@ export default function EstadosCuenta() {
                           <div className="text-sm text-gray-500">
                             {estado.fechaCreacion && estado.fechaCreacion.toDate 
                               ? formatDate(estado.fechaCreacion.toDate())
-                              : 'Fecha no disponible'}
+                              : estado.fechaCreacion
+                                ? formatDate(estado.fechaCreacion)
+                                : 'Fecha no disponible'}
                           </div>
                         </div>
                       </td>
@@ -420,9 +447,10 @@ export default function EstadosCuenta() {
                                 link.click();
                                 
                                 URL.revokeObjectURL(url);
+                                alert(`✅ PDF ${estado.numero} descargado exitosamente`);
                               } catch (error) {
                                 console.error('Error al descargar PDF:', error);
-                                alert('Error al generar el PDF');
+                                alert('❌ Error al generar el PDF');
                               }
                             }}
                             className="text-purple-600 transition-colors cursor-pointer hover:text-purple-900"
@@ -467,7 +495,7 @@ export default function EstadosCuenta() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
               <div className="text-sm text-gray-500">
-                Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredEstados.length)} de {filteredEstados.length} resultados
+                Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredEstados?.length || 0)} de {filteredEstados?.length || 0} resultados
               </div>
               <div className="flex space-x-2">
                 <button

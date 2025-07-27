@@ -1,4 +1,4 @@
-// app/admin/panel-control/page.jsx - Dashboard IMSSE sin header duplicado
+// app/admin/panel-control/page.jsx - Dashboard IMSSE con Gestión de Usuarios
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -23,11 +23,13 @@ import {
   Bell,
   Settings,
   Wrench,
-  CreditCard
+  CreditCard,
+  UserPlus
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
+import { obtenerEstadisticasUsuarios } from '../../lib/firestore'; // ← AGREGADO
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -38,7 +40,8 @@ export default function Dashboard() {
     remitos: 0,
     estadosCuenta: 0,
     ordenesTrabajo: 0,
-    recordatorios: 0
+    recordatorios: 0,
+    usuarios: 0 // ← AGREGADO
   });
   const router = useRouter();
 
@@ -82,13 +85,18 @@ export default function Dashboard() {
       const recordatoriosRef = collection(db, 'recordatorios');
       const recordatoriosSnapshot = await getDocs(recordatoriosRef);
 
+      // Total de usuarios - AGREGADO
+      const usuariosRef = collection(db, 'usuarios');
+      const usuariosSnapshot = await getDocs(usuariosRef);
+
       setTotales({
         presupuestos: presupuestosSnapshot.size,
         recibos: recibosSnapshot.size,
         remitos: remitosSnapshot.size,
         estadosCuenta: estadosCuentaSnapshot.size,
         ordenesTrabajo: ordenesTrabajoSnapshot.size,
-        recordatorios: recordatoriosSnapshot.size
+        recordatorios: recordatoriosSnapshot.size,
+        usuarios: usuariosSnapshot.size // ← AGREGADO
       });
     } catch (error) {
       console.error('Error al cargar totales IMSSE:', error);
@@ -107,7 +115,7 @@ export default function Dashboard() {
     );
   }
 
-  // Módulos del sistema IMSSE - Todos activos
+  // Módulos del sistema IMSSE - Todos activos con USUARIOS agregado
   const modulos = [
     {
       id: 'presupuestos',
@@ -161,7 +169,6 @@ export default function Dashboard() {
         historial: '/admin/remitos'
       }
     },
-
     {
       id: 'ordenes',
       titulo: 'Órdenes de Trabajo',
@@ -187,6 +194,20 @@ export default function Dashboard() {
         nuevo: '/admin/recordatorios/nuevo',
         historial: '/admin/recordatorios'
       }
+    },
+    // ← NUEVO MÓDULO DE USUARIOS
+    {
+      id: 'usuarios',
+      titulo: 'Usuarios',
+      icono: Users,
+      color: 'bg-gray-600',
+      colorHover: 'hover:bg-gray-700',
+      descripcion: 'Gestión de accesos',
+      total: totales.usuarios,
+      rutas: {
+        nuevo: '/registro',
+        historial: '/admin/usuarios'
+      }
     }
   ];
 
@@ -210,14 +231,13 @@ export default function Dashboard() {
         </p>
       </div>
 
-
-      {/* Módulos del sistema - Diseño corregido */}
+      {/* Módulos del sistema - Con usuarios incluido */}
       <h3 className="flex items-center mb-6 text-xl font-bold text-gray-800">
         <Settings size={20} className="mr-2 text-primary" />
         Módulos del Sistema
       </h3>
 
-      <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-4">
         {modulos.map(modulo => {
           const Icono = modulo.icono;
           return (
@@ -246,13 +266,13 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Accesos rápidos mejorados */}
+      {/* Acciones rápidas mejoradas - Con nuevo usuario */}
       <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-md">
         <h3 className="flex items-center mb-4 text-lg font-bold text-gray-800">
           <Clock size={20} className="mr-2 text-primary" />
           Acciones Rápidas
         </h3>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
           <Link
             href="/admin/presupuestos/nuevo"
             className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-red-50 hover:border-red-300 hover:shadow-md group"
@@ -294,6 +314,21 @@ export default function Dashboard() {
           >
             <Bell size={20} className="mb-2 text-yellow-600 transition-transform group-hover:scale-110" />
             <span className="text-xs font-medium text-gray-900 group-hover:text-yellow-700">Nuevo Recordatorio</span>
+          </Link>
+          {/* ← NUEVA ACCIÓN RÁPIDA PARA USUARIOS */}
+          <Link
+            href="/registro"
+            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 hover:shadow-md group"
+          >
+            <UserPlus size={20} className="mb-2 text-gray-600 transition-transform group-hover:scale-110" />
+            <span className="text-xs font-medium text-gray-900 group-hover:text-gray-700">Nuevo Usuario</span>
+          </Link>
+          <Link
+            href="/admin/usuarios"
+            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-slate-50 hover:border-slate-300 hover:shadow-md group"
+          >
+            <Users size={20} className="mb-2 transition-transform text-slate-600 group-hover:scale-110" />
+            <span className="text-xs font-medium text-gray-900 group-hover:text-slate-700">Gestionar Usuarios</span>
           </Link>
         </div>
       </div>

@@ -8,8 +8,7 @@ import Link from 'next/link';
 import { ArrowLeft, Save, Download, PlusCircle, Trash2, RefreshCw } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../../lib/firebase';
+import apiService from '../../../../lib/services/apiService';
 import SignatureCanvas from 'react-signature-canvas';
 
 export default function EditarRemito() {
@@ -69,7 +68,7 @@ export default function EditarRemito() {
       handleResize();
       window.addEventListener('resize', handleResize);
     }
-    
+
     return () => {
       window.removeEventListener('resize', handleResize);
     };
@@ -83,12 +82,10 @@ export default function EditarRemito() {
         setUser(currentUser);
 
         try {
-          const docRef = doc(db, 'remitos', params.id);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const remitoData = { id: docSnap.id, ...docSnap.data() };
-            
+          const remitoData = await apiService.obtenerRemitoPorId(params.id);
+
+          if (remitoData) {
+
             setRemito({
               numero: remitoData.numero || '',
               fecha: remitoData.fecha || '',
@@ -108,7 +105,7 @@ export default function EditarRemito() {
               telefono: '',
               direccion: ''
             });
-            
+
           } else {
             alert('Remito no encontrado.');
             router.push('/admin/remitos');
@@ -215,13 +212,13 @@ export default function EditarRemito() {
 
   const handleDescargarPDF = async () => {
     if (descargando) return;
-    
+
     setDescargando(true);
-    
+
     try {
       const { pdf } = await import('@react-pdf/renderer');
       const { default: RemitoPDF } = await import('../../../../components/pdf/RemitoPDF');
-      
+
       const remitoData = { ...remito, cliente };
       const blob = await pdf(<RemitoPDF remito={remitoData} />).toBlob();
       const url = URL.createObjectURL(blob);
@@ -229,11 +226,11 @@ export default function EditarRemito() {
       link.href = url;
       link.download = `${remito.numero}.pdf`;
       link.click();
-      
+
       URL.revokeObjectURL(url);
       setDescargando(false);
       alert(`✅ Remito ${remito.numero} descargado exitosamente`);
-      
+
     } catch (error) {
       console.error('Error al generar PDF:', error);
       setDescargando(false);
@@ -254,7 +251,7 @@ export default function EditarRemito() {
     }
 
     setGuardando(true);
-    
+
     try {
       const remitoData = {
         numero: remito.numero,
@@ -267,12 +264,11 @@ export default function EditarRemito() {
         observaciones: remito.observaciones,
         firma: remito.firma,
         aclaracionFirma: remito.aclaracionFirma,
-        fechaModificacion: serverTimestamp(),
         totalItems: remito.items.reduce((sum, item) => sum + Number(item.cantidad || 0), 0),
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      await updateDoc(doc(db, 'remitos', params.id), remitoData);
+      await apiService.actualizarRemito(params.id, remitoData);
       alert('Remito actualizado exitosamente');
       router.push('/admin/remitos');
     } catch (error) {
@@ -287,7 +283,7 @@ export default function EditarRemito() {
   const unidades = [
     'unidad',
     'metro',
-    'metro lineal', 
+    'metro lineal',
     'metro cuadrado',
     'kilogramo',
     'litro',
@@ -340,16 +336,15 @@ export default function EditarRemito() {
               <Save size={18} className="mr-2" />
               {guardando ? 'Guardando...' : 'Guardar Cambios'}
             </button>
-            
+
             {remito.items[0].descripcion && (
               <button
                 onClick={handleDescargarPDF}
                 disabled={descargando}
-                className={`flex items-center px-4 py-2 text-white transition-colors rounded-md ${
-                  descargando 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
+                className={`flex items-center px-4 py-2 text-white transition-colors rounded-md ${descargando
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
               >
                 {descargando ? (
                   <>
@@ -404,7 +399,7 @@ export default function EditarRemito() {
                 </select>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2">
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Destino</label>
@@ -514,7 +509,7 @@ export default function EditarRemito() {
                       <td className="px-4 py-2">
                         {/* Vista móvil - Botón que abre modal */}
                         <div className="md:hidden">
-                          <div 
+                          <div
                             onClick={() => abrirModalDescripcion(item.id, item.descripcion)}
                             className="min-h-[60px] p-3 border border-gray-300 rounded-md bg-gray-50 cursor-pointer flex items-center justify-between transition-colors hover:bg-gray-100"
                           >
@@ -528,14 +523,14 @@ export default function EditarRemito() {
                           {/* Preview del texto si existe */}
                           {item.descripcion && (
                             <div className="mt-2 text-xs text-gray-500">
-                              {item.descripcion.length > 50 
-                                ? `${item.descripcion.substring(0, 50)}...` 
+                              {item.descripcion.length > 50
+                                ? `${item.descripcion.substring(0, 50)}...`
                                 : item.descripcion
                               }
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Vista desktop - Textarea normal */}
                         <div className="hidden md:block">
                           <textarea
@@ -726,7 +721,7 @@ export default function EditarRemito() {
                 </svg>
               </button>
             </div>
-            
+
             {/* Contenido del modal */}
             <div className="flex flex-col flex-1 p-4 bg-white md:rounded-b-lg">
               <textarea
@@ -744,7 +739,7 @@ Ejemplos:
                 autoFocus
                 style={{ minHeight: '200px' }}
               />
-              
+
               {/* Contador de caracteres y tips */}
               <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
                 <span>{modalDescripcion.value.length} caracteres</span>
@@ -752,7 +747,7 @@ Ejemplos:
                   Incluye marca, modelo y especificaciones técnicas
                 </span>
               </div>
-              
+
               {/* Botones del modal */}
               <div className="flex justify-end mt-4 space-x-3">
                 <button

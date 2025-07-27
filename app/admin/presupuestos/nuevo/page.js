@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { crearPresupuesto } from '../../../lib/firestore';
+import apiService from '../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import PresupuestoPDF from '../../../components/pdf/PresupuestoPDF';
 
@@ -191,7 +191,7 @@ export default function NuevoPresupuesto() {
             };
 
             // Guardar en Firestore
-            await crearPresupuesto(presupuestoData);
+            await apiService.crearPresupuesto(presupuestoData);
             alert('Presupuesto guardado exitosamente');
             router.push('/admin/presupuestos');
         } catch (error) {

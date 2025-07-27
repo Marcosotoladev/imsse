@@ -1,18 +1,20 @@
-// app/admin/estados-cuenta/editar/[id]/page.jsx - Editar Estado de Cuenta IMSSE
+// app/admin/estados-cuenta/editar/[id]/page.jsx - Editar Estado de Cuenta IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Download } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../../../../lib/firebase';
+import { auth } from '../../../../lib/firebase';
+import apiService from '../../../../lib/services/apiService';
+import { use } from 'react';
 
-export default function EditarEstadoCuenta() {
+export default function EditarEstadoCuenta({ params }) {
+  const resolvedParams = use(params);
+  const id = resolvedParams.id;
   const router = useRouter();
-  const params = useParams();
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -36,71 +38,63 @@ export default function EditarEstadoCuenta() {
     },
     saldoAnterior: 0,
     movimientos: [
-      { 
-        id: 1, 
-        fecha: '', 
-        tipo: 'factura', 
-        concepto: '', 
-        numero: '', 
-        debe: 0, 
-        haber: 0 
+      {
+        id: 1,
+        fecha: '',
+        tipo: 'factura',
+        concepto: '',
+        numero: '',
+        debe: 0,
+        haber: 0
       }
     ],
     observaciones: ''
   });
 
   useEffect(() => {
-    if (!params.id) return;
+    if (!id) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-
         try {
-          const docRef = doc(db, 'estados_cuenta', params.id);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const estadoData = { id: docSnap.id, ...docSnap.data() };
-            setEstadoOriginal(estadoData);
+          // ✅ USAR apiService en lugar de getDoc
+          const estadoData = await apiService.obtenerEstadoCuentaPorId(id);
+          setEstadoOriginal(estadoData);
 
-            setEstadoCuenta({
-              numero: estadoData.numero || '',
-              periodo: {
-                desde: estadoData.periodo?.desde || '',
-                hasta: estadoData.periodo?.hasta || ''
-              },
-              saldoAnterior: estadoData.saldoAnterior || 0,
-              movimientos: estadoData.movimientos || [
-                { 
-                  id: 1, 
-                  fecha: '', 
-                  tipo: 'factura', 
-                  concepto: '', 
-                  numero: '', 
-                  debe: 0, 
-                  haber: 0 
-                }
-              ],
-              observaciones: estadoData.observaciones || ''
-            });
+          setEstadoCuenta({
+            numero: estadoData.numero || '',
+            periodo: {
+              desde: estadoData.periodo?.desde || '',
+              hasta: estadoData.periodo?.hasta || ''
+            },
+            saldoAnterior: estadoData.saldoAnterior || 0,
+            movimientos: estadoData.movimientos || [
+              {
+                id: 1,
+                fecha: '',
+                tipo: 'factura',
+                concepto: '',
+                numero: '',
+                debe: 0,
+                haber: 0
+              }
+            ],
+            observaciones: estadoData.observaciones || ''
+          });
 
-            setCliente(estadoData.cliente || {
-              nombre: '',
-              empresa: '',
-              email: '',
-              telefono: '',
-              direccion: '',
-              cuit: ''
-            });
-            
-          } else {
-            alert('Estado de cuenta no encontrado.');
-            router.push('/admin/estados-cuenta');
-          }
+          setCliente(estadoData.cliente || {
+            nombre: '',
+            empresa: '',
+            email: '',
+            telefono: '',
+            direccion: '',
+            cuit: ''
+          });
+
           setLoading(false);
         } catch (error) {
-          console.error('Error al cargar estado de cuenta:', error);
+          console.error('Error al cargar estado de cuenta IMSSE:', error);
           alert('Error al cargar los datos del estado de cuenta.');
           router.push('/admin/estados-cuenta');
         }
@@ -110,7 +104,7 @@ export default function EditarEstadoCuenta() {
     });
 
     return () => unsubscribe();
-  }, [params.id, router]);
+  }, [id, router]);
 
   const handleLogout = async () => {
     try {
@@ -146,13 +140,13 @@ export default function EditarEstadoCuenta() {
     const updatedMovimientos = estadoCuenta.movimientos.map(mov => {
       if (mov.id === id) {
         const updatedMov = { ...mov, [field]: value };
-        
+
         // Recalcular saldo automáticamente
         if (field === 'debe' || field === 'haber') {
           updatedMov.debe = field === 'debe' ? parseFloat(value) || 0 : mov.debe;
           updatedMov.haber = field === 'haber' ? parseFloat(value) || 0 : mov.haber;
         }
-        
+
         return updatedMov;
       }
       return mov;
@@ -170,14 +164,14 @@ export default function EditarEstadoCuenta() {
       ...estadoCuenta,
       movimientos: [
         ...estadoCuenta.movimientos,
-        { 
-          id: newId, 
-          fecha: '', 
-          tipo: 'factura', 
-          concepto: '', 
-          numero: '', 
-          debe: 0, 
-          haber: 0 
+        {
+          id: newId,
+          fecha: '',
+          tipo: 'factura',
+          concepto: '',
+          numero: '',
+          debe: 0,
+          haber: 0
         }
       ]
     });
@@ -213,24 +207,24 @@ export default function EditarEstadoCuenta() {
     try {
       const { pdf } = await import('@react-pdf/renderer');
       const { default: EstadoCuentaPDF } = await import('../../../../components/pdf/EstadoCuentaPDF');
-      
+
       const estadoActualizado = {
         ...estadoOriginal,
         ...estadoCuenta,
         cliente: cliente,
         saldoActual: calcularSaldoActual()
       };
-      
+
       const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estadoActualizado} />).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${estadoCuenta.numero}.pdf`;
       link.click();
-      
+
       URL.revokeObjectURL(url);
       alert(`✅ Estado de cuenta ${estadoCuenta.numero} descargado exitosamente`);
-      
+
     } catch (error) {
       console.error('Error al generar PDF:', error);
       alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
@@ -239,7 +233,7 @@ export default function EditarEstadoCuenta() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validaciones
     if (!estadoCuenta.numero || !cliente.nombre || !cliente.empresa) {
       alert('Por favor completa los campos obligatorios: Número, Cliente y Empresa');
@@ -271,12 +265,13 @@ export default function EditarEstadoCuenta() {
         })),
         saldoActual: calcularSaldoActual(),
         observaciones: estadoCuenta.observaciones,
-        fechaModificacion: serverTimestamp(),
+        fechaModificacion: new Date(),
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      await updateDoc(doc(db, 'estados_cuenta', params.id), estadoData);
-      alert('Estado de cuenta actualizado exitosamente');
+      // ✅ USAR apiService en lugar de updateDoc
+      await apiService.actualizarEstadoCuenta(id, estadoData);
+      alert('Estado de cuenta IMSSE actualizado exitosamente');
       router.push('/admin/estados-cuenta');
     } catch (error) {
       console.error('Error al actualizar estado de cuenta:', error);
@@ -303,9 +298,9 @@ export default function EditarEstadoCuenta() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -379,7 +374,7 @@ export default function EditarEstadoCuenta() {
           </h2>
 
           <form id="estado-cuenta-form" onSubmit={handleSubmit} className="space-y-6">
-            
+
             {/* Información del Estado de Cuenta */}
             <div className="p-6 bg-white rounded-lg shadow-md">
               <h3 className="mb-4 text-lg font-semibold text-gray-700">Información del Estado de Cuenta</h3>
@@ -417,7 +412,7 @@ export default function EditarEstadoCuenta() {
                   />
                 </div>
               </div>
-              
+
               <div className="mt-4">
                 <label className="block mb-1 text-sm font-medium text-gray-700">Saldo Anterior</label>
                 <input
@@ -510,7 +505,7 @@ export default function EditarEstadoCuenta() {
             {/* Movimientos */}
             <div className="p-6 bg-white rounded-lg shadow-md">
               <h3 className="mb-4 text-lg font-semibold text-gray-700">Movimientos del Período</h3>
-              
+
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>

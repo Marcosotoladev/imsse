@@ -7,8 +7,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Edit, ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { auth, db } from '../../../lib/firebase';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function VerRemito() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function VerRemito() {
   // Función para formatear fechas
   const formatDate = (fecha) => {
     if (!fecha) return '';
-    
+
     try {
       const dateObj = fecha.toDate ? fecha.toDate() : new Date(fecha);
       return dateObj.toLocaleDateString('es-AR', {
@@ -41,11 +41,9 @@ export default function VerRemito() {
       if (currentUser) {
         setUser(currentUser);
         try {
-          const docRef = doc(db, 'remitos', params.id);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            setRemito({ id: docSnap.id, ...docSnap.data() });
+          const remitoData = await apiService.obtenerRemitoPorId(params.id);
+          if (remitoData) {
+            setRemito(remitoData);
           } else {
             alert('Remito no encontrado.');
             router.push('/admin/remitos');
@@ -76,7 +74,7 @@ export default function VerRemito() {
   const handleDeleteRemito = async () => {
     if (confirm('¿Está seguro de que desea eliminar este remito?')) {
       try {
-        await deleteDoc(doc(db, 'remitos', params.id));
+        await apiService.eliminarRemito(params.id);
         alert('Remito eliminado exitosamente.');
         router.push('/admin/remitos');
       } catch (error) {
@@ -90,17 +88,17 @@ export default function VerRemito() {
     try {
       const { pdf } = await import('@react-pdf/renderer');
       const { default: RemitoPDF } = await import('../../../components/pdf/RemitoPDF');
-      
+
       const blob = await pdf(<RemitoPDF remito={remito} />).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${remito.numero}.pdf`;
       link.click();
-      
+
       URL.revokeObjectURL(url);
       alert(`✅ Remito ${remito.numero} descargado exitosamente`);
-      
+
     } catch (error) {
       console.error('Error al generar PDF:', error);
       alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
@@ -154,9 +152,9 @@ export default function VerRemito() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -230,7 +228,7 @@ export default function VerRemito() {
       {/* Contenido principal - Responsive */}
       <div className="container px-4 py-8 mx-auto">
         <div className="max-w-4xl mx-auto space-y-6">
-          
+
           {/* Header del remito */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <div className="flex flex-col items-start justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
@@ -256,9 +254,9 @@ export default function VerRemito() {
             {/* Encabezado IMSSE */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-red-600">
               <div className="flex items-center">
-                <img 
-                  src="/logo/imsse-logo.png" 
-                  alt="IMSSE Logo" 
+                <img
+                  src="/logo/imsse-logo.png"
+                  alt="IMSSE Logo"
                   className="w-10 h-10 mr-4"
                 />
                 <div>
@@ -297,7 +295,7 @@ export default function VerRemito() {
               {/* Datos del remito */}
               <div className="flex-1 p-4 rounded-lg bg-gray-50">
                 <h3 className="mb-4 text-lg font-bold text-red-600">DATOS DEL REMITO</h3>
-                
+
                 <div className="space-y-4">
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex items-start">
@@ -340,7 +338,7 @@ export default function VerRemito() {
               {/* Datos del cliente */}
               <div className="flex-1 p-4 rounded-lg bg-gray-50">
                 <h3 className="mb-4 text-lg font-bold text-red-600">DATOS DEL CLIENTE</h3>
-                
+
                 <div className="space-y-4">
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex items-start">
@@ -387,7 +385,7 @@ export default function VerRemito() {
               <h3 className="mb-4 text-lg font-bold text-center text-red-600">
                 EQUIPOS DE PROTECCIÓN CONTRA INCENDIOS ({remito.items?.length || 0} items)
               </h3>
-              
+
               {remito.items && remito.items.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border border-gray-300">
@@ -418,7 +416,7 @@ export default function VerRemito() {
                           </td>
                         </tr>
                       ))}
-                      
+
                       {/* Fila de total */}
                       <tr className="font-bold bg-gray-200">
                         <td className="px-4 py-3 text-sm font-bold text-black border-b border-gray-300">
@@ -457,16 +455,16 @@ export default function VerRemito() {
                 <div className="flex flex-col items-center w-2/5">
                   {remito.firma && (
                     <div className="flex items-center justify-center w-40 h-20 mb-4 border border-gray-200 rounded bg-gray-50">
-                      <img 
-                        src={remito.firma} 
-                        alt="Firma de recepción" 
+                      <img
+                        src={remito.firma}
+                        alt="Firma de recepción"
                         className="object-contain max-w-full max-h-full"
                         onError={(e) => {
                           e.target.style.display = 'none';
                           e.target.nextSibling.style.display = 'block';
                         }}
                       />
-                      <span style={{display: 'none'}} className="text-xs text-gray-400">Firma no disponible</span>
+                      <span style={{ display: 'none' }} className="text-xs text-gray-400">Firma no disponible</span>
                     </div>
                   )}
                   <div className="w-full pt-2 border-t border-gray-800">
@@ -511,7 +509,7 @@ export default function VerRemito() {
               <div>
                 <span className="block mb-1 text-sm font-medium text-gray-600">Fecha de creación:</span>
                 <span className="text-gray-900">
-                  {remito.fechaCreacion && remito.fechaCreacion.toDate 
+                  {remito.fechaCreacion && remito.fechaCreacion.toDate
                     ? new Date(remito.fechaCreacion.toDate()).toLocaleString('es-AR')
                     : 'No disponible'}
                 </span>
@@ -520,7 +518,7 @@ export default function VerRemito() {
                 <div className="md:col-span-2">
                   <span className="block mb-1 text-sm font-medium text-gray-600">Última modificación:</span>
                   <span className="text-gray-900">
-                    {remito.fechaModificacion.toDate 
+                    {remito.fechaModificacion.toDate
                       ? new Date(remito.fechaModificacion.toDate()).toLocaleString('es-AR')
                       : 'No disponible'}
                   </span>

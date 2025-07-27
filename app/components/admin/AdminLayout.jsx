@@ -18,7 +18,8 @@ import {
   Shield,
   Bell,
   BarChart3,
-  ChevronRight
+  ChevronRight,
+  Users // ← NUEVO IMPORT
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
@@ -111,6 +112,9 @@ export default function AdminLayout({ children }) {
         case 'recordatorios':
           displayName = 'Recordatorios';
           break;
+        case 'usuarios': // ← NUEVO CASE
+          displayName = 'Gestión de Usuarios';
+          break;
         case 'nuevo':
           displayName = 'Nuevo';
           break;
@@ -131,7 +135,7 @@ export default function AdminLayout({ children }) {
     return breadcrumbs;
   };
 
-  // Menú de navegación
+  // Menú de navegación ← AQUÍ SE AGREGA EL NUEVO ITEM
   const menuItems = [
     {
       name: 'Panel de Control',
@@ -167,7 +171,13 @@ export default function AdminLayout({ children }) {
       name: 'Recordatorios',
       path: '/admin/recordatorios',
       icon: Bell
-    }
+    },
+        {
+      name: 'Gestión de Usuarios', // ← NUEVO ITEM
+      path: '/admin/usuarios',
+      icon: Users
+    },
+    
   ];
 
   // Encontrar el item activo para mostrar en el dropdown
@@ -250,26 +260,6 @@ export default function AdminLayout({ children }) {
               {/* Separador */}
               <div className="border-t-2 border-gray-200"></div>
               
-              {/* Enlaces adicionales */}
-              <Link
-                href="/"
-                className="flex items-center px-4 py-3 text-gray-600 transition-colors hover:bg-gray-50 hover:text-primary"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <Home size={18} className="mr-3" />
-                <span className="font-medium">Sitio Web IMSSE</span>
-              </Link>
-              
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setDropdownOpen(false);
-                }}
-                className="flex items-center w-full px-4 py-3 text-red-600 transition-colors hover:bg-red-50"
-              >
-                <LogOut size={18} className="mr-3" />
-                <span className="font-medium">Cerrar Sesión</span>
-              </button>
             </div>
           </div>
         </div>
@@ -299,25 +289,6 @@ export default function AdminLayout({ children }) {
               );
             })}
           </nav>
-          
-          {/* Footer del sidebar desktop */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-            <Link
-              href="/"
-              className="flex items-center px-4 py-2 text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
-            >
-              <Home size={20} className="mr-3" />
-              Sitio Web IMSSE
-            </Link>
-            
-            <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 mt-2 text-red-600 transition-colors rounded-lg hover:bg-red-50"
-            >
-              <LogOut size={20} className="mr-3" />
-              Cerrar Sesión
-            </button>
-          </div>
         </aside>
 
         {/* Contenido principal */}

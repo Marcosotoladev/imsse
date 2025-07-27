@@ -7,8 +7,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Save, ArrowLeft, Bell, Calendar, AlertCircle, Clock, Eye } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../../../../lib/firebase';
+import { auth } from '../../../../lib/firebase';
+import apiService from '../../../../lib/services/apiService';
 
 export default function EditarRecordatorio() {
   const router = useRouter();
@@ -36,11 +36,9 @@ export default function EditarRecordatorio() {
         setUser(currentUser);
 
         try {
-          const docRef = doc(db, 'recordatorios', params.id);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const recordatorioData = { id: docSnap.id, ...docSnap.data() };
+          const recordatorioData = await apiService.obtenerRecordatorioPorId(params.id);
+
+          if (recordatorioData) {
             setRecordatorioOriginal(recordatorioData);
 
             // Pre-cargar datos en el formulario
@@ -52,7 +50,6 @@ export default function EditarRecordatorio() {
               notas: recordatorioData.notas || '',
               estado: recordatorioData.estado || 'pendiente'
             });
-            
           } else {
             alert('Recordatorio no encontrado.');
             router.push('/admin/recordatorios');
@@ -87,7 +84,7 @@ export default function EditarRecordatorio() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validaciones
     if (!recordatorio.titulo.trim()) {
       alert('Por favor ingresa un título para el recordatorio');
@@ -104,7 +101,7 @@ export default function EditarRecordatorio() {
       const fechaSeleccionada = new Date(recordatorio.fechaVencimiento);
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
-      
+
       if (fechaSeleccionada < hoy) {
         const confirmar = confirm(
           'La fecha de vencimiento es anterior a hoy. ¿Deseas continuar de todos modos?'
@@ -116,32 +113,30 @@ export default function EditarRecordatorio() {
     setGuardando(true);
 
     try {
-      const recordatorioData = {
-        titulo: recordatorio.titulo.trim(),
-        descripcion: recordatorio.descripcion.trim(),
-        fechaVencimiento: recordatorio.fechaVencimiento,
-        prioridad: recordatorio.prioridad,
-        notas: recordatorio.notas.trim(),
-        estado: recordatorio.estado,
-        fechaModificacion: serverTimestamp(),
-        usuarioModificador: user?.displayName || user?.email
-      };
+  const recordatorioData = {
+    titulo: recordatorio.titulo.trim(),
+    descripcion: recordatorio.descripcion.trim(),
+    fechaVencimiento: recordatorio.fechaVencimiento,
+    prioridad: recordatorio.prioridad,
+    notas: recordatorio.notas.trim(),
+    estado: recordatorio.estado
+  };
 
-      // Si se está marcando como completado y no tenía fecha de completado
-      if (recordatorio.estado === 'completado' && !recordatorioOriginal.fechaCompletado) {
-        recordatorioData.fechaCompletado = new Date().toISOString();
-        recordatorioData.usuarioCompletor = user?.displayName || user?.email;
-      }
+  // Si se está marcando como completado y no tenía fecha de completado
+  if (recordatorio.estado === 'completado' && !recordatorioOriginal.fechaCompletado) {
+    recordatorioData.fechaCompletado = new Date().toISOString();
+    recordatorioData.usuarioCompletor = user?.displayName || user?.email;
+  }
 
-      // Si se está cambiando de completado a pendiente, limpiar datos de completado
-      if (recordatorio.estado !== 'completado' && recordatorioOriginal.estado === 'completado') {
-        recordatorioData.fechaCompletado = null;
-        recordatorioData.usuarioCompletor = null;
-      }
+  // Si se está cambiando de completado a pendiente, limpiar datos de completado
+  if (recordatorio.estado !== 'completado' && recordatorioOriginal.estado === 'completado') {
+    recordatorioData.fechaCompletado = null;
+    recordatorioData.usuarioCompletor = null;
+  }
 
-      await updateDoc(doc(db, 'recordatorios', params.id), recordatorioData);
-      alert('Recordatorio actualizado exitosamente');
-      router.push('/admin/recordatorios');
+  await apiService.actualizarRecordatorio(params.id, recordatorioData);
+  alert('Recordatorio actualizado exitosamente');
+  router.push('/admin/recordatorios');
     } catch (error) {
       console.error('Error al actualizar recordatorio:', error);
       alert('Error al actualizar el recordatorio. Inténtelo de nuevo más tarde.');
@@ -176,7 +171,7 @@ export default function EditarRecordatorio() {
 
   const formatDateTime = (timestamp) => {
     if (!timestamp) return 'No disponible';
-    
+
     try {
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       return date.toLocaleString('es-AR', {
@@ -211,9 +206,9 @@ export default function EditarRecordatorio() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -296,14 +291,14 @@ export default function EditarRecordatorio() {
           </div>
 
           <form id="recordatorio-form" onSubmit={handleSubmit} className="space-y-6">
-            
+
             {/* Información básica */}
             <div className="p-6 bg-white rounded-lg shadow-md">
               <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
                 <AlertCircle size={20} className="mr-2 text-primary" />
                 Información del Recordatorio
               </h3>
-              
+
               <div className="space-y-4">
                 {/* Título */}
                 <div>
@@ -406,7 +401,7 @@ export default function EditarRecordatorio() {
                 <Clock size={20} className="mr-2 text-primary" />
                 Información Adicional
               </h3>
-              
+
               {/* Notas */}
               <div className="mb-4">
                 <label className="block mb-2 text-sm font-medium text-gray-700">
@@ -470,23 +465,20 @@ export default function EditarRecordatorio() {
             {recordatorio.titulo && (
               <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="mb-4 text-lg font-semibold text-gray-700">Vista Previa</h3>
-                <div className={`p-4 rounded-lg border-l-4 ${
-                  recordatorio.estado === 'completado' ? 'border-green-500 bg-green-50' :
-                  recordatorio.prioridad === 'alta' ? 'border-red-500 bg-red-50' :
-                  recordatorio.prioridad === 'media' ? 'border-yellow-500 bg-yellow-50' :
-                  'border-green-500 bg-green-50'
-                }`}>
+                <div className={`p-4 rounded-lg border-l-4 ${recordatorio.estado === 'completado' ? 'border-green-500 bg-green-50' :
+                    recordatorio.prioridad === 'alta' ? 'border-red-500 bg-red-50' :
+                      recordatorio.prioridad === 'media' ? 'border-yellow-500 bg-yellow-50' :
+                        'border-green-500 bg-green-50'
+                  }`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className={`text-lg font-semibold ${
-                        recordatorio.estado === 'completado' ? 'line-through text-gray-500' : 'text-gray-900'
-                      }`}>
+                      <h4 className={`text-lg font-semibold ${recordatorio.estado === 'completado' ? 'line-through text-gray-500' : 'text-gray-900'
+                        }`}>
                         {recordatorio.titulo}
                       </h4>
                       {recordatorio.descripcion && (
-                        <p className={`mt-1 text-sm ${
-                          recordatorio.estado === 'completado' ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
+                        <p className={`mt-1 text-sm ${recordatorio.estado === 'completado' ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
                           {recordatorio.descripcion}
                         </p>
                       )}
@@ -498,16 +490,14 @@ export default function EditarRecordatorio() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className={`w-3 h-3 rounded-full ${
-                        recordatorio.prioridad === 'alta' ? 'bg-red-500' :
-                        recordatorio.prioridad === 'media' ? 'bg-yellow-500' :
-                        'bg-green-500'
-                      }`}></span>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${
-                        recordatorio.estado === 'completado' 
+                      <span className={`w-3 h-3 rounded-full ${recordatorio.prioridad === 'alta' ? 'bg-red-500' :
+                          recordatorio.prioridad === 'media' ? 'bg-yellow-500' :
+                            'bg-green-500'
+                        }`}></span>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${recordatorio.estado === 'completado'
                           ? 'text-green-800 bg-green-100 border-green-200'
                           : 'text-yellow-800 bg-yellow-100 border-yellow-200'
-                      }`}>
+                        }`}>
                         {recordatorio.estado === 'completado' ? 'COMPLETADO' : 'PENDIENTE'}
                       </span>
                     </div>

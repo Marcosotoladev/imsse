@@ -1,4 +1,4 @@
-// app/admin/recibos/[id]/page.jsx - Ver Recibo IMSSE (Arreglado)
+// app/admin/recibos/[id]/page.jsx - Ver Recibo IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,9 +7,7 @@ import Link from 'next/link';
 import { Home, LogOut, Edit, ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { obtenerReciboPorId } from '../../../lib/firestore';
-import { doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 import { use } from 'react';
 
 export default function VerRecibo({ params }) {
@@ -54,7 +52,8 @@ export default function VerRecibo({ params }) {
       if (currentUser) {
         setUser(currentUser);
         try {
-          const reciboData = await obtenerReciboPorId(id);
+          // ✅ USAR apiService
+          const reciboData = await apiService.obtenerReciboPorId(id);
           setRecibo(reciboData);
           setLoading(false);
         } catch (error) {
@@ -82,7 +81,8 @@ export default function VerRecibo({ params }) {
   const handleDeleteRecibo = async () => {
     if (confirm(`¿Está seguro de que desea eliminar el recibo ${recibo.numero}?`)) {
       try {
-        await deleteDoc(doc(db, 'recibos', id));
+        // ✅ USAR apiService
+        await apiService.eliminarRecibo(id);
         alert('Recibo eliminado exitosamente.');
         router.push('/admin/recibos');
       } catch (error) {

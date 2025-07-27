@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
-import { obtenerPresupuestoPorId, actualizarPresupuesto } from '../../../../lib/firestore';
+import apiService from '../../../../lib/services/apiService';
 import { use } from 'react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import PresupuestoPDF from '../../../../components/pdf/PresupuestoPDF';
@@ -15,7 +15,7 @@ import PresupuestoPDF from '../../../../components/pdf/PresupuestoPDF';
 export default function EditarPresupuesto({ params }) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;
-  
+
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function EditarPresupuesto({ params }) {
     direccion: '',
     cuit: ''
   });
-  
+
   const [presupuesto, setPresupuesto] = useState({
     numero: '',
     fecha: '',
@@ -65,22 +65,40 @@ export default function EditarPresupuesto({ params }) {
 
   useEffect(() => {
     if (!id) return;
-    
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        
+
         try {
-          const presupuestoData = await obtenerPresupuestoPorId(id);
+          const presupuestoData = await apiService.obtenerPresupuestoPorId(id);
+          console.log('Datos recibidos:', presupuestoData); // Para debug
           setPresupuestoOriginal(presupuestoData);
-          
+
           // Procesar fechas de Firebase
           const procesarFecha = (fecha) => {
             if (!fecha) return '';
-            if (fecha.toDate) return fecha.toDate().toISOString().split('T')[0];
+
+            // Si es un Timestamp de Firestore con _seconds
+            if (fecha._seconds) {
+              const date = new Date(fecha._seconds * 1000);
+              return date.toISOString().split('T')[0];
+            }
+
+            // Si es string de fecha ISO
+            if (typeof fecha === 'string') {
+              return new Date(fecha).toISOString().split('T')[0];
+            }
+
+            // Si es objeto con toDate (Firestore)
+            if (fecha.toDate) {
+              return fecha.toDate().toISOString().split('T')[0];
+            }
+
+            // Si es objeto Date
             return new Date(fecha).toISOString().split('T')[0];
           };
-          
+
           // Actualizar estado con los datos cargados
           setPresupuesto({
             numero: presupuestoData.numero || '',
@@ -92,7 +110,7 @@ export default function EditarPresupuesto({ params }) {
             total: presupuestoData.total || 0,
             mostrarIva: presupuestoData.mostrarIva || false
           });
-          
+
           setCliente(presupuestoData.cliente || {});
           setLoading(false);
         } catch (error) {
@@ -158,13 +176,13 @@ export default function EditarPresupuesto({ params }) {
 
   const handleClienteChange = (e) => {
     const { name, value } = e.target;
-    setCliente({...cliente, [name]: value});
+    setCliente({ ...cliente, [name]: value });
   };
 
   const handleItemChange = (id, field, value) => {
     const updatedItems = presupuesto.items.map(item => {
       if (item.id === id) {
-        const updatedItem = {...item, [field]: value};
+        const updatedItem = { ...item, [field]: value };
         if (field === 'cantidad' || field === 'precioUnitario') {
           const cantidad = parseFloat(updatedItem.cantidad || 0);
           const precio = parseFloat(updatedItem.precioUnitario || 0);
@@ -174,12 +192,12 @@ export default function EditarPresupuesto({ params }) {
       }
       return item;
     });
-    
+
     // Recalcular totales con IVA condicional
     const subtotal = updatedItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
     const iva = presupuesto.mostrarIva ? Math.round(subtotal * 0.21) : 0;
     const total = subtotal + iva;
-    
+
     setPresupuesto({
       ...presupuesto,
       items: updatedItems,
@@ -202,12 +220,12 @@ export default function EditarPresupuesto({ params }) {
 
   const removeItem = (id) => {
     if (presupuesto.items.length === 1) return;
-    
+
     const updatedItems = presupuesto.items.filter(item => item.id !== id);
     const subtotal = updatedItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
     const iva = presupuesto.mostrarIva ? Math.round(subtotal * 0.21) : 0;
     const total = subtotal + iva;
-    
+
     setPresupuesto({
       ...presupuesto,
       items: updatedItems,
@@ -234,8 +252,8 @@ export default function EditarPresupuesto({ params }) {
         estado: presupuestoOriginal.estado || 'pendiente',
         fechaModificacion: new Date()
       };
-      
-      await actualizarPresupuesto(id, presupuestoData);
+
+      await apiService.actualizarPresupuesto(id, presupuestoData);
       alert('Presupuesto IMSSE actualizado exitosamente');
       router.push('/admin/presupuestos');
     } catch (error) {
@@ -263,16 +281,16 @@ export default function EditarPresupuesto({ params }) {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
           </div>
           <div className="flex items-center space-x-4">
             <span className="hidden md:inline">{user?.email}</span>
-            <button 
+            <button
               onClick={handleLogout}
               className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
             >
@@ -286,14 +304,14 @@ export default function EditarPresupuesto({ params }) {
         {/* Breadcrumb y acciones */}
         <div className="flex flex-wrap items-center justify-between mb-8">
           <div className="flex items-center mb-4">
-            <Link 
+            <Link
               href="/admin/panel-control"
               className="flex items-center mr-4 text-primary hover:underline"
             >
               <Home size={16} className="mr-1" /> Panel de Control
             </Link>
             <span className="mx-2 text-gray-500">/</span>
-            <Link 
+            <Link
               href="/admin/presupuestos"
               className="flex items-center mr-4 text-primary hover:underline"
             >
@@ -302,7 +320,7 @@ export default function EditarPresupuesto({ params }) {
             <span className="mx-2 text-gray-500">/</span>
             <span className="text-gray-700">Editar Presupuesto</span>
           </div>
-          
+
           <div className="flex flex-wrap gap-2 mb-4">
             <Link
               href={`/admin/presupuestos/${id}`}
@@ -316,10 +334,10 @@ export default function EditarPresupuesto({ params }) {
             >
               <Download size={18} className="mr-2" /> Descargar PDF
             </button>
-            
+
             {/* PDF solo se renderiza cuando se necesita */}
             {mostrarPDF && (
-              <div style={{position: 'absolute', left: '-9999px'}}>
+              <div style={{ position: 'absolute', left: '-9999px' }}>
                 <PDFDownloadLink
                   document={<PresupuestoPDF presupuesto={{
                     ...presupuesto,
@@ -349,7 +367,7 @@ export default function EditarPresupuesto({ params }) {
               disabled={guardando}
               className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
             >
-              <Save size={18} className="mr-2" /> 
+              <Save size={18} className="mr-2" />
               {guardando ? 'Guardando...' : 'Guardar Cambios'}
             </button>
           </div>
@@ -366,35 +384,35 @@ export default function EditarPresupuesto({ params }) {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Número</label>
-                <input 
-                  type="text" 
-                  value={presupuesto.numero} 
-                  disabled 
+                <input
+                  type="text"
+                  value={presupuesto.numero}
+                  disabled
                   className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md"
                 />
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Fecha</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={presupuesto.fecha}
-                  onChange={(e) => setPresupuesto({...presupuesto, fecha: e.target.value})}
+                  onChange={(e) => setPresupuesto({ ...presupuesto, fecha: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
             </div>
           </div>
-          
+
           {/* Información del cliente */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <h3 className="mb-4 text-lg font-semibold text-gray-700">Información del Cliente</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Empresa *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="empresa"
-                  value={cliente.empresa || ''} 
+                  value={cliente.empresa || ''}
                   onChange={handleClienteChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   required
@@ -402,10 +420,10 @@ export default function EditarPresupuesto({ params }) {
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Persona de Contacto *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="nombre"
-                  value={cliente.nombre || ''} 
+                  value={cliente.nombre || ''}
                   onChange={handleClienteChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   required
@@ -413,30 +431,30 @@ export default function EditarPresupuesto({ params }) {
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   name="email"
-                  value={cliente.email || ''} 
+                  value={cliente.email || ''}
                   onChange={handleClienteChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Teléfono</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="telefono"
-                  value={cliente.telefono || ''} 
+                  value={cliente.telefono || ''}
                   onChange={handleClienteChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">CUIT</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="cuit"
-                  value={cliente.cuit || ''} 
+                  value={cliente.cuit || ''}
                   onChange={handleClienteChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="30-12345678-9"
@@ -444,17 +462,17 @@ export default function EditarPresupuesto({ params }) {
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Dirección</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="direccion"
-                  value={cliente.direccion || ''} 
+                  value={cliente.direccion || ''}
                   onChange={handleClienteChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
             </div>
           </div>
-          
+
           {/* Items del presupuesto */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <h3 className="mb-4 text-lg font-semibold text-gray-700">Detalle de Servicios y Productos</h3>
@@ -475,7 +493,7 @@ export default function EditarPresupuesto({ params }) {
                       <td className="px-4 py-2">
                         {/* Vista móvil - Modal */}
                         <div className="md:hidden">
-                          <div 
+                          <div
                             onClick={() => abrirModalDescripcion(item.id, item.descripcion)}
                             className="min-h-[60px] p-3 border border-gray-300 rounded-md bg-gray-50 cursor-pointer flex items-center justify-between transition-colors hover:bg-gray-100"
                           >
@@ -488,18 +506,18 @@ export default function EditarPresupuesto({ params }) {
                           </div>
                           {item.descripcion && (
                             <div className="mt-2 text-xs text-gray-500">
-                              {item.descripcion.length > 50 
-                                ? `${item.descripcion.substring(0, 50)}...` 
+                              {item.descripcion.length > 50
+                                ? `${item.descripcion.substring(0, 50)}...`
                                 : item.descripcion
                               }
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Vista desktop - Textarea */}
                         <div className="hidden md:block">
                           <textarea
-                            value={item.descripcion} 
+                            value={item.descripcion}
                             onChange={(e) => handleItemChange(item.id, 'descripcion', e.target.value)}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md min-h-[80px] resize-y"
                             placeholder="Ej: Detector de humo óptico Bosch FAP-325 con certificación..."
@@ -508,18 +526,18 @@ export default function EditarPresupuesto({ params }) {
                         </div>
                       </td>
                       <td className="px-4 py-2">
-                        <input 
-                          type="number" 
-                          value={item.cantidad} 
+                        <input
+                          type="number"
+                          value={item.cantidad}
                           onChange={(e) => handleItemChange(item.id, 'cantidad', parseInt(e.target.value) || 0)}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md"
                           min="1"
                         />
                       </td>
                       <td className="px-4 py-2">
-                        <input 
-                          type="number" 
-                          value={item.precioUnitario} 
+                        <input
+                          type="number"
+                          value={item.precioUnitario}
                           onChange={(e) => handleItemChange(item.id, 'precioUnitario', parseFloat(e.target.value) || 0)}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md"
                           min="0"
@@ -530,7 +548,7 @@ export default function EditarPresupuesto({ params }) {
                         {formatMoney(item.subtotal)}
                       </td>
                       <td className="px-4 py-2">
-                        <button 
+                        <button
                           onClick={() => removeItem(item.id)}
                           className="text-red-500 hover:text-red-700 disabled:opacity-50"
                           disabled={presupuesto.items.length === 1}
@@ -544,16 +562,16 @@ export default function EditarPresupuesto({ params }) {
                 </tbody>
               </table>
             </div>
-            
+
             <div className="mt-4">
-              <button 
+              <button
                 onClick={addItem}
                 className="flex items-center text-blue-600 hover:text-blue-800"
               >
                 <PlusCircle size={18} className="mr-1" /> Agregar ítem
               </button>
             </div>
-            
+
             {/* Totales con IVA opcional - Edición */}
             <div className="w-full mt-6 ml-auto md:w-80">
               <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
@@ -571,7 +589,7 @@ export default function EditarPresupuesto({ params }) {
                   <span>TOTAL:</span>
                   <span>{formatMoney(presupuesto.total)}</span>
                 </div>
-                
+
                 {/* Checkbox para controlar IVA en edición */}
                 <div className="pt-3 mt-3 border-t border-gray-300">
                   <label className="flex items-center">
@@ -583,7 +601,7 @@ export default function EditarPresupuesto({ params }) {
                         const subtotal = presupuesto.subtotal || 0;
                         const iva = mostrarIva ? Math.round(subtotal * 0.21) : 0;
                         const total = subtotal + iva;
-                        
+
                         setPresupuesto({
                           ...presupuesto,
                           mostrarIva,
@@ -599,13 +617,13 @@ export default function EditarPresupuesto({ params }) {
               </div>
             </div>
           </div>
-          
+
           {/* Observaciones */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <h3 className="mb-4 text-lg font-semibold text-gray-700">Observaciones</h3>
-            <textarea 
+            <textarea
               value={presupuesto.observaciones}
-              onChange={(e) => setPresupuesto({...presupuesto, observaciones: e.target.value})}
+              onChange={(e) => setPresupuesto({ ...presupuesto, observaciones: e.target.value })}
               className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md"
               placeholder="Observaciones adicionales, condiciones especiales, garantías, plazos de entrega, etc."
             ></textarea>
@@ -627,7 +645,7 @@ export default function EditarPresupuesto({ params }) {
               disabled={guardando}
               className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
             >
-              <Save size={18} className="mr-2" /> 
+              <Save size={18} className="mr-2" />
               {guardando ? 'Guardando...' : 'Guardar Cambios'}
             </button>
           </div>
@@ -649,7 +667,7 @@ export default function EditarPresupuesto({ params }) {
                 </svg>
               </button>
             </div>
-            
+
             <div className="flex flex-col flex-1 p-4 bg-white md:rounded-b-lg">
               <textarea
                 value={modalDescripcion.value}
@@ -667,12 +685,12 @@ Ejemplo:
                 autoFocus
                 style={{ minHeight: '300px' }}
               />
-              
+
               <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
                 <span>{modalDescripcion.value.length} caracteres</span>
                 <span className="text-xs text-gray-400">Tip: Usa viñetas (•) para mejor legibilidad</span>
               </div>
-              
+
               <div className="flex justify-end mt-4 space-x-3">
                 <button
                   onClick={() => setModalDescripcion({ isOpen: false, itemId: null, value: '' })}

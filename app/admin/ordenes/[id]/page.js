@@ -4,12 +4,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
-  Edit, 
-  ArrowLeft, 
-  Download, 
+import {
+  Home,
+  LogOut,
+  Edit,
+  ArrowLeft,
+  Download,
   Trash2,
   Shield,
   User,
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { obtenerOrdenTrabajoPorId, eliminarOrdenTrabajo } from '../../../lib/firestore';
+import apiService from '../../../lib/services/apiService';
 import { use } from 'react';
 
 export default function VerOrdenTrabajo({ params }) {
@@ -35,7 +35,7 @@ export default function VerOrdenTrabajo({ params }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [orden, setOrden] = useState(null);
-  
+
   // Estado para el modal de fotos
   const [modalFoto, setModalFoto] = useState({
     isOpen: false,
@@ -46,7 +46,7 @@ export default function VerOrdenTrabajo({ params }) {
   // Función para formatear fechas
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    
+
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('es-AR', {
@@ -66,28 +66,32 @@ export default function VerOrdenTrabajo({ params }) {
   };
 
   useEffect(() => {
-    if (!id) return;
+  if (!id) return;
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        try {
-          const ordenData = await obtenerOrdenTrabajoPorId(id);
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    if (currentUser) {
+      setUser(currentUser);
+      try {
+        const ordenData = await apiService.obtenerOrdenTrabajoPorId(id);
+        if (ordenData) {
           setOrden(ordenData);
-          setLoading(false);
-        } catch (error) {
-          console.error('Error al cargar orden de trabajo IMSSE:', error);
-          alert('Error al cargar los datos de la orden.');
+        } else {
+          alert('Orden de trabajo no encontrada.');
           router.push('/admin/ordenes');
         }
-      } else {
-        router.push('/admin');
+        setLoading(false);
+      } catch (error) {
+        console.error('Error al cargar orden de trabajo IMSSE:', error);
+        alert('Error al cargar los datos de la orden.');
+        router.push('/admin/ordenes');
       }
-    });
+    } else {
+      router.push('/admin');
+    }
+  });
 
-    return () => unsubscribe();
-  }, [id, router]);
-
+  return () => unsubscribe();
+}, [id, router]);
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -100,7 +104,7 @@ export default function VerOrdenTrabajo({ params }) {
   const handleDeleteOrden = async () => {
     if (confirm(`¿Está seguro de que desea eliminar la orden de trabajo ${orden.numero}?`)) {
       try {
-        await eliminarOrdenTrabajo(id);
+        await apiService.eliminarOrdenTrabajo(id);
         alert('Orden de trabajo eliminada exitosamente.');
         router.push('/admin/ordenes');
       } catch (error) {
@@ -114,17 +118,17 @@ export default function VerOrdenTrabajo({ params }) {
     try {
       const { pdf } = await import('@react-pdf/renderer');
       const { default: OrdenTrabajoPDF } = await import('../../../components/pdf/OrdenTrabajoPDF');
-      
+
       const blob = await pdf(<OrdenTrabajoPDF orden={orden} />).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${orden.numero}.pdf`;
       link.click();
-      
+
       URL.revokeObjectURL(url);
       alert(`✅ Orden ${orden.numero} descargada exitosamente`);
-      
+
     } catch (error) {
       console.error('Error al generar PDF:', error);
       alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
@@ -170,7 +174,7 @@ export default function VerOrdenTrabajo({ params }) {
   useEffect(() => {
     const manejarTeclas = (e) => {
       if (!modalFoto.isOpen) return;
-      
+
       if (e.key === 'Escape') {
         cerrarModalFoto();
       } else if (e.key === 'ArrowLeft') {
@@ -218,9 +222,9 @@ export default function VerOrdenTrabajo({ params }) {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -294,7 +298,7 @@ export default function VerOrdenTrabajo({ params }) {
       {/* Contenido principal */}
       <div className="container px-4 py-8 mx-auto">
         <div className="max-w-4xl mx-auto space-y-6">
-          
+
           {/* Header de la orden */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <div className="flex flex-col items-start justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
@@ -322,9 +326,9 @@ export default function VerOrdenTrabajo({ params }) {
             {/* Encabezado IMSSE */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-red-600">
               <div className="flex items-center">
-                <img 
-                  src="/logo/imsse-logo.png" 
-                  alt="IMSSE Logo" 
+                <img
+                  src="/logo/imsse-logo.png"
+                  alt="IMSSE Logo"
                   className="w-10 h-10 mr-4"
                 />
                 <div>
@@ -443,8 +447,8 @@ export default function VerOrdenTrabajo({ params }) {
                   </h3>
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     {orden.fotos.map((foto, index) => (
-                      <div 
-                        key={foto.id || index} 
+                      <div
+                        key={foto.id || index}
                         className="relative cursor-pointer group"
                         onClick={() => abrirModalFoto(foto, index)}
                       >
@@ -474,16 +478,16 @@ export default function VerOrdenTrabajo({ params }) {
                   <h4 className="mb-4 text-sm font-semibold text-gray-700 uppercase">Técnico Responsable</h4>
                   {orden.firmas?.tecnico?.firma ? (
                     <div className="flex items-center justify-center w-40 h-20 mb-4 border border-gray-200 rounded bg-gray-50">
-                      <img 
-                        src={orden.firmas.tecnico.firma} 
-                        alt="Firma técnico" 
+                      <img
+                        src={orden.firmas.tecnico.firma}
+                        alt="Firma técnico"
                         className="object-contain max-w-full max-h-full"
                         onError={(e) => {
                           e.target.style.display = 'none';
                           e.target.nextSibling.style.display = 'block';
                         }}
                       />
-                      <span style={{display: 'none'}} className="text-xs text-gray-400">Firma no disponible</span>
+                      <span style={{ display: 'none' }} className="text-xs text-gray-400">Firma no disponible</span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center w-40 h-20 mb-4 border border-gray-200 rounded bg-gray-50">
@@ -503,16 +507,16 @@ export default function VerOrdenTrabajo({ params }) {
                   <h4 className="mb-4 text-sm font-semibold text-gray-700 uppercase">Conforme Cliente</h4>
                   {orden.firmas?.cliente?.firma ? (
                     <div className="flex items-center justify-center w-40 h-20 mb-4 border border-gray-200 rounded bg-gray-50">
-                      <img 
-                        src={orden.firmas.cliente.firma} 
-                        alt="Firma cliente" 
+                      <img
+                        src={orden.firmas.cliente.firma}
+                        alt="Firma cliente"
                         className="object-contain max-w-full max-h-full"
                         onError={(e) => {
                           e.target.style.display = 'none';
                           e.target.nextSibling.style.display = 'block';
                         }}
                       />
-                      <span style={{display: 'none'}} className="text-xs text-gray-400">Firma no disponible</span>
+                      <span style={{ display: 'none' }} className="text-xs text-gray-400">Firma no disponible</span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center w-40 h-20 mb-4 border border-gray-200 rounded bg-gray-50">
@@ -553,7 +557,7 @@ export default function VerOrdenTrabajo({ params }) {
               <div>
                 <span className="block mb-1 text-sm font-medium text-gray-600">Fecha de creación:</span>
                 <span className="text-gray-900">
-                  {orden.fechaCreacion && orden.fechaCreacion.toDate 
+                  {orden.fechaCreacion && orden.fechaCreacion.toDate
                     ? new Date(orden.fechaCreacion.toDate()).toLocaleString('es-AR')
                     : 'No disponible'}
                 </span>
@@ -562,7 +566,7 @@ export default function VerOrdenTrabajo({ params }) {
                 <div className="md:col-span-2">
                   <span className="block mb-1 text-sm font-medium text-gray-600">Última actualización:</span>
                   <span className="text-gray-900">
-                    {orden.fechaModificacion.toDate 
+                    {orden.fechaModificacion.toDate
                       ? new Date(orden.fechaModificacion.toDate()).toLocaleString('es-AR')
                       : 'No disponible'}
                   </span>
@@ -577,7 +581,7 @@ export default function VerOrdenTrabajo({ params }) {
       {modalFoto.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
           <div className="relative flex items-center justify-center w-full h-full">
-            
+
             {/* Botón cerrar */}
             <button
               onClick={cerrarModalFoto}
@@ -609,7 +613,7 @@ export default function VerOrdenTrabajo({ params }) {
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                </button>
+              </button>
             )}
 
             {/* Imagen principal */}

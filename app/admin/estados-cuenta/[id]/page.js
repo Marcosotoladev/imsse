@@ -1,18 +1,20 @@
-// app/admin/estados-cuenta/[id]/page.jsx - Ver Estado de Cuenta IMSSE
+// app/admin/estados-cuenta/[id]/page.jsx - Ver Estado de Cuenta IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Edit, ArrowLeft, Download, Trash2, Calendar, Building, TrendingUp, TrendingDown } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { auth, db } from '../../../lib/firebase';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
+import { use } from 'react';
 
-export default function VerEstadoCuenta() {
+export default function VerEstadoCuenta({ params }) {
+  const resolvedParams = use(params);
+  const id = resolvedParams.id;
   const router = useRouter();
-  const params = useParams();
+  
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [estadoCuenta, setEstadoCuenta] = useState(null);
@@ -65,21 +67,15 @@ export default function VerEstadoCuenta() {
   };
 
   useEffect(() => {
-    if (!params.id) return;
+    if (!id) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         try {
-          const docRef = doc(db, 'estados_cuenta', params.id);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            setEstadoCuenta({ id: docSnap.id, ...docSnap.data() });
-          } else {
-            alert('Estado de cuenta no encontrado.');
-            router.push('/admin/estados-cuenta');
-          }
+          // ✅ USAR apiService
+          const estadoData = await apiService.obtenerEstadoCuentaPorId(id);
+          setEstadoCuenta({ id, ...estadoData });
           setLoading(false);
         } catch (error) {
           console.error('Error al cargar estado de cuenta IMSSE:', error);
@@ -92,7 +88,7 @@ export default function VerEstadoCuenta() {
     });
 
     return () => unsubscribe();
-  }, [params.id, router]);
+  }, [id, router]);
 
   const handleLogout = async () => {
     try {
@@ -106,7 +102,8 @@ export default function VerEstadoCuenta() {
   const handleDeleteEstado = async () => {
     if (confirm(`¿Está seguro de que desea eliminar el estado de cuenta ${estadoCuenta.numero}?`)) {
       try {
-        await deleteDoc(doc(db, 'estados_cuenta', params.id));
+        // ✅ USAR apiService
+        await apiService.eliminarEstadoCuenta(id);
         alert('Estado de cuenta eliminado exitosamente.');
         router.push('/admin/estados-cuenta');
       } catch (error) {
@@ -234,7 +231,7 @@ export default function VerEstadoCuenta() {
                 <ArrowLeft size={18} className="mr-2" /> Volver
               </Link>
               <Link
-                href={`/admin/estados-cuenta/editar/${params.id}`}
+                href={`/admin/estados-cuenta/editar/${id}`}
                 className="flex items-center px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
               >
                 <Edit size={18} className="mr-2" /> Editar

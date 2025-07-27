@@ -7,9 +7,7 @@ import Link from 'next/link';
 import { Home, LogOut, Edit, ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { obtenerPresupuestoPorId } from '../../../lib/firestore';
-import { doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 import { use } from 'react';
 
 export default function VerPresupuesto({ params }) {
@@ -67,7 +65,7 @@ export default function VerPresupuesto({ params }) {
         setUser(currentUser);
 
         try {
-          const presupuestoData = await obtenerPresupuestoPorId(id);
+          const presupuestoData = await apiService.obtenerPresupuestoPorId(id);
           setPresupuesto(presupuestoData);
           setLoading(false);
         } catch (error) {
@@ -95,7 +93,7 @@ export default function VerPresupuesto({ params }) {
   const handleDeletePresupuesto = async () => {
     if (confirm(`¿Está seguro de que desea eliminar el presupuesto ${presupuesto.numero}?`)) {
       try {
-        await deleteDoc(doc(db, 'presupuestos', id));
+        await apiService.eliminarPresupuesto(id);
         alert('Presupuesto eliminado exitosamente.');
         router.push('/admin/presupuestos');
       } catch (error) {
@@ -108,7 +106,7 @@ export default function VerPresupuesto({ params }) {
     return {
       ...presupuesto,
       fecha: presupuesto.fecha?.toDate ? presupuesto.fecha.toDate() : new Date(presupuesto.fecha),
-      fechaVencimiento: presupuesto.fechaVencimiento?.toDate ? 
+      fechaVencimiento: presupuesto.fechaVencimiento?.toDate ?
         presupuesto.fechaVencimiento.toDate() : new Date(presupuesto.fechaVencimiento),
       cliente: {
         nombre: presupuesto.cliente?.nombre || '',
@@ -132,17 +130,17 @@ export default function VerPresupuesto({ params }) {
     try {
       const { pdf } = await import('@react-pdf/renderer');
       const { default: PresupuestoPDF } = await import('../../../components/pdf/PresupuestoPDF');
-      
+
       const blob = await pdf(<PresupuestoPDF presupuesto={adaptarDatosParaPDF(presupuesto)} />).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${presupuesto.numero}.pdf`;
       link.click();
-      
+
       URL.revokeObjectURL(url);
       alert(`✅ Presupuesto ${presupuesto.numero} descargado exitosamente`);
-      
+
     } catch (error) {
       console.error('Error al generar PDF:', error);
       alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
@@ -183,9 +181,9 @@ export default function VerPresupuesto({ params }) {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -259,7 +257,7 @@ export default function VerPresupuesto({ params }) {
       {/* Contenido principal - Responsive */}
       <div className="container px-4 py-8 mx-auto">
         <div className="max-w-4xl mx-auto space-y-6">
-          
+
           {/* Header del presupuesto */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <div className="flex flex-col items-start justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
@@ -288,9 +286,9 @@ export default function VerPresupuesto({ params }) {
             {/* Encabezado IMSSE */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-red-600">
               <div className="flex items-center">
-                <img 
-                  src="/logo/imsse-logo.png" 
-                  alt="IMSSE Logo" 
+                <img
+                  src="/logo/imsse-logo.png"
+                  alt="IMSSE Logo"
                   className="w-10 h-10 mr-4"
                 />
                 <div>
@@ -330,7 +328,7 @@ export default function VerPresupuesto({ params }) {
               {/* Datos del presupuesto */}
               <div className="flex-1 p-4 rounded-lg bg-gray-50">
                 <h3 className="mb-4 text-lg font-bold text-red-600">DATOS DEL PRESUPUESTO</h3>
-                
+
                 <div className="space-y-4">
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex items-start">
@@ -364,7 +362,7 @@ export default function VerPresupuesto({ params }) {
               {/* Datos del cliente */}
               <div className="flex-1 p-4 rounded-lg bg-gray-50">
                 <h3 className="mb-4 text-lg font-bold text-red-600">DATOS DEL CLIENTE</h3>
-                
+
                 <div className="space-y-4">
                   <div className="pb-3 border-b border-gray-200">
                     <div className="flex items-start">
@@ -420,7 +418,7 @@ export default function VerPresupuesto({ params }) {
               <h3 className="mb-4 text-lg font-bold text-center text-red-600">
                 SERVICIOS Y PRODUCTOS DE PROTECCIÓN CONTRA INCENDIOS
               </h3>
-              
+
               {presupuesto.items && presupuesto.items.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border border-gray-300">
@@ -538,7 +536,7 @@ export default function VerPresupuesto({ params }) {
               <div>
                 <span className="block mb-1 text-sm font-medium text-gray-600">Fecha de creación:</span>
                 <span className="text-gray-900">
-                  {presupuesto.fechaCreacion && presupuesto.fechaCreacion.toDate 
+                  {presupuesto.fechaCreacion && presupuesto.fechaCreacion.toDate
                     ? new Date(presupuesto.fechaCreacion.toDate()).toLocaleString('es-AR')
                     : 'No disponible'}
                 </span>
@@ -547,7 +545,7 @@ export default function VerPresupuesto({ params }) {
                 <div className="md:col-span-2">
                   <span className="block mb-1 text-sm font-medium text-gray-600">Última actualización:</span>
                   <span className="text-gray-900">
-                    {presupuesto.fechaActualizacion.toDate 
+                    {presupuesto.fechaActualizacion.toDate
                       ? new Date(presupuesto.fechaActualizacion.toDate()).toLocaleString('es-AR')
                       : 'No disponible'}
                   </span>

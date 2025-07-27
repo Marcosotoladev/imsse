@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FilePlus, FileText, Home, LogOut, Search, Download, Edit, Trash, Eye, Filter } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, getDocs, doc, deleteDoc, query, orderBy, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import PresupuestoPDF from '../../components/pdf/PresupuestoPDF';
+import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
 export default function HistorialPresupuestos() {
   const [user, setUser] = useState(null);
@@ -36,14 +36,8 @@ export default function HistorialPresupuestos() {
 
   const cargarPresupuestos = async () => {
     try {
-      const presupuestosRef = collection(db, 'presupuestos');
-      const q = query(presupuestosRef, orderBy('fechaCreacion', 'desc'));
-      const querySnapshot = await getDocs(q);
-
-      const presupuestosData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const response = await apiService.obtenerPresupuestos();
+      const presupuestosData = response.documents || [];
 
       console.log("Presupuestos cargados:", presupuestosData.length);
       setPresupuestos(presupuestosData);
@@ -65,7 +59,7 @@ export default function HistorialPresupuestos() {
   const handleDeletePresupuesto = async (id) => {
     if (confirm('¿Está seguro de que desea eliminar este presupuesto?')) {
       try {
-        await deleteDoc(doc(db, 'presupuestos', id));
+        await apiService.eliminarPresupuesto(id);
         setPresupuestos(presupuestos.filter(p => p.id !== id));
         alert('Presupuesto eliminado correctamente');
       } catch (error) {
@@ -78,13 +72,13 @@ export default function HistorialPresupuestos() {
   // Función para cambiar estado del presupuesto
   const handleCambiarEstado = async (id, nuevoEstado) => {
     try {
-      await updateDoc(doc(db, 'presupuestos', id), {
+      await apiService.actualizarPresupuesto(id, {
         estado: nuevoEstado,
         fechaModificacion: new Date()
       });
 
       // Actualizar lista local
-      setPresupuestos(presupuestos.map(p => 
+      setPresupuestos(presupuestos.map(p =>
         p.id === id ? { ...p, estado: nuevoEstado } : p
       ));
 
@@ -139,7 +133,7 @@ export default function HistorialPresupuestos() {
     ].some(campo => campo?.toLowerCase().includes(filtro.toLowerCase()));
 
     // Filtro por estado
-    const cumpleFiltroEstado = filtroEstado === 'todos' || 
+    const cumpleFiltroEstado = filtroEstado === 'todos' ||
       presupuesto.estado?.toLowerCase() === filtroEstado.toLowerCase();
 
     return cumpleFiltroTexto && cumpleFiltroEstado;
@@ -173,9 +167,9 @@ export default function HistorialPresupuestos() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -335,7 +329,7 @@ export default function HistorialPresupuestos() {
                             <option value="rechazado">Rechazado</option>
                           </select>
                           {/* Flecha del dropdown */}
-{/*                           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                          {/*                           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                             <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
@@ -375,7 +369,7 @@ export default function HistorialPresupuestos() {
                             onClick={() => handleDeletePresupuesto(presupuesto.id)}
                             title="Eliminar"
                             className="text-red-500 transition-colors cursor-pointer hover:text-red-700"
-                           
+
                           >
                             <Trash size={18} />
                           </button>
@@ -388,13 +382,13 @@ export default function HistorialPresupuestos() {
                     <td colSpan="6" className="px-6 py-12 text-center">
                       <FileText size={48} className="mx-auto mb-4 text-gray-400" />
                       <p className="mb-2 text-gray-500">
-                        {filtro || filtroEstado !== 'todos' 
+                        {filtro || filtroEstado !== 'todos'
                           ? 'No hay presupuestos que coincidan con los filtros'
                           : 'No hay presupuestos creados aún'
                         }
                       </p>
                       <p className="text-sm text-gray-400">
-                        {filtro || filtroEstado !== 'todos' 
+                        {filtro || filtroEstado !== 'todos'
                           ? 'Intente ajustar los filtros de búsqueda'
                           : 'Cree su primer presupuesto para comenzar'
                         }

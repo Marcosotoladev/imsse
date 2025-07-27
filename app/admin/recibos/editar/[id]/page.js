@@ -1,4 +1,4 @@
-// app/admin/recibos/editar/[id]/page.jsx - Editar Recibo IMSSE
+// app/admin/recibos/editar/[id]/page.jsx - Editar Recibo IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Home, LogOut, Save, Download, RefreshCw, Eye } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
-import { obtenerReciboPorId, actualizarRecibo } from '../../../../lib/firestore';
+import apiService from '../../../../lib/services/apiService';
 import { use } from 'react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import ReciboPDF from '../../../../components/pdf/ReciboPDF';
@@ -104,7 +104,8 @@ export default function EditarRecibo({ params }) {
         setUser(currentUser);
 
         try {
-          const reciboData = await obtenerReciboPorId(id);
+          // ✅ USAR apiService
+          const reciboData = await apiService.obtenerReciboPorId(id);
           setRecibo({
             numero: reciboData.numero || '',
             fecha: reciboData.fecha || '',
@@ -192,10 +193,11 @@ export default function EditarRecibo({ params }) {
       const reciboData = {
         ...recibo,
         monto: parseFloat(recibo.monto),
-        fechaActualizacion: new Date()
+        fechaModificacion: new Date()
       };
 
-      await actualizarRecibo(id, reciboData);
+      // ✅ USAR apiService
+      await apiService.actualizarRecibo(id, reciboData);
       alert('Recibo IMSSE actualizado exitosamente');
       router.push('/admin/recibos');
     } catch (error) {

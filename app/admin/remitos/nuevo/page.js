@@ -7,8 +7,7 @@ import Link from 'next/link';
 import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 import SignatureCanvas from 'react-signature-canvas';
 
 export default function NuevoRemito() {
@@ -154,13 +153,13 @@ export default function NuevoRemito() {
 
     const handleDescargarPDF = async () => {
         if (descargando) return;
-        
+
         setDescargando(true);
-        
+
         try {
             const { pdf } = await import('@react-pdf/renderer');
             const { default: RemitoPDF } = await import('../../../components/pdf/RemitoPDF');
-            
+
             const remitoData = { ...remito, cliente, firma: remito.firma || null };
             const blob = await pdf(<RemitoPDF remito={remitoData} />).toBlob();
             const url = URL.createObjectURL(blob);
@@ -168,11 +167,11 @@ export default function NuevoRemito() {
             link.href = url;
             link.download = `${remito.numero}.pdf`;
             link.click();
-            
+
             URL.revokeObjectURL(url);
             setDescargando(false);
             alert(`✅ Remito ${remito.numero} descargado exitosamente`);
-            
+
         } catch (error) {
             console.error('Error al generar PDF:', error);
             setDescargando(false);
@@ -193,7 +192,7 @@ export default function NuevoRemito() {
         }
 
         setGuardando(true);
-        
+
         try {
             const remitoData = {
                 numero: remito.numero,
@@ -206,15 +205,12 @@ export default function NuevoRemito() {
                 observaciones: remito.observaciones,
                 firma: remito.firma,
                 aclaracionFirma: remito.aclaracionFirma,
-                usuarioCreador: user.email,
-                fechaCreacion: serverTimestamp(),
-                fechaModificacion: serverTimestamp(),
                 totalItems: remito.items.reduce((sum, item) => sum + Number(item.cantidad || 0), 0),
                 empresa: 'IMSSE INGENIERÍA S.A.S',
                 tipo: 'remito_entrega'
             };
 
-            await addDoc(collection(db, 'remitos'), remitoData);
+            await apiService.crearRemito(remitoData);
             alert('Remito guardado exitosamente');
             router.push('/admin/remitos');
         } catch (error) {
@@ -229,7 +225,7 @@ export default function NuevoRemito() {
     const unidades = [
         'unidad',
         'metro',
-        'metro lineal', 
+        'metro lineal',
         'metro cuadrado',
         'kilogramo',
         'litro',
@@ -282,16 +278,15 @@ export default function NuevoRemito() {
                             <Save size={18} className="mr-2" />
                             {guardando ? 'Guardando...' : 'Guardar'}
                         </button>
-                        
+
                         {remito.items[0].descripcion && (
                             <button
                                 onClick={handleDescargarPDF}
                                 disabled={descargando}
-                                className={`flex items-center px-4 py-2 text-white transition-colors rounded-md ${
-                                    descargando 
-                                        ? 'bg-gray-400 cursor-not-allowed' 
+                                className={`flex items-center px-4 py-2 text-white transition-colors rounded-md ${descargando
+                                        ? 'bg-gray-400 cursor-not-allowed'
                                         : 'bg-blue-600 hover:bg-blue-700'
-                                }`}
+                                    }`}
                             >
                                 {descargando ? (
                                     <>
@@ -348,7 +343,7 @@ export default function NuevoRemito() {
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2">
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Destino</label>
@@ -458,7 +453,7 @@ export default function NuevoRemito() {
                                             <td className="px-4 py-2">
                                                 {/* Vista móvil - Botón que abre modal */}
                                                 <div className="md:hidden">
-                                                    <div 
+                                                    <div
                                                         onClick={() => abrirModalDescripcion(item.id, item.descripcion)}
                                                         className="min-h-[60px] p-3 border border-gray-300 rounded-md bg-gray-50 cursor-pointer flex items-center justify-between transition-colors hover:bg-gray-100"
                                                     >
@@ -472,14 +467,14 @@ export default function NuevoRemito() {
                                                     {/* Preview del texto si existe */}
                                                     {item.descripcion && (
                                                         <div className="mt-2 text-xs text-gray-500">
-                                                            {item.descripcion.length > 50 
-                                                                ? `${item.descripcion.substring(0, 50)}...` 
+                                                            {item.descripcion.length > 50
+                                                                ? `${item.descripcion.substring(0, 50)}...`
                                                                 : item.descripcion
                                                             }
                                                         </div>
                                                     )}
                                                 </div>
-                                                
+
                                                 {/* Vista desktop - Textarea normal */}
                                                 <div className="hidden md:block">
                                                     <textarea
@@ -662,7 +657,7 @@ export default function NuevoRemito() {
                                 </svg>
                             </button>
                         </div>
-                        
+
                         {/* Contenido del modal */}
                         <div className="flex flex-col flex-1 p-4 bg-white md:rounded-b-lg">
                             <textarea
@@ -680,7 +675,7 @@ Ejemplos:
                                 autoFocus
                                 style={{ minHeight: '200px' }}
                             />
-                            
+
                             {/* Contador de caracteres y tips */}
                             <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
                                 <span>{modalDescripcion.value.length} caracteres</span>
@@ -688,7 +683,7 @@ Ejemplos:
                                     Incluye marca, modelo y especificaciones técnicas
                                 </span>
                             </div>
-                            
+
                             {/* Botones del modal */}
                             <div className="flex justify-end mt-4 space-x-3">
                                 <button

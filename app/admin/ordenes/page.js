@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
-import { obtenerOrdenesTrabajo, eliminarOrdenTrabajo } from '../../lib/firestore';
+import apiService from '../../lib/services/apiService';
 
 export default function ListaOrdenesTrabajo() {
   const router = useRouter();
@@ -74,8 +74,9 @@ export default function ListaOrdenesTrabajo() {
   }, [router]);
 
   const cargarOrdenes = async () => {
-    try {
-      const ordenesData = await obtenerOrdenesTrabajo();
+  try {
+    const response = await apiService.obtenerOrdenesTrabajo();
+    const ordenesData = response.documents || response || [];
       setOrdenes(ordenesData);
       setOrdenesFiltradas(ordenesData);
       calcularEstadisticas(ordenesData);
@@ -123,7 +124,7 @@ export default function ListaOrdenesTrabajo() {
   const handleEliminarOrden = async (id, numero) => {
     if (confirm(`¿Está seguro de que desea eliminar la orden de trabajo ${numero}?`)) {
       try {
-        await eliminarOrdenTrabajo(id);
+        await apiService.eliminarOrdenTrabajo(id);
         await cargarOrdenes(); // Recargar la lista
         alert('Orden de trabajo eliminada exitosamente');
       } catch (error) {

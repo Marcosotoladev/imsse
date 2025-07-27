@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { auth, db } from '../../../lib/firebase';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function CrearEstadoCuenta() {
   const [user, setUser] = useState(null);
@@ -60,29 +60,32 @@ export default function CrearEstadoCuenta() {
     return () => unsubscribe();
   }, [router]);
 
-  const generarNumeroEstado = async () => {
-    try {
-      const estadosRef = collection(db, 'estados_cuenta');
-      const q = query(estadosRef, orderBy('fechaCreacion', 'desc'), limit(1));
-      const querySnapshot = await getDocs(q);
-      
-      let nuevoNumero = 'EC-001-2025';
-      
-      if (!querySnapshot.empty) {
-        const ultimoEstado = querySnapshot.docs[0].data();
-        const ultimoNumero = ultimoEstado.numero;
-        const numeroActual = parseInt(ultimoNumero.split('-')[1]);
-        const año = new Date().getFullYear();
-        nuevoNumero = `EC-${String(numeroActual + 1).padStart(3, '0')}-${año}`;
-      }
-      
-      setEstadoCuenta(prev => ({ ...prev, numero: nuevoNumero }));
-    } catch (error) {
-      console.error('Error al generar número:', error);
+
+const generarNumeroEstado = async () => {
+  try {
+    // Usar la API en lugar de Firestore directo
+    const estadosData = await apiService.obtenerDocumentos('estados', { 
+      ordenarPor: 'fechaCreacion', 
+      limite: 1 
+    });
+    
+    let nuevoNumero = 'EC-001-2025';
+    
+    if (estadosData && estadosData.length > 0) {
+      const ultimoEstado = estadosData[0];
+      const ultimoNumero = ultimoEstado.numero;
+      const numeroActual = parseInt(ultimoNumero.split('-')[1]);
       const año = new Date().getFullYear();
-      setEstadoCuenta(prev => ({ ...prev, numero: `EC-001-${año}` }));
+      nuevoNumero = `EC-${String(numeroActual + 1).padStart(3, '0')}-${año}`;
     }
-  };
+    
+    setEstadoCuenta(prev => ({ ...prev, numero: nuevoNumero }));
+  } catch (error) {
+    console.error('Error al generar número:', error);
+    const año = new Date().getFullYear();
+    setEstadoCuenta(prev => ({ ...prev, numero: `EC-001-${año}` }));
+  }
+};
 
   const handleLogout = async () => {
     try {
@@ -202,27 +205,30 @@ export default function CrearEstadoCuenta() {
 
     setGuardando(true);
 
-    try {
-      const estadoData = {
-        numero: estadoCuenta.numero,
-        cliente: cliente,
-        periodo: estadoCuenta.periodo,
-        saldoAnterior: parseFloat(estadoCuenta.saldoAnterior) || 0,
-        movimientos: estadoCuenta.movimientos.map(mov => ({
-          ...mov,
-          debe: parseFloat(mov.debe) || 0,
-          haber: parseFloat(mov.haber) || 0
-        })),
-        saldoActual: calcularSaldoActual(),
-        observaciones: estadoCuenta.observaciones,
-        fechaCreacion: serverTimestamp(),
-        usuarioCreador: user.email,
-        empresa: 'IMSSE INGENIERÍA S.A.S'
-      };
+try {
+  const estadoData = {
+    numero: estadoCuenta.numero,
+    cliente: cliente,
+    periodo: estadoCuenta.periodo,
+    saldoAnterior: parseFloat(estadoCuenta.saldoAnterior) || 0,
+    movimientos: estadoCuenta.movimientos.map(mov => ({
+      ...mov,
+      debe: parseFloat(mov.debe) || 0,
+      haber: parseFloat(mov.haber) || 0
+    })),
+    saldoActual: calcularSaldoActual(),
+    observaciones: estadoCuenta.observaciones,
+    fechaCreacion: new Date(), // ❌ Usar Date() en lugar de serverTimestamp()
+    fechaModificacion: new Date(),
+    usuarioCreador: user.email,
+    creadoPor: user.email, // ❌ Agregar para consistencia
+    empresa: 'IMSSE INGENIERÍA S.A.S'
+  };
 
-      await addDoc(collection(db, 'estados_cuenta'), estadoData);
-      alert('Estado de cuenta creado exitosamente');
-      router.push('/admin/estados-cuenta');
+  // ❌ USAR apiService en lugar de addDoc
+  await apiService.crearDocumento('estados', estadoData);
+  alert('Estado de cuenta IMSSE creado exitosamente');
+  router.push('/admin/estados-cuenta');
     } catch (error) {
       console.error('Error al crear estado de cuenta:', error);
       alert('Error al crear el estado de cuenta. Inténtelo de nuevo más tarde.');

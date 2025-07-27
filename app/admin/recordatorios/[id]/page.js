@@ -5,15 +5,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
-  Edit, 
-  ArrowLeft, 
-  Bell, 
-  Calendar, 
-  User, 
-  Clock, 
+import {
+  Home,
+  LogOut,
+  Edit,
+  ArrowLeft,
+  Bell,
+  Calendar,
+  User,
+  Clock,
   AlertCircle,
   CheckCircle,
   AlertTriangle,
@@ -22,8 +22,8 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../../../lib/firebase';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function VerRecordatorio() {
   const router = useRouter();
@@ -51,25 +51,21 @@ export default function VerRecordatorio() {
 
   const cargarRecordatorio = async () => {
     try {
-      const docRef = doc(db, 'recordatorios', params.id);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        
+      const data = await apiService.obtenerRecordatorioPorId(params.id);
+
+      if (data) {
         // Calcular estado automáticamente
         const fechaVencimiento = new Date(data.fechaVencimiento);
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
         fechaVencimiento.setHours(0, 0, 0, 0);
-        
+
         let estadoCalculado = data.estado;
         if (data.estado === 'pendiente' && fechaVencimiento < hoy) {
           estadoCalculado = 'vencido';
         }
-        
+
         setRecordatorio({
-          id: docSnap.id,
           ...data,
           estadoCalculado
         });
@@ -95,22 +91,24 @@ export default function VerRecordatorio() {
 
   const handleToggleCompletado = async () => {
     if (!recordatorio) return;
-    
+
     setActualizando(true);
     try {
       const nuevoEstado = recordatorio.estado === 'completado' ? 'pendiente' : 'completado';
-      
-      await updateDoc(doc(db, 'recordatorios', params.id), {
+
+      const datosActualizacion = {
         estado: nuevoEstado,
         fechaCompletado: nuevoEstado === 'completado' ? new Date().toISOString() : null,
         usuarioCompletor: nuevoEstado === 'completado' ? (user?.displayName || user?.email) : null
-      });
-      
+      };
+
+      await apiService.actualizarRecordatorio(params.id, datosActualizacion);
+
       // Recargar el recordatorio
       await cargarRecordatorio();
-      
-      alert(nuevoEstado === 'completado' 
-        ? '✅ Recordatorio marcado como completado' 
+
+      alert(nuevoEstado === 'completado'
+        ? '✅ Recordatorio marcado como completado'
         : '🔄 Recordatorio reactivado como pendiente'
       );
     } catch (error) {
@@ -123,26 +121,26 @@ export default function VerRecordatorio() {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No especificada';
-    
+
     try {
       const date = new Date(dateString);
       const today = new Date();
       const diffTime = date - today;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       const formatted = date.toLocaleDateString('es-AR', {
         weekday: 'long',
         day: '2-digit',
         month: 'long',
         year: 'numeric'
       });
-      
+
       if (diffDays === 0) return `${formatted} (Hoy)`;
       if (diffDays === 1) return `${formatted} (Mañana)`;
       if (diffDays === -1) return `${formatted} (Ayer)`;
       if (diffDays < 0) return `${formatted} (${Math.abs(diffDays)} días atrás)`;
       if (diffDays <= 7) return `${formatted} (En ${diffDays} días)`;
-      
+
       return formatted;
     } catch (e) {
       return dateString;
@@ -151,7 +149,7 @@ export default function VerRecordatorio() {
 
   const formatDateTime = (timestamp) => {
     if (!timestamp) return 'No disponible';
-    
+
     try {
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       return date.toLocaleString('es-AR', {
@@ -249,9 +247,9 @@ export default function VerRecordatorio() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -298,17 +296,16 @@ export default function VerRecordatorio() {
               <button
                 onClick={handleToggleCompletado}
                 disabled={actualizando}
-                className={`flex items-center px-4 py-2 text-white transition-colors rounded-md disabled:opacity-50 ${
-                  recordatorio.estado === 'completado'
-                    ? 'bg-yellow-600 hover:bg-yellow-700'
-                    : 'bg-green-600 hover:bg-green-700'
-                }`}
+                className={`flex items-center px-4 py-2 text-white transition-colors rounded-md disabled:opacity-50 ${recordatorio.estado === 'completado'
+                  ? 'bg-yellow-600 hover:bg-yellow-700'
+                  : 'bg-green-600 hover:bg-green-700'
+                  }`}
               >
                 <CheckCircle size={18} className="mr-2" />
-                {actualizando 
-                  ? 'Actualizando...' 
-                  : recordatorio.estado === 'completado' 
-                    ? 'Reactivar' 
+                {actualizando
+                  ? 'Actualizando...'
+                  : recordatorio.estado === 'completado'
+                    ? 'Reactivar'
                     : 'Marcar Completado'
                 }
               </button>
@@ -326,7 +323,7 @@ export default function VerRecordatorio() {
 
       <div className="container px-4 py-8 mx-auto">
         <div className="max-w-4xl mx-auto">
-          
+
           {/* Tarjeta principal del recordatorio */}
           <div className={`p-8 mb-6 bg-white rounded-lg shadow-md border-l-4 ${estadoConfig.bgCard}`}>
             <div className="flex flex-col space-y-4 md:flex-row md:items-start md:justify-between md:space-y-0">
@@ -334,26 +331,23 @@ export default function VerRecordatorio() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start space-x-4">
                   {/* Checkbox visual */}
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center mt-1 ${
-                    recordatorio.estado === 'completado'
-                      ? 'bg-green-500 border-green-500 text-white'
-                      : 'border-gray-300'
-                  }`}>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center mt-1 ${recordatorio.estado === 'completado'
+                    ? 'bg-green-500 border-green-500 text-white'
+                    : 'border-gray-300'
+                    }`}>
                     {recordatorio.estado === 'completado' && <CheckCircle size={20} />}
                   </div>
 
                   {/* Información del recordatorio */}
                   <div className="flex-1 min-w-0">
-                    <h2 className={`text-2xl font-bold mb-2 ${
-                      recordatorio.estado === 'completado' ? 'line-through text-gray-500' : 'text-gray-900'
-                    }`}>
+                    <h2 className={`text-2xl font-bold mb-2 ${recordatorio.estado === 'completado' ? 'line-through text-gray-500' : 'text-gray-900'
+                      }`}>
                       {recordatorio.titulo}
                     </h2>
-                    
+
                     {recordatorio.descripcion && (
-                      <p className={`text-lg mb-4 ${
-                        recordatorio.estado === 'completado' ? 'text-gray-400' : 'text-gray-700'
-                      }`}>
+                      <p className={`text-lg mb-4 ${recordatorio.estado === 'completado' ? 'text-gray-400' : 'text-gray-700'
+                        }`}>
                         {recordatorio.descripcion}
                       </p>
                     )}
@@ -396,33 +390,33 @@ export default function VerRecordatorio() {
 
           {/* Información detallada */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            
+
             {/* Detalles del recordatorio */}
             <div className="p-6 bg-white rounded-lg shadow-md">
               <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
                 <FileText size={20} className="mr-2 text-primary" />
                 Detalles del Recordatorio
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-500">Título</label>
                   <p className="text-gray-900">{recordatorio.titulo}</p>
                 </div>
-                
+
                 {recordatorio.descripcion && (
                   <div>
                     <label className="block text-sm font-medium text-gray-500">Descripción</label>
                     <p className="text-gray-900">{recordatorio.descripcion}</p>
                   </div>
                 )}
-                
+
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-500">Fecha de Vencimiento</label>
                     <p className="text-gray-900">{formatDate(recordatorio.fechaVencimiento)}</p>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-500">Prioridad</label>
                     <div className="flex items-center">
@@ -457,19 +451,19 @@ export default function VerRecordatorio() {
                 <Clock size={20} className="mr-2 text-primary" />
                 Información de Seguimiento
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-500">Creado por</label>
                   <p className="text-gray-900">{recordatorio.usuarioCreador}</p>
                   <p className="text-sm text-gray-600">{recordatorio.emailCreador}</p>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-500">Fecha de Creación</label>
                   <p className="text-gray-900">{formatDateTime(recordatorio.fechaCreacion)}</p>
                 </div>
-                
+
                 {recordatorio.fechaModificacion && (
                   <div>
                     <label className="block text-sm font-medium text-gray-500">Última Modificación</label>

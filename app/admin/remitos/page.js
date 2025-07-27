@@ -1,4 +1,4 @@
-// app/admin/remitos/page.jsx - Lista de Remitos IMSSE
+// app/admin/remitos/page.jsx - Lista de Remitos IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,8 +19,8 @@ import {
   FileCheck
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, getDocs, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
+import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
 export default function ListaRemitos() {
   const router = useRouter();
@@ -81,15 +81,9 @@ export default function ListaRemitos() {
 
   const cargarRemitos = async () => {
     try {
-      const q = query(
-        collection(db, 'remitos'),
-        orderBy('fechaCreacion', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const remitosData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // ✅ MIGRADO: Usar apiService en lugar de Firestore directo
+      const response = await apiService.obtenerRemitos();
+      const remitosData = response.documents || response || [];
 
       setRemitos(remitosData);
       setRemitosFiltrados(remitosData);
@@ -134,7 +128,8 @@ export default function ListaRemitos() {
   const handleEliminarRemito = async (id, numero) => {
     if (confirm(`¿Está seguro de que desea eliminar el remito ${numero}?`)) {
       try {
-        await deleteDoc(doc(db, 'remitos', id));
+        // ✅ MIGRADO: Usar apiService en lugar de deleteDoc directo
+        await apiService.eliminarRemito(id);
         await cargarRemitos();
         alert('Remito eliminado exitosamente');
       } catch (error) {

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Home, LogOut, Save, Download, RefreshCw } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { crearRecibo } from '../../../lib/firestore';
+import apiService from '../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import ReciboPDF from '../../../components/pdf/ReciboPDF';
 import SignatureCanvas from 'react-signature-canvas';
@@ -164,26 +164,29 @@ export default function NuevoRecibo() {
     }
   };
 
-  const handleGuardarRecibo = async () => {
-    setGuardando(true);
-    try {
-      const reciboData = {
-        ...recibo,
-        monto: parseFloat(recibo.monto),
-        usuarioCreador: user.email,
-        fechaCreacion: new Date()
-      };
+const handleGuardarRecibo = async () => {
+  setGuardando(true);
+  try {
+    const reciboData = {
+      ...recibo,
+      monto: parseFloat(recibo.monto),
+      usuarioCreador: user.email,
+      creadoPor: user.email, // ✅ Agregar para consistencia
+      fechaCreacion: new Date(),
+      fechaModificacion: new Date()
+    };
 
-      await crearRecibo(reciboData);
-      alert('Recibo IMSSE guardado exitosamente');
-      router.push('/admin/recibos');
-    } catch (error) {
-      console.error('Error al guardar el recibo IMSSE:', error);
-      alert('Error al guardar el recibo. Inténtelo de nuevo más tarde.');
-    } finally {
-      setGuardando(false);
-    }
-  };
+    // ✅ USAR apiService
+    await apiService.crearRecibo(reciboData);
+    alert('Recibo IMSSE guardado exitosamente');
+    router.push('/admin/recibos');
+  } catch (error) {
+    console.error('Error al guardar el recibo IMSSE:', error);
+    alert('Error al guardar el recibo. Inténtelo de nuevo más tarde.');
+  } finally {
+    setGuardando(false);
+  }
+};
 
   if (loading) {
     return (

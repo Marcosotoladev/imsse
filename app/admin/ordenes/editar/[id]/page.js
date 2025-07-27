@@ -4,22 +4,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
-  Save, 
-  Download, 
-  RefreshCw, 
+import {
+  Home,
+  LogOut,
+  Save,
+  Download,
+  RefreshCw,
   Eye,
-  Shield, 
-  User, 
-  MapPin, 
-  Calendar, 
-  Clock, 
-  Users, 
-  Camera, 
-  Plus, 
-  Trash2, 
+  Shield,
+  User,
+  MapPin,
+  Calendar,
+  Clock,
+  Users,
+  Camera,
+  Plus,
+  Trash2,
   Upload,
   PenTool,
   CheckCircle,
@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
-import { obtenerOrdenTrabajoPorId, actualizarOrdenTrabajo } from '../../../../lib/firestore';
+import apiService from '../../../../lib/services/apiService';
 import { use } from 'react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import OrdenTrabajoPDF from '../../../../components/pdf/OrdenTrabajoPDF';
@@ -43,7 +43,7 @@ export default function EditarOrdenTrabajo({ params }) {
   const [guardando, setGuardando] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mostrarPDF, setMostrarPDF] = useState(false);
-  
+
   // Referencias para firmas
   const firmaTecnicoRef = useRef(null);
   const firmaClienteRef = useRef(null);
@@ -84,35 +84,40 @@ export default function EditarOrdenTrabajo({ params }) {
         setUser(currentUser);
 
         try {
-          const ordenData = await obtenerOrdenTrabajoPorId(id);
-          
-          setOrden({
-            numero: ordenData.numero || '',
-            cliente: {
-              empresa: ordenData.cliente?.empresa || '',
-              nombre: ordenData.cliente?.nombre || '',
-              telefono: ordenData.cliente?.telefono || '',
-              direccion: ordenData.cliente?.direccion || '',
-              solicitadoPor: ordenData.cliente?.solicitadoPor || ''
-            },
-            fechaTrabajo: ordenData.fechaTrabajo || '',
-            horarioInicio: ordenData.horarioInicio || '',
-            horarioFin: ordenData.horarioFin || '',
-            tecnicos: ordenData.tecnicos?.length > 0 ? ordenData.tecnicos : [{ nombre: '' }],
-            tareasRealizadas: ordenData.tareasRealizadas || '',
-            fotos: ordenData.fotos || []
-          });
+          const ordenData = await apiService.obtenerOrdenTrabajoPorId(id);
 
-          setFirmas({
-            tecnico: {
-              firma: ordenData.firmas?.tecnico?.firma || null,
-              aclaracion: ordenData.firmas?.tecnico?.aclaracion || ''
-            },
-            cliente: {
-              firma: ordenData.firmas?.cliente?.firma || null,
-              aclaracion: ordenData.firmas?.cliente?.aclaracion || ''
-            }
-          });
+          if (ordenData) {
+            setOrden({
+              numero: ordenData.numero || '',
+              cliente: {
+                empresa: ordenData.cliente?.empresa || '',
+                nombre: ordenData.cliente?.nombre || '',
+                telefono: ordenData.cliente?.telefono || '',
+                direccion: ordenData.cliente?.direccion || '',
+                solicitadoPor: ordenData.cliente?.solicitadoPor || ''
+              },
+              fechaTrabajo: ordenData.fechaTrabajo || '',
+              horarioInicio: ordenData.horarioInicio || '',
+              horarioFin: ordenData.horarioFin || '',
+              tecnicos: ordenData.tecnicos?.length > 0 ? ordenData.tecnicos : [{ nombre: '' }],
+              tareasRealizadas: ordenData.tareasRealizadas || '',
+              fotos: ordenData.fotos || []
+            });
+
+            setFirmas({
+              tecnico: {
+                firma: ordenData.firmas?.tecnico?.firma || null,
+                aclaracion: ordenData.firmas?.tecnico?.aclaracion || ''
+              },
+              cliente: {
+                firma: ordenData.firmas?.cliente?.firma || null,
+                aclaracion: ordenData.firmas?.cliente?.aclaracion || ''
+              }
+            });
+          } else {
+            alert('Orden de trabajo no encontrada.');
+            router.push('/admin/ordenes');
+          }
 
           setLoading(false);
         } catch (error) {
@@ -139,7 +144,7 @@ export default function EditarOrdenTrabajo({ params }) {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setOrden(prev => ({
@@ -152,7 +157,7 @@ export default function EditarOrdenTrabajo({ params }) {
   };
 
   const handleTecnicoChange = (index, value) => {
-    const updatedTecnicos = orden.tecnicos.map((tecnico, i) => 
+    const updatedTecnicos = orden.tecnicos.map((tecnico, i) =>
       i === index ? { nombre: value } : tecnico
     );
     setOrden(prev => ({ ...prev, tecnicos: updatedTecnicos }));
@@ -264,7 +269,7 @@ export default function EditarOrdenTrabajo({ params }) {
 
     try {
       const firmaDataURL = sigCanvas.toDataURL('image/png', 1.0);
-      
+
       setFirmas(prev => ({
         ...prev,
         [tipo]: { ...prev[tipo], firma: firmaDataURL }
@@ -291,7 +296,7 @@ export default function EditarOrdenTrabajo({ params }) {
       ...prev,
       [tipo]: { ...prev[tipo], firma: null }
     }));
-    
+
     if (tipo === 'tecnico') {
       setMostrarCanvasTecnico(false);
     } else {
@@ -308,7 +313,7 @@ export default function EditarOrdenTrabajo({ params }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!orden.numero || !orden.cliente.empresa || !orden.cliente.nombre) {
       alert('Por favor completa: Empresa y Contacto del cliente');
       return;
@@ -345,7 +350,7 @@ export default function EditarOrdenTrabajo({ params }) {
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      await actualizarOrdenTrabajo(id, ordenData);
+      await apiService.actualizarOrdenTrabajo(id, ordenData);
       alert('✅ Orden de trabajo actualizada exitosamente');
       router.push('/admin/ordenes');
     } catch (error) {
@@ -374,9 +379,9 @@ export default function EditarOrdenTrabajo({ params }) {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <img 
-                src="/logo/imsse-logo.png" 
-                alt="IMSSE Logo" 
+              <img
+                src="/logo/imsse-logo.png"
+                alt="IMSSE Logo"
                 className="w-6 h-6 mr-2 md:w-8 md:h-8 md:mr-3"
               />
               <h1 className="text-lg font-bold md:text-xl font-montserrat">IMSSE</h1>
@@ -438,10 +443,10 @@ export default function EditarOrdenTrabajo({ params }) {
                 <Save size={16} className="mr-1 md:mr-2" />
                 {guardando ? 'Guardando...' : 'Guardar'}
               </button>
-              
+
               {/* PDF bajo demanda */}
               {mostrarPDF && (
-                <div style={{position: 'absolute', left: '-9999px'}}>
+                <div style={{ position: 'absolute', left: '-9999px' }}>
                   <PDFDownloadLink
                     document={<OrdenTrabajoPDF orden={orden} />}
                     fileName={`${orden.numero}.pdf`}
@@ -481,14 +486,14 @@ export default function EditarOrdenTrabajo({ params }) {
         </div>
 
         <form id="orden-form" onSubmit={handleSubmit} className="space-y-6">
-          
+
           {/* Información básica */}
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <FileText size={20} className="mr-2 text-primary" />
               Información Básica
             </h3>
-            
+
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700">Número de Orden</label>
               <input
@@ -509,7 +514,7 @@ export default function EditarOrdenTrabajo({ params }) {
               <User size={20} className="mr-2 text-primary" />
               Datos del Cliente
             </h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Empresa *</label>
@@ -523,7 +528,7 @@ export default function EditarOrdenTrabajo({ params }) {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Contacto Principal *</label>
                 <input
@@ -536,7 +541,7 @@ export default function EditarOrdenTrabajo({ params }) {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Teléfono</label>
                 <input
@@ -548,7 +553,7 @@ export default function EditarOrdenTrabajo({ params }) {
                   placeholder="+54 351 123 4567"
                 />
               </div>
-              
+
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Dirección del Trabajo</label>
                 <div className="relative">
@@ -563,7 +568,7 @@ export default function EditarOrdenTrabajo({ params }) {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Solicitado por</label>
                 <input
@@ -584,7 +589,7 @@ export default function EditarOrdenTrabajo({ params }) {
               <Calendar size={20} className="mr-2 text-primary" />
               Fecha y Horarios
             </h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Fecha de Trabajo *</label>
@@ -597,7 +602,7 @@ export default function EditarOrdenTrabajo({ params }) {
                   required
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700">Hora Inicio</label>
@@ -612,7 +617,7 @@ export default function EditarOrdenTrabajo({ params }) {
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700">Hora Fin</label>
                   <div className="relative">
@@ -636,7 +641,7 @@ export default function EditarOrdenTrabajo({ params }) {
               <Users size={20} className="mr-2 text-primary" />
               Técnicos que Trabajaron
             </h3>
-            
+
             {orden.tecnicos.map((tecnico, index) => (
               <div key={index} className="p-4 mb-4 border border-gray-200 rounded-md bg-gray-50">
                 <div className="space-y-3">
@@ -651,7 +656,7 @@ export default function EditarOrdenTrabajo({ params }) {
                       required
                     />
                   </div>
-                  
+
                   {orden.tecnicos.length > 1 && (
                     <button
                       type="button"
@@ -665,7 +670,7 @@ export default function EditarOrdenTrabajo({ params }) {
                 </div>
               </div>
             ))}
-            
+
             <button
               type="button"
               onClick={addTecnico}
@@ -682,7 +687,7 @@ export default function EditarOrdenTrabajo({ params }) {
               <CheckCircle size={20} className="mr-2 text-primary" />
               Tareas Realizadas
             </h3>
-            
+
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700">Descripción de los Trabajos Realizados *</label>
               <textarea
@@ -703,7 +708,7 @@ export default function EditarOrdenTrabajo({ params }) {
               <Camera size={20} className="mr-2 text-primary" />
               Fotos del Trabajo
             </h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
@@ -770,14 +775,14 @@ export default function EditarOrdenTrabajo({ params }) {
               <PenTool size={20} className="mr-2 text-primary" />
               Firmas Digitales
             </h3>
-            
+
             <div className="space-y-6">
               {/* Firma del técnico */}
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
                   Firma del Técnico
                 </label>
-                
+
                 {/* Mostrar firma existente o canvas */}
                 {firmas.tecnico.firma && !mostrarCanvasTecnico ? (
                   <div className="text-center">
@@ -816,8 +821,8 @@ export default function EditarOrdenTrabajo({ params }) {
                             width: 400,
                             height: 150,
                             className: 'signature-canvas border border-gray-200 rounded',
-                            style: { 
-                              width: '100%', 
+                            style: {
+                              width: '100%',
                               height: '150px',
                               touchAction: 'none'
                             }
@@ -871,7 +876,7 @@ export default function EditarOrdenTrabajo({ params }) {
                     placeholder="Nombre completo del técnico"
                   />
                 </div>
-                
+
                 {firmas.tecnico.firma && !mostrarCanvasTecnico && (
                   <div className="p-2 mt-3 border border-green-200 rounded-md bg-green-50">
                     <p className="text-sm font-medium text-green-700">✓ Firma del técnico guardada</p>
@@ -884,7 +889,7 @@ export default function EditarOrdenTrabajo({ params }) {
                 <label className="block mb-2 text-sm font-medium text-gray-700">
                   Firma del Cliente (Conformidad)
                 </label>
-                
+
                 {/* Mostrar firma existente o canvas */}
                 {firmas.cliente.firma && !mostrarCanvasCliente ? (
                   <div className="text-center">
@@ -923,8 +928,8 @@ export default function EditarOrdenTrabajo({ params }) {
                             width: 400,
                             height: 150,
                             className: 'signature-canvas border border-gray-200 rounded',
-                            style: { 
-                              width: '100%', 
+                            style: {
+                              width: '100%',
                               height: '150px',
                               touchAction: 'none'
                             }
@@ -978,7 +983,7 @@ export default function EditarOrdenTrabajo({ params }) {
                     placeholder="Nombre completo del cliente"
                   />
                 </div>
-                
+
                 {firmas.cliente.firma && !mostrarCanvasCliente && (
                   <div className="p-2 mt-3 border border-green-200 rounded-md bg-green-50">
                     <p className="text-sm font-medium text-green-700">✓ Firma del cliente guardada</p>

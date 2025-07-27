@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Save, ArrowLeft, Bell, Calendar, AlertCircle, Clock } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../../../lib/firebase';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function CrearRecordatorio() {
   const [user, setUser] = useState(null);
@@ -56,7 +56,7 @@ export default function CrearRecordatorio() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validaciones
     if (!recordatorio.titulo.trim()) {
       alert('Por favor ingresa un título para el recordatorio');
@@ -72,7 +72,7 @@ export default function CrearRecordatorio() {
     const fechaSeleccionada = new Date(recordatorio.fechaVencimiento);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    
+
     if (fechaSeleccionada < hoy) {
       alert('La fecha de vencimiento no puede ser anterior a hoy');
       return;
@@ -81,22 +81,18 @@ export default function CrearRecordatorio() {
     setGuardando(true);
 
     try {
-      const recordatorioData = {
-        titulo: recordatorio.titulo.trim(),
-        descripcion: recordatorio.descripcion.trim(),
-        fechaVencimiento: recordatorio.fechaVencimiento,
-        prioridad: recordatorio.prioridad,
-        notas: recordatorio.notas.trim(),
-        estado: 'pendiente',
-        usuarioCreador: user.displayName || user.email,
-        emailCreador: user.email,
-        fechaCreacion: serverTimestamp(),
-        fechaModificacion: serverTimestamp()
-      };
+  const recordatorioData = {
+    titulo: recordatorio.titulo.trim(),
+    descripcion: recordatorio.descripcion.trim(),
+    fechaVencimiento: recordatorio.fechaVencimiento,
+    prioridad: recordatorio.prioridad,
+    notas: recordatorio.notas.trim(),
+    estado: 'pendiente'
+  };
 
-      await addDoc(collection(db, 'recordatorios'), recordatorioData);
-      alert('Recordatorio creado exitosamente');
-      router.push('/admin/recordatorios');
+  await apiService.crearRecordatorio(recordatorioData);
+  alert('Recordatorio creado exitosamente');
+  router.push('/admin/recordatorios');
     } catch (error) {
       console.error('Error al crear recordatorio:', error);
       alert('Error al crear el recordatorio. Inténtelo de nuevo más tarde.');
@@ -137,9 +133,9 @@ export default function CrearRecordatorio() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -215,14 +211,14 @@ export default function CrearRecordatorio() {
           </div>
 
           <form id="recordatorio-form" onSubmit={handleSubmit} className="space-y-6">
-            
+
             {/* Información básica */}
             <div className="p-6 bg-white rounded-lg shadow-md">
               <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
                 <AlertCircle size={20} className="mr-2 text-primary" />
                 Información del Recordatorio
               </h3>
-              
+
               <div className="space-y-4">
                 {/* Título */}
                 <div>
@@ -310,7 +306,7 @@ export default function CrearRecordatorio() {
                 <Clock size={20} className="mr-2 text-primary" />
                 Información Adicional
               </h3>
-              
+
               {/* Notas */}
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
@@ -354,11 +350,10 @@ export default function CrearRecordatorio() {
             {recordatorio.titulo && (
               <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="mb-4 text-lg font-semibold text-gray-700">Vista Previa</h3>
-                <div className={`p-4 rounded-lg border-l-4 ${
-                  recordatorio.prioridad === 'alta' ? 'border-red-500 bg-red-50' :
-                  recordatorio.prioridad === 'media' ? 'border-yellow-500 bg-yellow-50' :
-                  'border-green-500 bg-green-50'
-                }`}>
+                <div className={`p-4 rounded-lg border-l-4 ${recordatorio.prioridad === 'alta' ? 'border-red-500 bg-red-50' :
+                    recordatorio.prioridad === 'media' ? 'border-yellow-500 bg-yellow-50' :
+                      'border-green-500 bg-green-50'
+                  }`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h4 className="text-lg font-semibold text-gray-900">{recordatorio.titulo}</h4>
@@ -373,11 +368,10 @@ export default function CrearRecordatorio() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className={`w-3 h-3 rounded-full ${
-                        recordatorio.prioridad === 'alta' ? 'bg-red-500' :
-                        recordatorio.prioridad === 'media' ? 'bg-yellow-500' :
-                        'bg-green-500'
-                      }`}></span>
+                      <span className={`w-3 h-3 rounded-full ${recordatorio.prioridad === 'alta' ? 'bg-red-500' :
+                          recordatorio.prioridad === 'media' ? 'bg-yellow-500' :
+                            'bg-green-500'
+                        }`}></span>
                       <span className="px-2 py-1 text-xs font-medium text-yellow-800 bg-yellow-100 border border-yellow-200 rounded-full">
                         PENDIENTE
                       </span>

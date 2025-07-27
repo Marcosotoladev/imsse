@@ -1,4 +1,4 @@
-// app/admin/recibos/page.jsx - Lista de Recibos IMSSE
+// app/admin/recibos/page.jsx - Lista de Recibos IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,8 +19,8 @@ import {
   Receipt
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, getDocs, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
+import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
 export default function ListaRecibos() {
   const router = useRouter();
@@ -48,7 +48,7 @@ export default function ListaRecibos() {
         year: 'numeric'
       });
     } catch (e) {
-      return fecha.toString();
+      return fecha?.toString() || '';
     }
   };
 
@@ -78,15 +78,9 @@ export default function ListaRecibos() {
 
   const cargarRecibos = async () => {
     try {
-      const q = query(
-        collection(db, 'recibos'),
-        orderBy('fechaCreacion', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const recibosData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // ✅ USAR apiService
+      const response = await apiService.obtenerRecibos();
+      const recibosData = response.documents || response || [];
 
       setRecibos(recibosData);
       setRecibosFiltrados(recibosData);
@@ -94,10 +88,19 @@ export default function ListaRecibos() {
     } catch (error) {
       console.error('Error al cargar recibos IMSSE:', error);
       alert('Error al cargar los recibos');
+      // Fallback para evitar crashes
+      setRecibos([]);
+      setRecibosFiltrados([]);
+      setEstadisticas({ total: 0, montoTotal: 0, esteMes: 0, montoEsteMes: 0 });
     }
   };
 
   const calcularEstadisticas = (recibosData) => {
+    if (!Array.isArray(recibosData)) {
+      setEstadisticas({ total: 0, montoTotal: 0, esteMes: 0, montoEsteMes: 0 });
+      return;
+    }
+
     const hoy = new Date();
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
@@ -110,10 +113,14 @@ export default function ListaRecibos() {
 
     // Calcular estadísticas del mes actual
     recibosData.forEach(recibo => {
-      const fechaRecibo = recibo.fechaCreacion?.toDate ? recibo.fechaCreacion.toDate() : new Date(recibo.fecha);
-      if (fechaRecibo >= inicioMes) {
-        estadisticas.esteMes++;
-        estadisticas.montoEsteMes += recibo.monto || 0;
+      try {
+        const fechaRecibo = recibo.fechaCreacion?.toDate ? recibo.fechaCreacion.toDate() : new Date(recibo.fecha);
+        if (fechaRecibo >= inicioMes) {
+          estadisticas.esteMes++;
+          estadisticas.montoEsteMes += recibo.monto || 0;
+        }
+      } catch (e) {
+        // Ignorar errores de fecha individual
       }
     });
 
@@ -132,7 +139,8 @@ export default function ListaRecibos() {
   const handleEliminarRecibo = async (id, numero) => {
     if (confirm(`¿Está seguro de que desea eliminar el recibo ${numero}?`)) {
       try {
-        await deleteDoc(doc(db, 'recibos', id));
+        // ✅ USAR apiService
+        await apiService.eliminarRecibo(id);
         await cargarRecibos(); // Recargar la lista
         alert('Recibo eliminado exitosamente');
       } catch (error) {
@@ -319,11 +327,11 @@ export default function ListaRecibos() {
         <div className="bg-white rounded-lg shadow-md">
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">
-              Lista de Recibos ({recibosFiltrados.length})
+              Lista de Recibos ({recibosFiltrados?.length || 0})
             </h3>
           </div>
 
-          {recibosFiltrados.length === 0 ? (
+          {(!recibosFiltrados || recibosFiltrados.length === 0) ? (
             <div className="p-12 text-center">
               <Receipt size={48} className="mx-auto mb-4 text-gray-400" />
               <h3 className="mb-2 text-lg font-medium text-gray-900">
