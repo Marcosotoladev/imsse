@@ -9,6 +9,8 @@ import Image from 'next/image';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 
+import { useRouter } from "next/navigation";
+
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -17,6 +19,8 @@ const Header = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const dropdownRef = useRef(null);
   const pathname = usePathname();
+  
+  const router = useRouter();
 
   // Efecto para detectar el estado de autenticación
   useEffect(() => {
@@ -93,6 +97,7 @@ const Header = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      router.push('/login');
       // Opcional: mostrar mensaje de confirmación
       alert('Sesión cerrada exitosamente');
     } catch (error) {
@@ -213,7 +218,7 @@ const Header = () => {
             {/* Botón de Cuenta */}
             {!authLoading && (
               <Link
-                href={user ? "/admin/panel-control" : "/admin"}
+                href={user ? "/admin/panel-control" : "/login"}
                 className={`group relative px-3 py-2 rounded-md transition-all duration-200 ${scrolled ? 'text-gray-700 hover:text-primary' : 'text-white hover:text-white'}`}
               >
                 <span className="flex items-center">
@@ -347,7 +352,7 @@ const Header = () => {
             {/* Botón de Cuenta para móvil */}
             {!authLoading && (
               <Link
-                href={user ? "/admin/panel-control" : "/admin"}
+                href={user ? "/admin/panel-control" : "/login"}
                 className="flex items-center px-4 py-3 text-gray-700 transition-colors rounded-md hover:bg-blue-50 hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
