@@ -72,7 +72,7 @@ async function updateUser(req, res, id, user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const updateData = { ...req.body };
+    let updateData = { ...req.body };
     
     // Solo admin puede cambiar rol, estado y permisos
     if (user.role !== ROLES.ADMIN) {
@@ -159,14 +159,26 @@ async function deleteUser(req, res, id, user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Soft delete: cambiar estado a eliminado en lugar de borrar
-    await firestore.collection('usuarios').doc(id).update({
-      estado: 'eliminado',
-      fechaEliminacion: admin.firestore.FieldValue.serverTimestamp(),
-      eliminadoPor: user.uid
-    });
+    const userData = userDoc.data();
 
-    // Opcionalmente también eliminar de Firebase Auth
+    // Verificar si es el último admin activo (prevención de seguridad)
+    if (userData.rol === ROLES.ADMIN) {
+      const adminsSnapshot = await firestore.collection('usuarios')
+        .where('rol', '==', ROLES.ADMIN)
+        .where('estado', '==', 'activo')
+        .get();
+      
+      if (adminsSnapshot.size <= 1) {
+        return res.status(400).json({ 
+          error: 'Cannot delete the last active administrator' 
+        });
+      }
+    }
+
+    // Eliminar completamente el documento de Firestore
+    await firestore.collection('usuarios').doc(id).delete();
+
+    // Intentar eliminar de Firebase Auth (puede fallar si el usuario no existe en Auth)
     try {
       await auth.deleteUser(id);
       console.log(`Usuario ${id} eliminado de Firebase Auth`);
@@ -174,14 +186,25 @@ async function deleteUser(req, res, id, user) {
       console.warn(`No se pudo eliminar usuario ${id} de Auth:`, authError.message);
       // No fallar si no se puede eliminar de Auth
     }
+
+    // Log de auditoría
+    console.log(`Usuario eliminado - ID: ${id}, Email: ${userData.email}, Eliminado por: ${user.email}`);
     
     return res.status(200).json({
       id,
-      message: 'User deleted successfully'
+      message: 'User deleted successfully',
+      deletedUser: {
+        id: id,
+        email: userData.email,
+        nombreCompleto: userData.nombreCompleto || userData.nombre + ' ' + userData.apellido
+      }
     });
   } catch (error) {
     console.error('Error deleting user:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
 

@@ -1,4 +1,4 @@
-// components/admin/AdminLayout.jsx - Layout completo IMSSE con dropdown móvil
+// components/admin/AdminLayout.jsx - Layout con filtros por rol
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -19,13 +19,15 @@ import {
   Bell,
   BarChart3,
   ChevronRight,
-  Users // ← NUEVO IMPORT
+  Users
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
 export default function AdminLayout({ children }) {
   const [user, setUser] = useState(null);
+  const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -33,10 +35,25 @@ export default function AdminLayout({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
-        setLoading(false);
+        try {
+          // Obtener perfil del usuario para conocer su rol
+          const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
+          
+          // Verificar que tenga acceso al panel admin
+          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+            router.push('/cliente/dashboard');
+            return;
+          }
+
+          setUser(currentUser);
+          setPerfil(perfilUsuario);
+          setLoading(false);
+        } catch (error) {
+          console.error('Error al obtener perfil:', error);
+          router.push('/admin');
+        }
       } else {
         router.push('/admin');
       }
@@ -106,13 +123,16 @@ export default function AdminLayout({ children }) {
         case 'remitos':
           displayName = 'Remitos';
           break;
+        case 'estados':
+          displayName = 'Estados de Cuenta';
+          break;
         case 'ordenes':
-          displayName = 'Ordenes';
+          displayName = 'Órdenes de Trabajo';
           break;
         case 'recordatorios':
           displayName = 'Recordatorios';
           break;
-        case 'usuarios': // ← NUEVO CASE
+        case 'usuarios':
           displayName = 'Gestión de Usuarios';
           break;
         case 'nuevo':
@@ -135,50 +155,62 @@ export default function AdminLayout({ children }) {
     return breadcrumbs;
   };
 
-  // Menú de navegación ← AQUÍ SE AGREGA EL NUEVO ITEM
-  const menuItems = [
+  // Menú completo con configuración de acceso por rol
+  const menuItemsConfig = [
     {
       name: 'Panel de Control',
       path: '/admin/panel-control',
-      icon: BarChart3
+      icon: BarChart3,
+      roles: ['admin', 'tecnico'] // Ambos roles
     },
     {
       name: 'Presupuestos',
       path: '/admin/presupuestos',
-      icon: FileText
+      icon: FileText,
+      roles: ['admin'] // Solo admin
     },
     {
-      name: 'Estados de Cuentas',
-      path: '/admin/estados-cuenta',
-      icon: CreditCard
+      name: 'Estados de Cuenta',
+      path: '/admin/estados',
+      icon: CreditCard,
+      roles: ['admin'] // Solo admin
     },
     {
       name: 'Recibos',
       path: '/admin/recibos',
-      icon: Receipt
+      icon: Receipt,
+      roles: ['admin'] // Solo admin
     },
     {
       name: 'Remitos',
       path: '/admin/remitos',
-      icon: FileCheck
+      icon: FileCheck,
+      roles: ['admin'] // Solo admin
     },
     {
-      name: 'Ordenes de Trabajo',
+      name: 'Órdenes de Trabajo',
       path: '/admin/ordenes',
-      icon: Shield
+      icon: Wrench,
+      roles: ['admin', 'tecnico'] // Ambos roles
     },
     {
       name: 'Recordatorios',
       path: '/admin/recordatorios',
-      icon: Bell
+      icon: Bell,
+      roles: ['admin', 'tecnico'] // Ambos roles
     },
-        {
-      name: 'Gestión de Usuarios', // ← NUEVO ITEM
+    {
+      name: 'Gestión de Usuarios',
       path: '/admin/usuarios',
-      icon: Users
-    },
-    
+      icon: Users,
+      roles: ['admin'] // Solo admin
+    }
   ];
+
+  // Filtrar menú según el rol del usuario
+  const menuItems = menuItemsConfig.filter(item => 
+    perfil && item.roles.includes(perfil.rol)
+  );
 
   // Encontrar el item activo para mostrar en el dropdown
   const activeItem = menuItems.find(item => 
@@ -197,77 +229,72 @@ export default function AdminLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-gray-50"> {/* Espacio para navbar principal */}
-      
-      {/* Dropdown de navegación móvil */}
-      <div className="lg:hidden" ref={dropdownRef}>
-        <div className="fixed z-40 w-full px-4 py-2 bg-white shadow-md top-20">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center justify-between w-full px-4 py-3 text-left bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            <div className="flex items-center">
-              {activeItem ? (
-                <>
-                  <activeItem.icon size={20} className="mr-3 text-primary" />
-                  <span className="font-medium text-gray-900">{activeItem.name}</span>
-                </>
+    <div className="min-h-screen pt-20 bg-gray-50"> {/* Agregamos pt-20 para el navbar principal */}      
+      <div className="flex">
+        {/* Dropdown de navegación móvil */}
+        <div className="lg:hidden" ref={dropdownRef}>
+          <div className="fixed z-40 w-full px-4 py-2 bg-white shadow-md top-20"> {/* top-20 para estar debajo del navbar */}
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center justify-between w-full px-4 py-3 text-left bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <div className="flex items-center">
+                {activeItem ? (
+                  <>
+                    <activeItem.icon size={20} className="mr-3 text-primary" />
+                    <span className="font-medium text-gray-900">{activeItem.name}</span>
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 size={20} className="mr-3 text-primary" />
+                    <span className="font-medium text-gray-900">Seleccionar Sección</span>
+                  </>
+                )}
+              </div>
+              {dropdownOpen ? (
+                <ChevronUp size={20} className="text-gray-500" />
               ) : (
-                <>
-                  <BarChart3 size={20} className="mr-3 text-primary" />
-                  <span className="font-medium text-gray-900">Seleccionar Sección</span>
-                </>
+                <ChevronDown size={20} className="text-gray-500" />
               )}
-            </div>
-            {dropdownOpen ? (
-              <ChevronUp size={20} className="text-gray-500" />
-            ) : (
-              <ChevronDown size={20} className="text-gray-500" />
-            )}
-          </button>
+            </button>
 
-          {/* Dropdown menu */}
-          <div className={`absolute top-full left-4 right-4 mt-1 bg-white shadow-xl rounded-lg border border-gray-200 overflow-hidden transition-all duration-300 transform ${
-            dropdownOpen 
-              ? 'opacity-100 translate-y-0 scale-100' 
-              : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
-          }`}>
-            <div className="overflow-y-auto max-h-96">
-              {menuItems.map((item, index) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
-                
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`flex items-center px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 ${
-                      isActive
-                        ? 'bg-primary text-white'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-primary'
-                    }`}
-                    onClick={() => setDropdownOpen(false)}
-                  >
-                    <Icon size={18} className="mr-3" />
-                    <span className="font-medium">{item.name}</span>
-                    {isActive && (
-                      <ChevronRight size={16} className="ml-auto" />
-                    )}
-                  </Link>
-                );
-              })}
-              
-              {/* Separador */}
-              <div className="border-t-2 border-gray-200"></div>
-              
+            {/* Dropdown menu */}
+            <div className={`absolute top-full left-4 right-4 mt-1 bg-white shadow-xl rounded-lg border border-gray-200 overflow-hidden transition-all duration-300 transform ${
+              dropdownOpen 
+                ? 'opacity-100 translate-y-0 scale-100' 
+                : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
+            }`}>
+              <div className="overflow-y-auto max-h-96">
+                {menuItems.map((item, index) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
+                  
+                  return (
+                    <Link
+                      key={item.path}
+                      href={item.path}
+                      className={`flex items-center px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 ${
+                        isActive
+                          ? 'bg-primary text-white'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-primary'
+                      }`}
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <Icon size={18} className="mr-3" />
+                      <span className="font-medium">{item.name}</span>
+                      {isActive && (
+                        <ChevronRight size={16} className="ml-auto" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex">
         {/* Sidebar para desktop */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 mt-20 bg-white shadow-lg lg:block">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-white shadow-lg lg:block top-20"> {/* top-20 para estar debajo del navbar */}
           <nav className="p-4 space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -288,6 +315,23 @@ export default function AdminLayout({ children }) {
                 </Link>
               );
             })}
+            
+            {/* Información del usuario en sidebar */}
+            <div className="pt-6 mt-6 border-t border-gray-200">
+              <div className="px-4 py-3 rounded-lg bg-gray-50">
+                <p className="text-sm font-medium text-gray-900">{perfil?.nombreCompleto}</p>
+                <p className="text-xs text-gray-500 capitalize">{perfil?.rol}</p>
+                <div className="mt-2">
+                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                    perfil?.rol === 'admin' 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {perfil?.rol === 'admin' ? 'Administrador' : 'Técnico'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </nav>
         </aside>
 

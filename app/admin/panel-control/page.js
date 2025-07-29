@@ -1,56 +1,97 @@
-// app/admin/panel-control/page.jsx - Dashboard IMSSE con Gestión de Usuarios
+// app/admin/panel-control/page.jsx - Panel para Admin y Técnicos
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  FilePlus,
-  FileText,
   Home,
-  BarChart3,
-  DollarSign,
-  FileCheck,
-  Receipt,
-  ScrollText,
-  TrendingUp,
+  LogOut,
   Users,
-  Calendar,
-  ChevronRight,
-  Clock,
-  AlertCircle,
-  Shield,
-  Bell,
-  Settings,
   Wrench,
+  Bell,
+  Plus,
+  Calendar,
+  BarChart3,
+  Settings,
+  FileText,
+  Receipt,
+  Truck,
   CreditCard,
-  UserPlus
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  TrendingUp,
+  Activity
 } from 'lucide-react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
-import { obtenerEstadisticasUsuarios } from '../../lib/firestore'; // ← AGREGADO
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
-export default function Dashboard() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [totales, setTotales] = useState({
-    presupuestos: 0,
-    recibos: 0,
-    remitos: 0,
-    estadosCuenta: 0,
-    ordenesTrabajo: 0,
-    recordatorios: 0,
-    usuarios: 0 // ← AGREGADO
-  });
+export default function PanelControl() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [perfil, setPerfil] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [estadisticas, setEstadisticas] = useState({});
+  const [documentosRecientes, setDocumentosRecientes] = useState({
+    ordenes: [],
+    recordatorios: []
+  });
+
+  // Configuración específica por rol
+  const configuracionModulos = {
+    admin: {
+      documentos: [
+        { key: 'presupuestos', nombre: 'Presupuestos', icono: FileText, color: 'blue', acceso: true },
+        { key: 'recibos', nombre: 'Recibos', icono: Receipt, color: 'green', acceso: true },
+        { key: 'remitos', nombre: 'Remitos', icono: Truck, color: 'purple', acceso: true },
+        { key: 'estados', nombre: 'Estados de Cuenta', icono: CreditCard, color: 'orange', acceso: true },
+        { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', acceso: true },
+        { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', acceso: true }
+      ],
+      herramientas: [
+        { key: 'usuarios', nombre: 'Gestión de Usuarios', icono: Users, url: '/admin/usuarios' },
+        { key: 'estadisticas', nombre: 'Estadísticas', icono: BarChart3, url: '/admin/estadisticas' },
+        { key: 'configuracion', nombre: 'Configuración', icono: Settings, url: '/admin/configuracion' }
+      ]
+    },
+    tecnico: {
+      documentos: [
+        { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', acceso: true },
+        { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', acceso: true }
+      ],
+      herramientas: [
+        // Sin herramientas adicionales por ahora
+      ]
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
-        await cargarTotales();
-        setLoading(false);
+        try {
+          const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
+          
+          // Verificar que tenga acceso (admin o técnico)
+          if (perfilUsuario.rol !== 'admin' && perfilUsuario.rol !== 'tecnico') {
+            router.push('/cliente/dashboard');
+            return;
+          }
+
+          // Verificar estado activo
+          if (perfilUsuario.estado !== 'activo') {
+            router.push('/admin');
+            return;
+          }
+
+          setUser(currentUser);
+          setPerfil(perfilUsuario);
+          await cargarDatos(perfilUsuario);
+        } catch (error) {
+          console.error('Error al verificar usuario:', error);
+          router.push('/admin');
+        }
       } else {
         router.push('/admin');
       }
@@ -59,277 +100,410 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [router]);
 
-  const cargarTotales = async () => {
+  const cargarDatos = async (perfilUsuario) => {
     try {
-      // Total de presupuestos
-      const presupuestosRef = collection(db, 'presupuestos');
-      const presupuestosSnapshot = await getDocs(presupuestosRef);
+      setLoading(true);
+      
+      // Cargar estadísticas
+      const stats = {};
+      const docsRecientes = {};
 
-      // Total de recibos
-      const recibosRef = collection(db, 'recibos');
-      const recibosSnapshot = await getDocs(recibosRef);
+      if (perfilUsuario.rol === 'admin') {
+        // Admin ve todo
+        try {
+          const [presupuestos, recibos, remitos, estados, ordenes, recordatorios, usuarios] = await Promise.allSettled([
+            apiService.obtenerPresupuestos(),
+            apiService.obtenerRecibos(),
+            apiService.obtenerRemitos(),
+            apiService.obtenerEstadosCuenta(),
+            apiService.obtenerOrdenesTrabajo(),
+            apiService.obtenerRecordatorios(),
+            apiService.obtenerUsuarios()
+          ]);
 
-      // Total de remitos
-      const remitosRef = collection(db, 'remitos');
-      const remitosSnapshot = await getDocs(remitosRef);
+          stats.presupuestos = presupuestos.status === 'fulfilled' ? (presupuestos.value?.documents || presupuestos.value || []).length : 0;
+          stats.recibos = recibos.status === 'fulfilled' ? (recibos.value?.documents || recibos.value || []).length : 0;
+          stats.remitos = remitos.status === 'fulfilled' ? (remitos.value?.documents || remitos.value || []).length : 0;
+          stats.estados = estados.status === 'fulfilled' ? (estados.value?.documents || estados.value || []).length : 0;
+          stats.ordenes = ordenes.status === 'fulfilled' ? (ordenes.value?.documents || ordenes.value || []).length : 0;
+          stats.recordatorios = recordatorios.status === 'fulfilled' ? (recordatorios.value?.documents || recordatorios.value || []).length : 0;
+          stats.usuarios = usuarios.status === 'fulfilled' ? (usuarios.value?.users || usuarios.value || []).length : 0;
 
-      // Total de estados de cuenta
-      const estadosCuentaRef = collection(db, 'estados_cuenta');
-      const estadosCuentaSnapshot = await getDocs(estadosCuentaRef);
+          // Documentos recientes para admin
+          docsRecientes.ordenes = ordenes.status === 'fulfilled' ? (ordenes.value?.documents || ordenes.value || []).slice(0, 5) : [];
+          docsRecientes.recordatorios = recordatorios.status === 'fulfilled' ? (recordatorios.value?.documents || recordatorios.value || []).slice(0, 5) : [];
 
-      // Total de órdenes de mantenimiento
-      const ordenesTrabajoRef = collection(db, 'ordenes_trabajo');
-      const ordenesTrabajoSnapshot = await getDocs(ordenesTrabajoRef);
+        } catch (error) {
+          console.error('Error cargando datos de admin:', error);
+        }
+      } else if (perfilUsuario.rol === 'tecnico') {
+        // Técnico solo ve órdenes y recordatorios
+        try {
+          const [ordenes, recordatorios] = await Promise.allSettled([
+            apiService.obtenerOrdenesTrabajo(),
+            apiService.obtenerRecordatorios()
+          ]);
 
-      // Total de recordatorios
-      const recordatoriosRef = collection(db, 'recordatorios');
-      const recordatoriosSnapshot = await getDocs(recordatoriosRef);
+          stats.ordenes = ordenes.status === 'fulfilled' ? (ordenes.value?.documents || ordenes.value || []).length : 0;
+          stats.recordatorios = recordatorios.status === 'fulfilled' ? (recordatorios.value?.documents || recordatorios.value || []).length : 0;
 
-      // Total de usuarios - AGREGADO
-      const usuariosRef = collection(db, 'usuarios');
-      const usuariosSnapshot = await getDocs(usuariosRef);
+          // Documentos recientes para técnico
+          docsRecientes.ordenes = ordenes.status === 'fulfilled' ? (ordenes.value?.documents || ordenes.value || []).slice(0, 5) : [];
+          docsRecientes.recordatorios = recordatorios.status === 'fulfilled' ? (recordatorios.value?.documents || recordatorios.value || []).slice(0, 5) : [];
 
-      setTotales({
-        presupuestos: presupuestosSnapshot.size,
-        recibos: recibosSnapshot.size,
-        remitos: remitosSnapshot.size,
-        estadosCuenta: estadosCuentaSnapshot.size,
-        ordenesTrabajo: ordenesTrabajoSnapshot.size,
-        recordatorios: recordatoriosSnapshot.size,
-        usuarios: usuariosSnapshot.size // ← AGREGADO
-      });
+        } catch (error) {
+          console.error('Error cargando datos de técnico:', error);
+        }
+      }
+
+      setEstadisticas(stats);
+      setDocumentosRecientes(docsRecientes);
     } catch (error) {
-      console.error('Error al cargar totales IMSSE:', error);
-      // Si hay error, mantener valores en 0
+      console.error('Error al cargar datos:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/admin');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
+
+  const formatearFecha = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const fecha = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return fecha.toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const getColorClasses = (color) => {
+    const colores = {
+      blue: 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200',
+      green: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
+      purple: 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200',
+      orange: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
+      red: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
+      yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200'
+    };
+    return colores[color] || colores.blue;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="w-12 h-12 mx-auto border-b-2 rounded-full animate-spin border-primary"></div>
-          <p className="mt-4">Cargando panel IMSSE...</p>
+          <p className="mt-4 text-gray-600">Cargando panel de control...</p>
         </div>
       </div>
     );
   }
 
-  // Módulos del sistema IMSSE - Todos activos con USUARIOS agregado
-  const modulos = [
-    {
-      id: 'presupuestos',
-      titulo: 'Presupuestos',
-      icono: FileText,
-      color: 'bg-red-600',
-      colorHover: 'hover:bg-red-700',
-      descripcion: 'Cotizaciones técnicas',
-      total: totales.presupuestos,
-      rutas: {
-        nuevo: '/admin/presupuestos/nuevo',
-        historial: '/admin/presupuestos'
-      }
-    },
-    {
-      id: 'estadosCuenta',
-      titulo: 'Estados de Cuenta',
-      icono: CreditCard,
-      color: 'bg-indigo-600',
-      colorHover: 'hover:bg-indigo-700',
-      descripcion: 'Resúmenes financieros',
-      total: totales.estadosCuenta,
-      rutas: {
-        nuevo: '/admin/estados-cuenta/nuevo',
-        historial: '/admin/estados-cuenta'
-      }
-    },
-    {
-      id: 'recibos',
-      titulo: 'Recibos',
-      icono: Receipt,
-      color: 'bg-green-600',
-      colorHover: 'hover:bg-green-700',
-      descripcion: 'Facturación',
-      total: totales.recibos,
-      rutas: {
-        nuevo: '/admin/recibos/nuevo',
-        historial: '/admin/recibos'
-      }
-    },
-    {
-      id: 'remitos',
-      titulo: 'Remitos',
-      icono: FileCheck,
-      color: 'bg-blue-600',
-      colorHover: 'hover:bg-blue-700',
-      descripcion: 'Entregas',
-      total: totales.remitos,
-      rutas: {
-        nuevo: '/admin/remitos/nuevo',
-        historial: '/admin/remitos'
-      }
-    },
-    {
-      id: 'ordenes',
-      titulo: 'Órdenes de Trabajo',
-      icono: Shield,
-      color: 'bg-purple-600',
-      colorHover: 'hover:bg-purple-700',
-      descripcion: 'Instalaciones',
-      total: totales.ordenesTrabajo,
-      rutas: {
-        nuevo: '/admin/ordenes/nuevo',
-        historial: '/admin/ordenes'
-      }
-    },
-    {
-      id: 'recordatorios',
-      titulo: 'Recordatorios',
-      icono: Bell,
-      color: 'bg-yellow-600',
-      colorHover: 'hover:bg-yellow-700',
-      descripcion: 'Vencimientos',
-      total: totales.recordatorios,
-      rutas: {
-        nuevo: '/admin/recordatorios/nuevo',
-        historial: '/admin/recordatorios'
-      }
-    },
-    // ← NUEVO MÓDULO DE USUARIOS
-    {
-      id: 'usuarios',
-      titulo: 'Usuarios',
-      icono: Users,
-      color: 'bg-gray-600',
-      colorHover: 'hover:bg-gray-700',
-      descripcion: 'Gestión de accesos',
-      total: totales.usuarios,
-      rutas: {
-        nuevo: '/registro',
-        historial: '/admin/usuarios'
-      }
-    }
-  ];
+  const configuracion = configuracionModulos[perfil?.rol] || configuracionModulos.tecnico;
 
   return (
-    <div className="p-6">
-      {/* Título y bienvenida */}
-      <div className="mb-8">
-        <h2 className="mb-2 text-2xl font-bold md:text-3xl font-montserrat text-primary">
-          ¡Bienvenido, {user?.displayName || user?.email?.split('@')[0]}!
-        </h2>
-        <p className="text-gray-600">
-          Sistema de Gestión IMSSE Ingeniería S.A.S
-        </p>
-        <p className="text-sm text-gray-500">
-          {new Date().toLocaleDateString('es-AR', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </p>
-      </div>
-
-      {/* Módulos del sistema - Con usuarios incluido */}
-      <h3 className="flex items-center mb-6 text-xl font-bold text-gray-800">
-        <Settings size={20} className="mr-2 text-primary" />
-        Módulos del Sistema
-      </h3>
-
-      <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-4">
-        {modulos.map(modulo => {
-          const Icono = modulo.icono;
-          return (
-            <Link
-              key={modulo.id}
-              href={modulo.rutas.historial}
-              className="block p-4 transition-all bg-white border-2 border-gray-200 rounded-lg shadow-sm cursor-pointer hover:shadow-lg hover:border-gray-300 group"
-            >
-              <div className="text-center">
-                <div className={`mx-auto w-12 h-12 rounded-lg ${modulo.color} ${modulo.colorHover} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-200`}>
-                  <Icono size={24} className="text-white" />
-                </div>
-                <h4 className="mb-1 text-sm font-semibold text-gray-900 transition-colors group-hover:text-primary">
-                  {modulo.titulo}
-                </h4>
-                <p className="mb-2 text-xs text-gray-600">
-                  {modulo.descripcion}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="text-white shadow bg-primary">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <img
+                src="/logo/imsse-logo.png"
+                alt="IMSSE Logo"
+                className="w-6 h-6 mr-2 md:w-8 md:h-8 md:mr-3"
+              />
+              <div>
+                <h1 className="text-lg font-bold md:text-xl font-montserrat">IMSSE</h1>
+                <p className="text-xs text-red-100 md:text-sm">
+                  {perfil?.rol === 'admin' ? 'Panel Administrador' : 'Panel Técnico'}
                 </p>
-                <div className="text-lg font-bold text-primary">
-                  {modulo.total}
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="hidden text-right md:block">
+                <p className="text-sm font-medium">{perfil?.nombreCompleto}</p>
+                <p className="text-xs text-red-100 capitalize">{perfil?.rol}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
+              >
+                <LogOut size={16} className="md:mr-2" />
+                <span className="hidden md:inline">Salir</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="px-4 py-6 mx-auto max-w-7xl">
+        {/* Bienvenida */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 font-montserrat">
+            ¡Bienvenido, {perfil?.nombre}!
+          </h2>
+          <p className="text-gray-600">
+            {perfil?.rol === 'admin' 
+              ? 'Panel completo de administración del sistema IMSSE'
+              : 'Gestiona tus órdenes de trabajo y recordatorios'
+            }
+          </p>
+        </div>
+
+        {/* Estadísticas de documentos */}
+        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4">
+          {configuracion.documentos.map((modulo) => {
+            const IconoComponente = modulo.icono;
+            const cantidad = estadisticas[modulo.key] || 0;
+
+            return (
+              <Link
+                key={modulo.key}
+                href={`/admin/${modulo.key}`}
+                className={`p-6 rounded-lg shadow transition-colors border ${getColorClasses(modulo.color)}`}
+              >
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 p-3 bg-white rounded-lg shadow-sm">
+                    <IconoComponente size={24} className={`text-${modulo.color}-600`} />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium">
+                      {modulo.nombre}
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {cantidad}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500">registros</p>
+              </Link>
+            );
+          })}
+
+          {/* Estadística de usuarios solo para admin */}
+          {perfil?.rol === 'admin' && (
+            <Link
+              href="/admin/usuarios"
+              className="p-6 transition-colors bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-50"
+            >
+              <div className="flex items-center">
+                <div className="flex-shrink-0 p-3 bg-gray-100 rounded-lg">
+                  <Users size={24} className="text-gray-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-900">
+                    Usuarios
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {estadisticas.usuarios || 0}
+                  </p>
+                </div>
               </div>
             </Link>
-          );
-        })}
-      </div>
+          )}
+        </div>
 
-      {/* Acciones rápidas mejoradas - Con nuevo usuario */}
-      <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-md">
-        <h3 className="flex items-center mb-4 text-lg font-bold text-gray-800">
-          <Clock size={20} className="mr-2 text-primary" />
-          Acciones Rápidas
-        </h3>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
-          <Link
-            href="/admin/presupuestos/nuevo"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-red-50 hover:border-red-300 hover:shadow-md group"
-          >
-            <FilePlus size={20} className="mb-2 text-red-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-red-700">Nuevo Presupuesto</span>
-          </Link>
-          <Link
-            href="/admin/estados-cuenta/nuevo"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md group"
-          >
-            <CreditCard size={20} className="mb-2 text-indigo-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-indigo-700">Nuevo Estado Cuenta</span>
-          </Link>
-          <Link
-            href="/admin/recibos/nuevo"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 hover:shadow-md group"
-          >
-            <Receipt size={20} className="mb-2 text-green-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-green-700">Nuevo Recibo</span>
-          </Link>
-          <Link
-            href="/admin/remitos/nuevo"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 hover:shadow-md group"
-          >
-            <FileCheck size={20} className="mb-2 text-blue-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-blue-700">Nuevo Remito</span>
-          </Link>
-          <Link
-            href="/admin/orden/nuevo"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-orange-50 hover:border-orange-300 hover:shadow-md group"
-          >
-            <Shield size={20} className="mb-2 text-orange-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-orange-700">Nueva Orden de Trabajo</span>
-          </Link>
-          <Link
-            href="/admin/recordatorio/nuevo"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-yellow-50 hover:border-yellow-300 hover:shadow-md group"
-          >
-            <Bell size={20} className="mb-2 text-yellow-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-yellow-700">Nuevo Recordatorio</span>
-          </Link>
-          {/* ← NUEVA ACCIÓN RÁPIDA PARA USUARIOS */}
-          <Link
-            href="/registro"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 hover:shadow-md group"
-          >
-            <UserPlus size={20} className="mb-2 text-gray-600 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-gray-700">Nuevo Usuario</span>
-          </Link>
-          <Link
-            href="/admin/usuarios"
-            className="flex flex-col items-center p-3 text-center transition-colors border border-gray-200 rounded-lg cursor-pointer hover:bg-slate-50 hover:border-slate-300 hover:shadow-md group"
-          >
-            <Users size={20} className="mb-2 transition-transform text-slate-600 group-hover:scale-110" />
-            <span className="text-xs font-medium text-gray-900 group-hover:text-slate-700">Gestionar Usuarios</span>
-          </Link>
+        {/* Acciones rápidas */}
+        <div className="grid grid-cols-1 gap-6 mb-8 lg:grid-cols-2">
+          {/* Órdenes de trabajo recientes */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Wrench className="w-5 h-5 mr-2 text-red-600" />
+                  <h3 className="text-lg font-medium text-gray-900">Órdenes de Trabajo</h3>
+                </div>
+                <Link
+                  href="/admin/ordenes/nuevo"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-white rounded-md bg-primary hover:bg-red-700"
+                >
+                  <Plus size={16} className="mr-1" />
+                  Nueva
+                </Link>
+              </div>
+            </div>
+            <div className="px-6 py-4">
+              {documentosRecientes.ordenes?.length > 0 ? (
+                <div className="space-y-3">
+                  {documentosRecientes.ordenes.map((orden, index) => (
+                    <div
+                      key={orden.id || index}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {orden.numero || orden.titulo || `Orden #${index + 1}`}
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          {formatearFecha(orden.fechaCreacion)}
+                        </p>
+                      </div>
+                      <Link
+                        href={`/admin/ordenes/${orden.id}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Ver
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <Wrench className="w-12 h-12 mx-auto text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    No hay órdenes recientes
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Crea una nueva orden de trabajo para comenzar.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recordatorios recientes */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Bell className="w-5 h-5 mr-2 text-yellow-600" />
+                  <h3 className="text-lg font-medium text-gray-900">Recordatorios</h3>
+                </div>
+                <Link
+                  href="/admin/recordatorios/nuevo"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-white rounded-md bg-primary hover:bg-red-700"
+                >
+                  <Plus size={16} className="mr-1" />
+                  Nuevo
+                </Link>
+              </div>
+            </div>
+            <div className="px-6 py-4">
+              {documentosRecientes.recordatorios?.length > 0 ? (
+                <div className="space-y-3">
+                  {documentosRecientes.recordatorios.map((recordatorio, index) => (
+                    <div
+                      key={recordatorio.id || index}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {recordatorio.titulo || `Recordatorio #${index + 1}`}
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          {formatearFecha(recordatorio.fechaCreacion)}
+                        </p>
+                      </div>
+                      <Link
+                        href={`/admin/recordatorios/${recordatorio.id}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Ver
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <Bell className="w-12 h-12 mx-auto text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    No hay recordatorios
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Crea un nuevo recordatorio para organizar tu trabajo.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Documentos disponibles solo para admin */}
+        {perfil?.rol === 'admin' && (
+          <div className="mb-8">
+            <h3 className="mb-6 text-xl font-semibold text-gray-900">Gestión de Documentos</h3>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {configuracion.documentos.filter(doc => !['ordenes', 'recordatorios'].includes(doc.key)).map((modulo) => {
+                const IconoComponente = modulo.icono;
+
+                return (
+                  <Link
+                    key={modulo.key}
+                    href={`/admin/${modulo.key}`}
+                    className="p-6 transition-shadow bg-white border border-gray-200 rounded-lg shadow hover:shadow-md"
+                  >
+                    <div className="flex items-center">
+                      <div className={`p-3 rounded-lg ${getColorClasses(modulo.color)}`}>
+                        <IconoComponente size={24} />
+                      </div>
+                      <div className="ml-4">
+                        <h4 className="text-sm font-medium text-gray-900">{modulo.nombre}</h4>
+                        <p className="text-xs text-gray-500">Gestionar {modulo.nombre.toLowerCase()}</p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Herramientas adicionales - Solo mostrar si hay herramientas */}
+        {configuracion.herramientas.length > 0 && (
+          <div className="mb-8">
+            <h3 className="mb-6 text-xl font-semibold text-gray-900">Herramientas</h3>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {configuracion.herramientas.map((herramienta) => {
+                const IconoComponente = herramienta.icono;
+
+                return (
+                  <Link
+                    key={herramienta.key}
+                    href={herramienta.url}
+                    className="p-6 transition-shadow bg-white border border-gray-200 rounded-lg shadow hover:shadow-md"
+                  >
+                    <div className="flex items-center">
+                      <div className="p-3 bg-gray-100 rounded-lg">
+                        <IconoComponente size={24} className="text-gray-600" />
+                      </div>
+                      <div className="ml-4">
+                        <h4 className="text-sm font-medium text-gray-900">{herramienta.nombre}</h4>
+                        <p className="text-xs text-gray-500">
+                          {herramienta.key === 'usuarios' && 'Gestionar usuarios y permisos'}
+                          {herramienta.key === 'estadisticas' && 'Ver estadísticas del sistema'}
+                          {herramienta.key === 'configuracion' && 'Configuración del sistema'}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Información del sistema */}
+        <div className="p-6 text-center bg-white border border-blue-200 rounded-lg shadow-md">
+          <div className="text-sm text-gray-600">
+            <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
+            <p>Sistema de gestión de documentos - Protección contra incendios</p>
+            <p className="mt-2">
+              <span className="font-medium">
+                {perfil?.rol === 'admin' ? 'Panel de Administración' : 'Panel Técnico'}
+              </span>
+              {perfil?.rol === 'tecnico' && (
+                <span> - Órdenes de trabajo y recordatorios</span>
+              )}
+            </p>
+          </div>
         </div>
       </div>
     </div>

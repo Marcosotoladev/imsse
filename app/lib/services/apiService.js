@@ -80,6 +80,13 @@ class ApiService {
     });
   }
 
+  // FUNCIÓN ELIMINAR USUARIO - CRÍTICA
+  async eliminarUsuario(id) {
+    return await this.makeRequest(`/api/users/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   async crearPerfilUsuario(uid, userData) {
     return await this.makeRequest('/api/users/create-profile', {
       method: 'POST',
@@ -280,8 +287,9 @@ class ApiService {
   }
 
   async obtenerEstadisticasUsuarios() {
-  return await this.makeRequest('/api/statistics/usuarios');
-}
+    return await this.makeRequest('/api/statistics/usuarios');
+  }
+
   // ========== FILTROS POR ROL ==========
   
   // Para técnicos - órdenes asignadas

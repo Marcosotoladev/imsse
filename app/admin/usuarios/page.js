@@ -1,7 +1,7 @@
-// app/admin/usuarios/page.jsx - Gestión de Usuarios IMSSE con Modal
+// app/admin/usuarios/page.jsx - Gestión de Usuarios IMSSE con Permisos Granulares y Eliminación
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -16,7 +16,13 @@ import {
   Calendar,
   Search,
   MoreVertical,
-  UserPlus
+  UserPlus,
+  FileText,
+  Receipt,
+  Truck,
+  CreditCard,
+  Wrench,
+  Bell
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
@@ -41,6 +47,29 @@ export default function GestionUsuarios() {
   // Estados para el modal
   const [modalAbierto, setModalAbierto] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
+  
+  // Estados para permisos
+  const [permisosTemporales, setPermisosTemporales] = useState({});
+
+  // Iconos para cada tipo de documento
+  const iconosDocumentos = {
+    presupuestos: FileText,
+    recibos: Receipt,
+    remitos: Truck,
+    estados: CreditCard,
+    ordenes: Wrench,
+    recordatorios: Bell
+  };
+
+  // Nombres legibles para los tipos de documentos
+  const nombresDocumentos = {
+    presupuestos: 'Presupuestos',
+    recibos: 'Recibos',
+    remitos: 'Remitos',
+    estados: 'Estados de Cuenta',
+    ordenes: 'Órdenes de Trabajo',
+    recordatorios: 'Recordatorios'
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -117,9 +146,9 @@ export default function GestionUsuarios() {
 
     if (filtros.metodo !== 'todos') {
       if (filtros.metodo === 'google') {
-        resultado = resultado.filter(usuario => usuario.metodoBegistro === 'google');
+        resultado = resultado.filter(usuario => usuario.metodoRegistro === 'google');
       } else {
-        resultado = resultado.filter(usuario => usuario.metodoBegistro !== 'google');
+        resultado = resultado.filter(usuario => usuario.metodoRegistro !== 'google');
       }
     }
 
@@ -138,6 +167,15 @@ export default function GestionUsuarios() {
   // Funciones para el modal
   const abrirModal = (usuario) => {
     setUsuarioSeleccionado(usuario);
+    // Inicializar permisos temporales con los permisos actuales del usuario
+    setPermisosTemporales(usuario.permisos || {
+      presupuestos: false,
+      recibos: false,
+      remitos: false,
+      estados: false,
+      ordenes: false,
+      recordatorios: false
+    });
     setModalAbierto(true);
     setUsuarioEditando(null); // Cerrar dropdown si estaba abierto
   };
@@ -145,6 +183,7 @@ export default function GestionUsuarios() {
   const cerrarModal = () => {
     setModalAbierto(false);
     setUsuarioSeleccionado(null);
+    setPermisosTemporales({});
   };
 
   const handleCambiarRolModal = async (nuevoRol) => {
@@ -189,6 +228,95 @@ export default function GestionUsuarios() {
     } finally {
       setProcesando(false);
     }
+  };
+
+  // Función para cambiar un permiso específico
+  const handleCambiarPermiso = (tipoDocumento, valor) => {
+    setPermisosTemporales(prev => ({
+      ...prev,
+      [tipoDocumento]: valor
+    }));
+  };
+
+  // Función para guardar los permisos
+  const handleGuardarPermisos = async () => {
+    if (!usuarioSeleccionado) return;
+    
+    setProcesando(true);
+    try {
+      await apiService.actualizarUsuario(usuarioSeleccionado.id, { 
+        permisos: permisosTemporales 
+      });
+      await cargarDatos();
+      alert('✅ Permisos actualizados correctamente');
+      cerrarModal();
+    } catch (error) {
+      console.error('Error al actualizar permisos:', error);
+      alert('❌ Error al actualizar los permisos');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  // Función para eliminar usuario
+  const handleEliminarUsuario = async () => {
+    if (!usuarioSeleccionado) return;
+    
+    // Primera confirmación
+    const nombreUsuario = usuarioSeleccionado.nombreCompleto || usuarioSeleccionado.email;
+    const primeraConfirmacion = confirm(
+      `⚠️ ¿Estás seguro de que quieres ELIMINAR permanentemente al usuario "${nombreUsuario}"?\n\n` +
+      `Esta acción NO se puede deshacer y eliminará:\n` +
+      `• El usuario del sistema\n` +
+      `• Su acceso a la plataforma\n` +
+      `• Sus configuraciones y permisos\n\n` +
+      `Haz clic en "Aceptar" para continuar o "Cancelar" para abortar.`
+    );
+    
+    if (!primeraConfirmacion) return;
+    
+    // Segunda confirmación - más específica
+    const segundaConfirmacion = confirm(
+      `🚨 CONFIRMACIÓN FINAL\n\n` +
+      `Vas a eliminar permanentemente a:\n` +
+      `Usuario: ${nombreUsuario}\n` +
+      `Email: ${usuarioSeleccionado.email}\n` +
+      `Rol: ${usuarioSeleccionado.rol}\n\n` +
+      `Esta acción es IRREVERSIBLE.\n\n` +
+      `¿Confirmas la eliminación?`
+    );
+    
+    if (!segundaConfirmacion) return;
+    
+    setProcesando(true);
+    try {
+      // Llamar a la API para eliminar usuario
+      await apiService.eliminarUsuario(usuarioSeleccionado.id);
+      
+      // Recargar datos
+      await cargarDatos();
+      
+      // Mostrar confirmación
+      alert(`✅ Usuario "${nombreUsuario}" eliminado correctamente del sistema.`);
+      
+      // Cerrar modal
+      cerrarModal();
+    } catch (error) {
+      console.error('Error al eliminar usuario:', error);
+      alert(`❌ Error al eliminar el usuario: ${error.message || 'Error desconocido'}`);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  // Función para activar/desactivar todos los permisos
+  const handleToggleTodosPermisos = (activar) => {
+    const nuevosPermisos = {};
+    Object.keys(nombresDocumentos).forEach(tipo => {
+      // Recordatorios siempre false para clientes
+      nuevosPermisos[tipo] = tipo === 'recordatorios' ? false : activar;
+    });
+    setPermisosTemporales(nuevosPermisos);
   };
 
   const formatearFecha = (timestamp) => {
@@ -450,6 +578,9 @@ export default function GestionUsuarios() {
                     Método
                   </th>
                   <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                    Permisos
+                  </th>
+                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                     Registro
                   </th>
                   <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -491,9 +622,35 @@ export default function GestionUsuarios() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.metodoBegistro === 'google' ? 'google' : 'email', 'metodo')}`}>
-                        {usuario.metodoBegistro === 'google' ? 'Google' : 'Email'}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.metodoRegistro === 'google' ? 'google' : 'email', 'metodo')}`}>
+                        {usuario.metodoRegistro === 'google' ? 'Google' : 'Email'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {usuario.rol === 'cliente' ? (
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(usuario.permisos || {}).map(([tipo, activo]) => {
+                            if (!activo) return null;
+                            
+                            const IconoComponente = iconosDocumentos[tipo];
+                            return (
+                              <span
+                                key={tipo}
+                                className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full"
+                                title={nombresDocumentos[tipo]}
+                              >
+                                {IconoComponente && <IconoComponente size={12} className="mr-1" />}
+                                {tipo}
+                              </span>
+                            );
+                          })}
+                          {Object.values(usuario.permisos || {}).every(p => !p) && (
+                            <span className="text-xs text-gray-500">Sin permisos</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-500">Acceso completo</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {formatearFecha(usuario.fechaCreacion)}
@@ -565,10 +722,10 @@ export default function GestionUsuarios() {
         </div>
       </div>
 
-      {/* Modal de gestión de usuarios */}
+      {/* Modal de gestión de usuarios CON PERMISOS GRANULARES Y ELIMINACIÓN */}
       {modalAbierto && usuarioSeleccionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md mx-4 bg-white rounded-lg shadow-xl">
+          <div className="w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
             {/* Header del modal */}
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -631,7 +788,7 @@ export default function GestionUsuarios() {
               </div>
 
               {/* Cambiar estado */}
-              <div className="mb-4">
+              <div className="mb-6">
                 <h4 className="mb-3 text-sm font-medium text-gray-700">Cambiar Estado</h4>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -654,18 +811,147 @@ export default function GestionUsuarios() {
                   ))}
                 </div>
               </div>
+
+              {/* PERMISOS GRANULARES - Solo para clientes */}
+              {usuarioSeleccionado.rol === 'cliente' && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-gray-700">Permisos de Documentos</h4>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleToggleTodosPermisos(true)}
+                        className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200"
+                        disabled={procesando}
+                      >
+                        Activar todos
+                      </button>
+                      <button
+                        onClick={() => handleToggleTodosPermisos(false)}
+                        className="px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded hover:bg-red-200"
+                        disabled={procesando}
+                      >
+                        Desactivar todos
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <p className="mb-3 text-xs text-gray-600">
+                      Selecciona qué tipos de documentos puede ver este cliente:
+                    </p>
+                    
+                    <div className="space-y-3">
+                      {Object.entries(nombresDocumentos).map(([tipo, nombre]) => {
+                        const IconoComponente = iconosDocumentos[tipo];
+                        const esRecordatorio = tipo === 'recordatorios';
+                        
+                        return (
+                          <label 
+                            key={tipo} 
+                            className={`flex items-center p-3 border rounded-md transition-colors ${
+                              esRecordatorio 
+                                ? 'bg-gray-100 border-gray-200 cursor-not-allowed' 
+                                : permisosTemporales[tipo] 
+                                  ? 'bg-blue-50 border-blue-200' 
+                                  : 'bg-white border-gray-200 hover:bg-gray-50 cursor-pointer'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={permisosTemporales[tipo] || false}
+                              onChange={(e) => handleCambiarPermiso(tipo, e.target.checked)}
+                              disabled={procesando || esRecordatorio}
+                              className={`mr-3 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded ${
+                                esRecordatorio ? 'cursor-not-allowed' : 'cursor-pointer'
+                              }`}
+                            />
+                            <IconoComponente size={18} className={`mr-3 ${
+                              esRecordatorio ? 'text-gray-400' : permisosTemporales[tipo] ? 'text-blue-600' : 'text-gray-500'
+                            }`} />
+                            <div className="flex-1">
+                              <span className={`text-sm font-medium ${
+                                esRecordatorio ? 'text-gray-400' : 'text-gray-700'
+                              }`}>
+                                {nombre}
+                              </span>
+                              {esRecordatorio && (
+                                <p className="mt-1 text-xs text-gray-400">
+                                  Solo disponible para administradores y técnicos
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    
+                    <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
+                      <p className="text-xs text-yellow-800">
+                        <strong>Nota:</strong> Los usuarios pueden ver únicamente los documentos que tengan asignados y para los cuales tengan permisos habilitados.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Información adicional para admin/técnico */}
+              {(usuarioSeleccionado.rol === 'admin' || usuarioSeleccionado.rol === 'tecnico') && (
+                <div className="mb-6">
+                  <h4 className="mb-3 text-sm font-medium text-gray-700">Permisos</h4>
+                  <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
+                    <div className="flex items-center">
+                      <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">
+                        {usuarioSeleccionado.rol === 'admin' ? 'Acceso completo al sistema' : 'Acceso a todos los documentos'}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-blue-700">
+                      {usuarioSeleccionado.rol === 'admin' 
+                        ? 'Los administradores pueden gestionar usuarios, documentos y configuraciones del sistema.'
+                        : 'Los técnicos pueden ver y gestionar todos los documentos, y comunicarse con administradores.'
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Footer del modal */}
+            {/* Footer del modal CON BOTÓN ELIMINAR */}
             <div className="px-6 py-4 rounded-b-lg bg-gray-50">
-              <div className="flex justify-end">
+              <div className="flex justify-between">
+                {/* Botón de eliminar - lado izquierdo */}
                 <button
-                  onClick={cerrarModal}
+                  onClick={handleEliminarUsuario}
                   disabled={procesando}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                  className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
                 >
-                  {procesando ? 'Procesando...' : 'Cerrar'}
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  {procesando ? 'Eliminando...' : 'Eliminar Usuario'}
                 </button>
+                
+                {/* Botones de la derecha */}
+                <div className="flex space-x-3">
+                  <button
+                    onClick={cerrarModal}
+                    disabled={procesando}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {procesando ? 'Procesando...' : 'Cerrar'}
+                  </button>
+                  
+                  {/* Botón para guardar permisos - Solo para clientes */}
+                  {usuarioSeleccionado.rol === 'cliente' && (
+                    <button
+                      onClick={handleGuardarPermisos}
+                      disabled={procesando}
+                      className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md bg-primary hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {procesando ? 'Guardando...' : 'Guardar Permisos'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
