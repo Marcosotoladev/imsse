@@ -1,4 +1,4 @@
-// app/cliente/dashboard/page.jsx - Dashboard simplificado (usa ClienteLayout automático)
+// app/cliente/dashboard/page.jsx - Dashboard corregido (sin error de objeto)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -160,6 +160,24 @@ export default function DashboardCliente() {
     }
   };
 
+  // FUNCIÓN NUEVA: Obtener información de cliente de forma segura
+  const obtenerInfoCliente = (doc) => {
+    if (!doc) return '';
+    
+    // Si doc.cliente es un objeto
+    if (doc.cliente && typeof doc.cliente === 'object') {
+      return doc.cliente.empresa || doc.cliente.nombre || '';
+    }
+    
+    // Si doc.cliente es una string
+    if (typeof doc.cliente === 'string') {
+      return doc.cliente;
+    }
+    
+    // Otros campos alternativos
+    return doc.empresa || doc.nombreEmpresa || '';
+  };
+
   const formatearFecha = (timestamp) => {
     if (!timestamp) return 'N/A';
     const fecha = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -313,9 +331,10 @@ export default function DashboardCliente() {
                               {formatearFecha(doc.fechaCreacion || doc.fecha || doc.fechaModificacion)}
                             </span>
                           </div>
-                          {(doc.descripcion || doc.cliente || doc.empresa) && (
+                          {/* LÍNEA CORREGIDA - Manejo seguro del objeto cliente */}
+                          {(doc.descripcion || obtenerInfoCliente(doc)) && (
                             <p className="mt-1 text-xs text-gray-600 truncate">
-                              {doc.descripcion || doc.cliente || doc.empresa || ''}
+                              {doc.descripcion || obtenerInfoCliente(doc)}
                             </p>
                           )}
                           {(doc.total || doc.monto || doc.importe) && (

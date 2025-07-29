@@ -1,10 +1,10 @@
-// app/admin/estados-cuenta/nuevo/page.jsx - Crear Estado de Cuenta IMSSE
+// app/admin/estados-cuenta/nuevo/page.jsx - CON SELECTOR DE CLIENTE
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign, User, Building2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
@@ -14,6 +14,12 @@ export default function CrearEstadoCuenta() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const router = useRouter();
+
+  // NUEVO: Estados para gestión de clientes
+  const [clientesDisponibles, setClientesDisponibles] = useState([]);
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
   // Estado del formulario
   const [cliente, setCliente] = useState({
@@ -27,6 +33,7 @@ export default function CrearEstadoCuenta() {
 
   const [estadoCuenta, setEstadoCuenta] = useState({
     numero: '',
+    clienteId: '', // ← NUEVO CAMPO CRÍTICO
     periodo: {
       desde: '',
       hasta: ''
@@ -51,6 +58,7 @@ export default function CrearEstadoCuenta() {
       if (currentUser) {
         setUser(currentUser);
         await generarNumeroEstado();
+        cargarClientesDisponibles();
         setLoading(false);
       } else {
         router.push('/admin');
@@ -60,32 +68,99 @@ export default function CrearEstadoCuenta() {
     return () => unsubscribe();
   }, [router]);
 
-
-const generarNumeroEstado = async () => {
-  try {
-    // Usar la API en lugar de Firestore directo
-    const estadosData = await apiService.obtenerDocumentos('estados', { 
-      ordenarPor: 'fechaCreacion', 
-      limite: 1 
-    });
-    
-    let nuevoNumero = 'EC-001-2025';
-    
-    if (estadosData && estadosData.length > 0) {
-      const ultimoEstado = estadosData[0];
-      const ultimoNumero = ultimoEstado.numero;
-      const numeroActual = parseInt(ultimoNumero.split('-')[1]);
-      const año = new Date().getFullYear();
-      nuevoNumero = `EC-${String(numeroActual + 1).padStart(3, '0')}-${año}`;
+  // NUEVA FUNCIÓN: Cargar clientes activos del sistema
+  const cargarClientesDisponibles = async () => {
+    setCargandoClientes(true);
+    try {
+      const usuariosData = await apiService.obtenerUsuarios();
+      const clientes = usuariosData.users.filter(u => 
+        u.rol === 'cliente' && u.estado === 'activo'
+      );
+      setClientesDisponibles(clientes);
+      console.log('Clientes disponibles:', clientes);
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+    } finally {
+      setCargandoClientes(false);
     }
-    
-    setEstadoCuenta(prev => ({ ...prev, numero: nuevoNumero }));
-  } catch (error) {
-    console.error('Error al generar número:', error);
-    const año = new Date().getFullYear();
-    setEstadoCuenta(prev => ({ ...prev, numero: `EC-001-${año}` }));
-  }
-};
+  };
+
+  // NUEVA FUNCIÓN: Manejar selección de cliente existente
+  const handleSeleccionarCliente = (clienteId) => {
+    if (!clienteId) {
+      setClienteSeleccionado(null);
+      setEstadoCuenta({ ...estadoCuenta, clienteId: '' });
+      setCliente({
+        nombre: '',
+        empresa: '',
+        email: '',
+        telefono: '',
+        direccion: '',
+        cuit: ''
+      });
+      return;
+    }
+
+    const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
+    if (clienteEncontrado) {
+      setClienteSeleccionado(clienteEncontrado);
+      setEstadoCuenta({ ...estadoCuenta, clienteId: clienteId });
+      
+      // Llenar automáticamente los datos del cliente
+      setCliente({
+        nombre: clienteEncontrado.nombreCompleto || '',
+        empresa: clienteEncontrado.empresa || '',
+        email: clienteEncontrado.email || '',
+        telefono: clienteEncontrado.telefono || '',
+        direccion: '', // Se puede llenar manualmente
+        cuit: '' // Se puede llenar manualmente
+      });
+    }
+  };
+
+  // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
+  const handleCambiarTipoCliente = (tipo) => {
+    setTipoCliente(tipo);
+    if (tipo === 'manual') {
+      // Limpiar selección y permitir edición manual
+      setClienteSeleccionado(null);
+      setEstadoCuenta({ ...estadoCuenta, clienteId: '' });
+      setCliente({
+        nombre: '',
+        empresa: '',
+        email: '',
+        telefono: '',
+        direccion: '',
+        cuit: ''
+      });
+    }
+  };
+
+  const generarNumeroEstado = async () => {
+    try {
+      // Usar la API en lugar de Firestore directo
+      const estadosData = await apiService.obtenerDocumentos('estados', { 
+        ordenarPor: 'fechaCreacion', 
+        limite: 1 
+      });
+      
+      let nuevoNumero = 'EC-001-2025';
+      
+      if (estadosData && estadosData.length > 0) {
+        const ultimoEstado = estadosData[0];
+        const ultimoNumero = ultimoEstado.numero;
+        const numeroActual = parseInt(ultimoNumero.split('-')[1]);
+        const año = new Date().getFullYear();
+        nuevoNumero = `EC-${String(numeroActual + 1).padStart(3, '0')}-${año}`;
+      }
+      
+      setEstadoCuenta(prev => ({ ...prev, numero: nuevoNumero }));
+    } catch (error) {
+      console.error('Error al generar número:', error);
+      const año = new Date().getFullYear();
+      setEstadoCuenta(prev => ({ ...prev, numero: `EC-001-${año}` }));
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -187,6 +262,12 @@ const generarNumeroEstado = async () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
+    if (tipoCliente === 'existente' && !estadoCuenta.clienteId) {
+      alert('Por favor, selecciona un cliente del sistema.');
+      return;
+    }
+
     // Validaciones
     if (!estadoCuenta.numero || !cliente.nombre || !cliente.empresa) {
       alert('Por favor completa los campos obligatorios: Número, Cliente y Empresa');
@@ -205,30 +286,34 @@ const generarNumeroEstado = async () => {
 
     setGuardando(true);
 
-try {
-  const estadoData = {
-    numero: estadoCuenta.numero,
-    cliente: cliente,
-    periodo: estadoCuenta.periodo,
-    saldoAnterior: parseFloat(estadoCuenta.saldoAnterior) || 0,
-    movimientos: estadoCuenta.movimientos.map(mov => ({
-      ...mov,
-      debe: parseFloat(mov.debe) || 0,
-      haber: parseFloat(mov.haber) || 0
-    })),
-    saldoActual: calcularSaldoActual(),
-    observaciones: estadoCuenta.observaciones,
-    fechaCreacion: new Date(), // ❌ Usar Date() en lugar de serverTimestamp()
-    fechaModificacion: new Date(),
-    usuarioCreador: user.email,
-    creadoPor: user.email, // ❌ Agregar para consistencia
-    empresa: 'IMSSE INGENIERÍA S.A.S'
-  };
+    try {
+      const estadoData = {
+        numero: estadoCuenta.numero,
+        cliente: cliente,
+        clienteId: estadoCuenta.clienteId || null, // ← CAMPO CRÍTICO
+        tipoCliente: tipoCliente, // Para referencia
+        periodo: estadoCuenta.periodo,
+        saldoAnterior: parseFloat(estadoCuenta.saldoAnterior) || 0,
+        movimientos: estadoCuenta.movimientos.map(mov => ({
+          ...mov,
+          debe: parseFloat(mov.debe) || 0,
+          haber: parseFloat(mov.haber) || 0
+        })),
+        saldoActual: calcularSaldoActual(),
+        observaciones: estadoCuenta.observaciones,
+        fechaCreacion: new Date(),
+        fechaModificacion: new Date(),
+        usuarioCreador: user.email,
+        creadoPor: user.email,
+        empresa: 'IMSSE INGENIERÍA S.A.S'
+      };
 
-  // ❌ USAR apiService en lugar de addDoc
-  await apiService.crearDocumento('estados', estadoData);
-  alert('Estado de cuenta IMSSE creado exitosamente');
-  router.push('/admin/estados-cuenta');
+      console.log('Guardando estado de cuenta con datos:', estadoData);
+
+      // Usar apiService en lugar de addDoc
+      await apiService.crearDocumento('estados', estadoData);
+      alert('Estado de cuenta IMSSE creado exitosamente');
+      router.push('/admin/estados-cuenta');
     } catch (error) {
       console.error('Error al crear estado de cuenta:', error);
       alert('Error al crear el estado de cuenta. Inténtelo de nuevo más tarde.');
@@ -375,9 +460,103 @@ try {
               </div>
             </div>
 
+            {/* NUEVA SECCIÓN: Selección de Cliente */}
+            <div className="p-6 bg-white border-l-4 border-orange-500 rounded-lg shadow-md">
+              <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+                <User className="mr-2" size={20} />
+                Selección de Cliente
+              </h3>
+              
+              {/* Toggle entre cliente existente y manual */}
+              <div className="mb-6">
+                <div className="flex mb-4 space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="tipoCliente"
+                      value="existente"
+                      checked={tipoCliente === 'existente'}
+                      onChange={() => handleCambiarTipoCliente('existente')}
+                      className="mr-2"
+                    />
+                    <span className="text-sm font-medium">Cliente del sistema</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="tipoCliente"
+                      value="manual"
+                      checked={tipoCliente === 'manual'}
+                      onChange={() => handleCambiarTipoCliente('manual')}
+                      className="mr-2"
+                    />
+                    <span className="text-sm font-medium">Cliente nuevo (manual)</span>
+                  </label>
+                </div>
+
+                {/* Selector de cliente existente */}
+                {tipoCliente === 'existente' && (
+                  <div className="p-4 rounded-lg bg-orange-50">
+                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                      Seleccionar cliente registrado *
+                    </label>
+                    <select
+                      value={estadoCuenta.clienteId}
+                      onChange={(e) => handleSeleccionarCliente(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500"
+                      disabled={cargandoClientes}
+                    >
+                      <option value="">
+                        {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
+                      </option>
+                      {clientesDisponibles.map(cliente => (
+                        <option key={cliente.id} value={cliente.id}>
+                          {cliente.empresa} - {cliente.nombreCompleto}
+                        </option>
+                      ))}
+                    </select>
+                    
+                    {/* Información del cliente seleccionado */}
+                    {clienteSeleccionado && (
+                      <div className="p-3 mt-3 bg-white border border-orange-200 rounded">
+                        <div className="text-sm">
+                          <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
+                          <p className="text-gray-600">{clienteSeleccionado.email}</p>
+                          {clienteSeleccionado.telefono && (
+                            <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {clientesDisponibles.length === 0 && !cargandoClientes && (
+                      <p className="mt-2 text-sm text-yellow-600">
+                        No hay clientes activos en el sistema. 
+                        <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
+                          Crear cliente aquí
+                        </Link>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Modo manual */}
+                {tipoCliente === 'manual' && (
+                  <div className="p-4 rounded-lg bg-gray-50">
+                    <p className="mb-3 text-sm text-gray-600">
+                      Los datos se ingresarán manualmente y no se asignará a un usuario del sistema.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Información del Cliente */}
             <div className="p-6 bg-white rounded-lg shadow-md">
-              <h3 className="mb-4 text-lg font-semibold text-gray-700">Información del Cliente</h3>
+              <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+                <Building2 className="mr-2" size={20} />
+                Información del Cliente
+              </h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700">Nombre *</label>
@@ -389,6 +568,7 @@ try {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Nombre del contacto"
                     required
+                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                   />
                 </div>
                 <div>
@@ -401,6 +581,7 @@ try {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Nombre de la empresa"
                     required
+                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                   />
                 </div>
                 <div>
@@ -412,6 +593,7 @@ try {
                     onChange={handleClienteChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="cliente@email.com"
+                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                   />
                 </div>
                 <div>
@@ -423,6 +605,7 @@ try {
                     onChange={handleClienteChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="+54 351 123 4567"
+                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                   />
                 </div>
                 <div>
@@ -448,6 +631,25 @@ try {
                   />
                 </div>
               </div>
+              
+              {/* Indicador de asignación */}
+              {tipoCliente === 'existente' && clienteSeleccionado && (
+                <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
+                  <p className="text-sm text-green-800">
+                    ✅ <strong>Estado de cuenta será asignado a:</strong> {clienteSeleccionado.empresa}
+                    <br />
+                    <span className="text-green-600">El cliente podrá ver este documento en su panel.</span>
+                  </p>
+                </div>
+              )}
+              
+              {tipoCliente === 'manual' && (
+                <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ <strong>Modo manual:</strong> Este estado de cuenta no estará visible para ningún cliente en el sistema.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Movimientos */}

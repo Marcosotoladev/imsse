@@ -1,10 +1,10 @@
-// app/admin/presupuestos/nuevo/page.jsx - VERSIÓN CORREGIDA IMSSE
+// app/admin/presupuestos/nuevo/page.jsx - CON SELECTOR DE CLIENTE
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2 } from 'lucide-react';
+import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, User, Building2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
@@ -33,7 +33,13 @@ export default function NuevoPresupuesto() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [guardando, setGuardando] = useState(false);
-  const [mostrarPDF, setMostrarPDF] = useState(false);
+    const [mostrarPDF, setMostrarPDF] = useState(false);
+    
+    // NUEVO: Estados para gestión de clientes
+    const [clientesDisponibles, setClientesDisponibles] = useState([]);
+    const [cargandoClientes, setCargandoClientes] = useState(false);
+    const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
+    const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
     
     // Estado para el modal de descripción
     const [modalDescripcion, setModalDescripcion] = useState({
@@ -42,7 +48,7 @@ export default function NuevoPresupuesto() {
         value: ''
     });
 
-    // Estado del formulario - CORREGIDO PARA IMSSE
+    // Estado del cliente - MODIFICADO para funcionar con ambos modos
     const [cliente, setCliente] = useState({
         nombre: '',
         empresa: '',
@@ -55,16 +61,16 @@ export default function NuevoPresupuesto() {
     const [presupuesto, setPresupuesto] = useState({
         numero: `PRES-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
         fecha: new Date().toISOString().split('T')[0],
-        // ❌ NO más fechaVencimiento ni validez
+        clienteId: '', // ← NUEVO CAMPO CRÍTICO
         items: [
             { id: 1, descripcion: '', cantidad: '', precioUnitario: '', subtotal: 0, categoria: 'deteccion' }
         ],
-        observaciones: '', // ❌ VACÍO por defecto
+        observaciones: '',
         subtotal: 0,
         iva: 0,
         total: 0,
-        estado: 'pendiente', // ❌ 'pendiente' no 'borrador'
-        mostrarIva: false // ❌ IVA DESACTIVADO por defecto
+        estado: 'pendiente',
+        mostrarIva: false
     });
 
     useEffect(() => {
@@ -72,6 +78,7 @@ export default function NuevoPresupuesto() {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
+                cargarClientesDisponibles();
                 setLoading(false);
             } else {
                 router.push('/admin');
@@ -80,6 +87,74 @@ export default function NuevoPresupuesto() {
 
         return () => unsubscribe();
     }, [router]);
+
+    // NUEVA FUNCIÓN: Cargar clientes activos del sistema
+    const cargarClientesDisponibles = async () => {
+        setCargandoClientes(true);
+        try {
+            const usuariosData = await apiService.obtenerUsuarios();
+            const clientes = usuariosData.users.filter(u => 
+                u.rol === 'cliente' && u.estado === 'activo'
+            );
+            setClientesDisponibles(clientes);
+            console.log('Clientes disponibles:', clientes);
+        } catch (error) {
+            console.error('Error al cargar clientes:', error);
+        } finally {
+            setCargandoClientes(false);
+        }
+    };
+
+    // NUEVA FUNCIÓN: Manejar selección de cliente existente
+    const handleSeleccionarCliente = (clienteId) => {
+        if (!clienteId) {
+            setClienteSeleccionado(null);
+            setPresupuesto({ ...presupuesto, clienteId: '' });
+            setCliente({
+                nombre: '',
+                empresa: '',
+                email: '',
+                telefono: '',
+                direccion: '',
+                cuit: ''
+            });
+            return;
+        }
+
+        const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
+        if (clienteEncontrado) {
+            setClienteSeleccionado(clienteEncontrado);
+            setPresupuesto({ ...presupuesto, clienteId: clienteId });
+            
+            // Llenar automáticamente los datos del cliente
+            setCliente({
+                nombre: clienteEncontrado.nombreCompleto || '',
+                empresa: clienteEncontrado.empresa || '',
+                email: clienteEncontrado.email || '',
+                telefono: clienteEncontrado.telefono || '',
+                direccion: '', // Se puede llenar manualmente
+                cuit: '' // Se puede llenar manualmente
+            });
+        }
+    };
+
+    // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
+    const handleCambiarTipoCliente = (tipo) => {
+        setTipoCliente(tipo);
+        if (tipo === 'manual') {
+            // Limpiar selección y permitir edición manual
+            setClienteSeleccionado(null);
+            setPresupuesto({ ...presupuesto, clienteId: '' });
+            setCliente({
+                nombre: '',
+                empresa: '',
+                email: '',
+                telefono: '',
+                direccion: '',
+                cuit: ''
+            });
+        }
+    };
 
     // Función para abrir el modal de descripción
     const abrirModalDescripcion = (itemId, descripcion) => {
@@ -128,7 +203,6 @@ export default function NuevoPresupuesto() {
             return item;
         });
 
-        // ❌ RECALCULAR TOTALES CON IVA CONDICIONAL
         const subtotal = updatedItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
         const iva = presupuesto.mostrarIva ? Math.round(subtotal * 0.21) : 0;
         const total = subtotal + iva;
@@ -171,13 +245,27 @@ export default function NuevoPresupuesto() {
     };
 
     const handleGuardarPresupuesto = async () => {
+        // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
+        if (tipoCliente === 'existente' && !presupuesto.clienteId) {
+            alert('Por favor, selecciona un cliente del sistema.');
+            return;
+        }
+
+        // VALIDACIÓN: Verificar campos obligatorios
+        if (!cliente.empresa || !cliente.nombre) {
+            alert('Por favor, completa al menos la empresa y persona de contacto.');
+            return;
+        }
+
         setGuardando(true);
         try {
-            // Preparar datos del presupuesto para IMSSE
+            // Preparar datos del presupuesto
             const presupuestoData = {
                 numero: presupuesto.numero,
                 fecha: new Date(presupuesto.fecha),
                 cliente: cliente,
+                clienteId: presupuesto.clienteId || null, // ← CAMPO CRÍTICO
+                tipoCliente: tipoCliente, // Para referencia
                 items: presupuesto.items,
                 observaciones: presupuesto.observaciones,
                 subtotal: presupuesto.subtotal,
@@ -190,7 +278,8 @@ export default function NuevoPresupuesto() {
                 fechaModificacion: new Date()
             };
 
-            // Guardar en Firestore
+            console.log('Guardando presupuesto con datos:', presupuestoData);
+
             await apiService.crearPresupuesto(presupuestoData);
             alert('Presupuesto guardado exitosamente');
             router.push('/admin/presupuestos');
@@ -292,7 +381,6 @@ export default function NuevoPresupuesto() {
                                 >
                                     {({ blob, url, loading, error }) => {
                                         if (url) {
-                                            // Trigger download
                                             const link = document.createElement('a');
                                             link.href = url;
                                             link.download = `${presupuesto.numero}.pdf`;
@@ -312,7 +400,7 @@ export default function NuevoPresupuesto() {
                 </h2>
 
                 <div className="grid grid-cols-1 gap-6">
-                    {/* ❌ INFORMACIÓN DEL PRESUPUESTO - SOLO 2 CAMPOS */}
+                    {/* Información del presupuesto */}
                     <div className="p-6 bg-white rounded-lg shadow-md">
                         <h3 className="mb-4 text-lg font-semibold text-gray-700">Información del Presupuesto</h3>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -338,9 +426,103 @@ export default function NuevoPresupuesto() {
                         </div>
                     </div>
 
+                    {/* NUEVA SECCIÓN: Selección de Cliente */}
+                    <div className="p-6 bg-white border-l-4 border-blue-500 rounded-lg shadow-md">
+                        <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+                            <User className="mr-2" size={20} />
+                            Selección de Cliente
+                        </h3>
+                        
+                        {/* Toggle entre cliente existente y manual */}
+                        <div className="mb-6">
+                            <div className="flex mb-4 space-x-4">
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="tipoCliente"
+                                        value="existente"
+                                        checked={tipoCliente === 'existente'}
+                                        onChange={() => handleCambiarTipoCliente('existente')}
+                                        className="mr-2"
+                                    />
+                                    <span className="text-sm font-medium">Cliente del sistema</span>
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="tipoCliente"
+                                        value="manual"
+                                        checked={tipoCliente === 'manual'}
+                                        onChange={() => handleCambiarTipoCliente('manual')}
+                                        className="mr-2"
+                                    />
+                                    <span className="text-sm font-medium">Cliente nuevo (manual)</span>
+                                </label>
+                            </div>
+
+                            {/* Selector de cliente existente */}
+                            {tipoCliente === 'existente' && (
+                                <div className="p-4 rounded-lg bg-blue-50">
+                                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                                        Seleccionar cliente registrado *
+                                    </label>
+                                    <select
+                                        value={presupuesto.clienteId}
+                                        onChange={(e) => handleSeleccionarCliente(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        disabled={cargandoClientes}
+                                    >
+                                        <option value="">
+                                            {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
+                                        </option>
+                                        {clientesDisponibles.map(cliente => (
+                                            <option key={cliente.id} value={cliente.id}>
+                                                {cliente.empresa} - {cliente.nombreCompleto}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    
+                                    {/* Información del cliente seleccionado */}
+                                    {clienteSeleccionado && (
+                                        <div className="p-3 mt-3 bg-white border border-blue-200 rounded">
+                                            <div className="text-sm">
+                                                <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
+                                                <p className="text-gray-600">{clienteSeleccionado.email}</p>
+                                                {clienteSeleccionado.telefono && (
+                                                    <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {clientesDisponibles.length === 0 && !cargandoClientes && (
+                                        <p className="mt-2 text-sm text-yellow-600">
+                                            No hay clientes activos en el sistema. 
+                                            <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
+                                                Crear cliente aquí
+                                            </Link>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Modo manual */}
+                            {tipoCliente === 'manual' && (
+                                <div className="p-4 rounded-lg bg-gray-50">
+                                    <p className="mb-3 text-sm text-gray-600">
+                                        Los datos se ingresarán manualmente y no se asignará a un usuario del sistema.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Información del cliente */}
                     <div className="p-6 bg-white rounded-lg shadow-md">
-                        <h3 className="mb-4 text-lg font-semibold text-gray-700">Información del Cliente</h3>
+                        <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+                            <Building2 className="mr-2" size={20} />
+                            Información del Cliente
+                        </h3>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Empresa *</label>
@@ -351,6 +533,7 @@ export default function NuevoPresupuesto() {
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                     required
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
                             </div>
                             <div>
@@ -362,6 +545,7 @@ export default function NuevoPresupuesto() {
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                     required
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
                             </div>
                             <div>
@@ -372,6 +556,7 @@ export default function NuevoPresupuesto() {
                                     value={cliente.email}
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
                             </div>
                             <div>
@@ -382,6 +567,7 @@ export default function NuevoPresupuesto() {
                                     value={cliente.telefono}
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
                             </div>
                             <div>
@@ -406,9 +592,28 @@ export default function NuevoPresupuesto() {
                                 />
                             </div>
                         </div>
+                        
+                        {/* Indicador de asignación */}
+                        {tipoCliente === 'existente' && clienteSeleccionado && (
+                            <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
+                                <p className="text-sm text-green-800">
+                                    ✅ <strong>Presupuesto será asignado a:</strong> {clienteSeleccionado.empresa}
+                                    <br />
+                                    <span className="text-green-600">El cliente podrá ver este presupuesto en su panel.</span>
+                                </p>
+                            </div>
+                        )}
+                        
+                        {tipoCliente === 'manual' && (
+                            <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
+                                <p className="text-sm text-yellow-800">
+                                    ⚠️ <strong>Modo manual:</strong> Este presupuesto no estará visible para ningún cliente en el sistema.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Items del presupuesto */}
+                    {/* Items del presupuesto - SIN CAMBIOS */}
                     <div className="p-6 bg-white rounded-lg shadow-md">
                         <h3 className="mb-4 text-lg font-semibold text-gray-700">Detalle de Servicios y Productos</h3>
                         <div className="overflow-x-auto">
@@ -510,7 +715,7 @@ export default function NuevoPresupuesto() {
                             </button>
                         </div>
 
-                        {/* ❌ TOTALES CON IVA OPCIONAL */}
+                        {/* Totales con IVA opcional */}
                         <div className="w-full mt-6 ml-auto md:w-80">
                             <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                                 <div className="flex justify-between py-2 text-sm">
@@ -528,7 +733,7 @@ export default function NuevoPresupuesto() {
                                     <span>{formatMoney(presupuesto.total)}</span>
                                 </div>
                                 
-                                {/* ❌ CHECKBOX PARA CONTROLAR IVA */}
+                                {/* Checkbox para controlar IVA */}
                                 <div className="pt-3 mt-3 border-t border-gray-300">
                                     <label className="flex items-center">
                                         <input
@@ -556,7 +761,7 @@ export default function NuevoPresupuesto() {
                         </div>
                     </div>
 
-                    {/* ❌ OBSERVACIONES VACÍAS Y EDITABLES */}
+                    {/* Observaciones */}
                     <div className="p-6 bg-white rounded-lg shadow-md">
                         <h3 className="mb-4 text-lg font-semibold text-gray-700">Observaciones</h3>
                         <textarea

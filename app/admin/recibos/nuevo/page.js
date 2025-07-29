@@ -1,10 +1,10 @@
-// app/admin/recibos/nuevo/page.jsx - Crear Recibo IMSSE
+// app/admin/recibos/nuevo/page.jsx - CON SELECTOR DE CLIENTE
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, RefreshCw } from 'lucide-react';
+import { Home, LogOut, Save, Download, RefreshCw, User, Building2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
@@ -74,6 +74,12 @@ export default function NuevoRecibo() {
   const [mostrarPDF, setMostrarPDF] = useState(false);
   const sigCanvas = useRef({});
 
+  // NUEVO: Estados para gestión de clientes
+  const [clientesDisponibles, setClientesDisponibles] = useState([]);
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+
   // Estado para el modal de concepto
   const [modalConcepto, setModalConcepto] = useState({
     isOpen: false,
@@ -84,6 +90,7 @@ export default function NuevoRecibo() {
   const [recibo, setRecibo] = useState({
     numero: `REC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
     fecha: new Date().toISOString().split('T')[0],
+    clienteId: '', // ← NUEVO CAMPO CRÍTICO
     recibiDe: '',
     monto: '',
     cantidadLetras: '',
@@ -96,6 +103,7 @@ export default function NuevoRecibo() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        cargarClientesDisponibles();
         setLoading(false);
       } else {
         router.push('/admin');
@@ -104,6 +112,52 @@ export default function NuevoRecibo() {
 
     return () => unsubscribe();
   }, [router]);
+
+  // NUEVA FUNCIÓN: Cargar clientes activos del sistema
+  const cargarClientesDisponibles = async () => {
+    setCargandoClientes(true);
+    try {
+      const usuariosData = await apiService.obtenerUsuarios();
+      const clientes = usuariosData.users.filter(u => 
+        u.rol === 'cliente' && u.estado === 'activo'
+      );
+      setClientesDisponibles(clientes);
+      console.log('Clientes disponibles:', clientes);
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+    } finally {
+      setCargandoClientes(false);
+    }
+  };
+
+  // NUEVA FUNCIÓN: Manejar selección de cliente existente
+  const handleSeleccionarCliente = (clienteId) => {
+    if (!clienteId) {
+      setClienteSeleccionado(null);
+      setRecibo({ ...recibo, clienteId: '', recibiDe: '' });
+      return;
+    }
+
+    const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
+    if (clienteEncontrado) {
+      setClienteSeleccionado(clienteEncontrado);
+      setRecibo({ 
+        ...recibo, 
+        clienteId: clienteId,
+        recibiDe: `${clienteEncontrado.nombreCompleto} - ${clienteEncontrado.empresa}` // Auto-llenar
+      });
+    }
+  };
+
+  // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
+  const handleCambiarTipoCliente = (tipo) => {
+    setTipoCliente(tipo);
+    if (tipo === 'manual') {
+      // Limpiar selección y permitir edición manual
+      setClienteSeleccionado(null);
+      setRecibo({ ...recibo, clienteId: '', recibiDe: '' });
+    }
+  };
 
   // Función para abrir el modal de concepto
   const abrirModalConcepto = () => {
@@ -164,29 +218,44 @@ export default function NuevoRecibo() {
     }
   };
 
-const handleGuardarRecibo = async () => {
-  setGuardando(true);
-  try {
-    const reciboData = {
-      ...recibo,
-      monto: parseFloat(recibo.monto),
-      usuarioCreador: user.email,
-      creadoPor: user.email, // ✅ Agregar para consistencia
-      fechaCreacion: new Date(),
-      fechaModificacion: new Date()
-    };
+  const handleGuardarRecibo = async () => {
+    // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
+    if (tipoCliente === 'existente' && !recibo.clienteId) {
+      alert('Por favor, selecciona un cliente del sistema.');
+      return;
+    }
 
-    // ✅ USAR apiService
-    await apiService.crearRecibo(reciboData);
-    alert('Recibo IMSSE guardado exitosamente');
-    router.push('/admin/recibos');
-  } catch (error) {
-    console.error('Error al guardar el recibo IMSSE:', error);
-    alert('Error al guardar el recibo. Inténtelo de nuevo más tarde.');
-  } finally {
-    setGuardando(false);
-  }
-};
+    // Validaciones básicas
+    if (!recibo.recibiDe || !recibo.monto || !recibo.concepto) {
+      alert('Por favor completa todos los campos obligatorios.');
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      const reciboData = {
+        ...recibo,
+        monto: parseFloat(recibo.monto),
+        clienteId: recibo.clienteId || null, // ← CAMPO CRÍTICO
+        tipoCliente: tipoCliente, // Para referencia
+        usuarioCreador: user.email,
+        creadoPor: user.email,
+        fechaCreacion: new Date(),
+        fechaModificacion: new Date()
+      };
+
+      console.log('Guardando recibo con datos:', reciboData);
+
+      await apiService.crearRecibo(reciboData);
+      alert('Recibo IMSSE guardado exitosamente');
+      router.push('/admin/recibos');
+    } catch (error) {
+      console.error('Error al guardar el recibo IMSSE:', error);
+      alert('Error al guardar el recibo. Inténtelo de nuevo más tarde.');
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -317,9 +386,103 @@ const handleGuardarRecibo = async () => {
             </div>
           </div>
 
+          {/* NUEVA SECCIÓN: Selección de Cliente */}
+          <div className="p-6 bg-white border-l-4 border-green-500 rounded-lg shadow-md">
+            <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+              <User className="mr-2" size={20} />
+              Selección de Cliente
+            </h3>
+            
+            {/* Toggle entre cliente existente y manual */}
+            <div className="mb-6">
+              <div className="flex mb-4 space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="tipoCliente"
+                    value="existente"
+                    checked={tipoCliente === 'existente'}
+                    onChange={() => handleCambiarTipoCliente('existente')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium">Cliente del sistema</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="tipoCliente"
+                    value="manual"
+                    checked={tipoCliente === 'manual'}
+                    onChange={() => handleCambiarTipoCliente('manual')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium">Cliente nuevo (manual)</span>
+                </label>
+              </div>
+
+              {/* Selector de cliente existente */}
+              {tipoCliente === 'existente' && (
+                <div className="p-4 rounded-lg bg-green-50">
+                  <label className="block mb-2 text-sm font-medium text-gray-700">
+                    Seleccionar cliente registrado *
+                  </label>
+                  <select
+                    value={recibo.clienteId}
+                    onChange={(e) => handleSeleccionarCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                    disabled={cargandoClientes}
+                  >
+                    <option value="">
+                      {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
+                    </option>
+                    {clientesDisponibles.map(cliente => (
+                      <option key={cliente.id} value={cliente.id}>
+                        {cliente.empresa} - {cliente.nombreCompleto}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {/* Información del cliente seleccionado */}
+                  {clienteSeleccionado && (
+                    <div className="p-3 mt-3 bg-white border border-green-200 rounded">
+                      <div className="text-sm">
+                        <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
+                        <p className="text-gray-600">{clienteSeleccionado.email}</p>
+                        {clienteSeleccionado.telefono && (
+                          <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {clientesDisponibles.length === 0 && !cargandoClientes && (
+                    <p className="mt-2 text-sm text-yellow-600">
+                      No hay clientes activos en el sistema. 
+                      <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
+                        Crear cliente aquí
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Modo manual */}
+              {tipoCliente === 'manual' && (
+                <div className="p-4 rounded-lg bg-gray-50">
+                  <p className="mb-3 text-sm text-gray-600">
+                    Los datos se ingresarán manualmente y no se asignará a un usuario del sistema.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Datos del recibo */}
           <div className="p-6 bg-white rounded-lg shadow-md">
-            <h3 className="mb-4 text-lg font-semibold text-gray-700">Datos del Recibo</h3>
+            <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+              <Building2 className="mr-2" size={20} />
+              Datos del Recibo
+            </h3>
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block mb-1 text-sm font-medium text-gray-700">Recibí de *</label>
@@ -330,7 +493,13 @@ const handleGuardarRecibo = async () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Nombre completo o razón social del cliente"
                   required
+                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
+                {tipoCliente === 'existente' && clienteSeleccionado && (
+                  <p className="mt-1 text-xs text-green-600">
+                    ✅ Auto-completado desde el cliente seleccionado
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
@@ -395,6 +564,25 @@ const handleGuardarRecibo = async () => {
                   />
                 </div>
               </div>
+              
+              {/* Indicador de asignación */}
+              {tipoCliente === 'existente' && clienteSeleccionado && (
+                <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
+                  <p className="text-sm text-green-800">
+                    ✅ <strong>Recibo será asignado a:</strong> {clienteSeleccionado.empresa}
+                    <br />
+                    <span className="text-green-600">El cliente podrá ver este recibo en su panel.</span>
+                  </p>
+                </div>
+              )}
+              
+              {tipoCliente === 'manual' && (
+                <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ <strong>Modo manual:</strong> Este recibo no estará visible para ningún cliente en el sistema.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

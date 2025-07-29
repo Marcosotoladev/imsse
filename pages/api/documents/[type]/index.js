@@ -1,4 +1,4 @@
-// ============= pages/api/documents/[type]/index.js =============//
+// pages/api/documents/[type]/index.js - OPTIMIZADA PARA clienteId
 import { withAuth, PERMISSIONS, ROLES } from '../../../../lib/auth-middleware';
 import { firestore } from '../../../../lib/firebase-admin';
 import admin from '../../../../lib/firebase-admin';
@@ -34,8 +34,7 @@ async function getDocuments(req, res, type, user) {
   try {
     const collection = COLLECTIONS[type];
     let query = firestore.collection(collection);
-    let needsClientFilter = false;
-    let clienteIdToFilter = null;
+    let documents = [];
 
     // Aplicar filtros según el rol
     if (user.role === ROLES.CLIENTE) {
@@ -47,82 +46,66 @@ async function getDocuments(req, res, type, user) {
         return res.status(403).json({ error: 'Access denied to this document type' });
       }
       
-      // TEMPORAL: No aplicar filtro de clienteId aquí para evitar el índice compuesto
-      needsClientFilter = true;
-      clienteIdToFilter = user.uid;
+      // FILTRO CRÍTICO: Solo documentos asignados al cliente
+      try {
+        // Intentar con índice optimizado
+        const snapshot = await query
+          .where('clienteId', '==', user.uid)
+          .orderBy('fechaCreacion', 'desc')
+          .limit(50)
+          .get();
+          
+        documents = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
+            fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
+          };
+        });
+        
+      } catch (indexError) {
+        console.warn(`Índice compuesto no disponible para ${type}, usando filtro en memoria:`, indexError.message);
+        
+        // Fallback: Obtener todos y filtrar en memoria
+        const snapshot = await query.get();
+        
+        documents = snapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
+              fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
+            };
+          })
+          .filter(doc => doc.clienteId === user.uid) // Filtrar por cliente
+          .sort((a, b) => {
+            const fechaA = new Date(a.fechaCreacion || 0);
+            const fechaB = new Date(b.fechaCreacion || 0);
+            return fechaB - fechaA;
+          })
+          .slice(0, 50); // Limitar resultados
+      }
+      
     } else if (user.role === ROLES.TECNICO) {
       // Técnico: solo órdenes y recordatorios
       if (!['ordenes', 'recordatorios'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      // TEMPORAL: Simplificar consultas para técnicos también
-      if (type === 'ordenes') {
-        needsClientFilter = true;
-        clienteIdToFilter = user.uid; // Filtraremos después
-      } else if (type === 'recordatorios') {
-        needsClientFilter = true;
-        clienteIdToFilter = user.uid; // Filtraremos después
-      }
-    }
-    // ADMIN: acceso completo, no se aplican filtros
-
-    // Filtros adicionales por query params (simplificados)
-    const { status, clientId } = req.query;
-    
-    // Solo aplicar filtros que no requieran índices compuestos
-    if (status && !needsClientFilter) {
       try {
-        query = query.where('estado', '==', status);
-      } catch (error) {
-        console.warn('No se pudo aplicar filtro de estado:', error.message);
-      }
-    }
-    
-    if (clientId && user.role === ROLES.ADMIN && !needsClientFilter) {
-      try {
-        query = query.where('clienteId', '==', clientId);
-      } catch (error) {
-        console.warn('No se pudo aplicar filtro de clienteId:', error.message);
-      }
-    }
-
-    // Intentar consulta con ordenamiento, con fallback si falla
-    let documents = [];
-    
-    try {
-      // Intentar consulta optimizada primero
-      let finalQuery = query;
-      
-      // Si necesitamos filtrar por cliente, aplicarlo ahora
-      if (needsClientFilter && user.role === ROLES.CLIENTE) {
-        finalQuery = query.where('clienteId', '==', clienteIdToFilter);
-      }
-      
-      const snapshot = await finalQuery.orderBy('fechaCreacion', 'desc').get();
-      
-      documents = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
-          fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
-        };
-      });
-      
-    } catch (indexError) {
-      console.warn(`Índice compuesto no disponible para ${type}, usando consulta simple:`, indexError.message);
-      
-      try {
-        // Fallback 1: Consulta sin ordenamiento
-        let fallbackQuery = query;
+        let tecnicoQuery = query;
         
-        if (needsClientFilter && user.role === ROLES.CLIENTE) {
-          fallbackQuery = query.where('clienteId', '==', clienteIdToFilter);
+        if (type === 'ordenes') {
+          tecnicoQuery = query.where('tecnicoAsignado.id', '==', user.uid);
+        } else if (type === 'recordatorios') {
+          tecnicoQuery = query.where('asignadoA', '==', user.uid);
         }
         
-        const snapshot = await fallbackQuery.get();
+        const snapshot = await tecnicoQuery.orderBy('fechaCreacion', 'desc').limit(50).get();
         
         documents = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -134,20 +117,54 @@ async function getDocuments(req, res, type, user) {
           };
         });
         
-        // Ordenar en memoria
-        documents.sort((a, b) => {
-          const fechaA = new Date(a.fechaCreacion || 0);
-          const fechaB = new Date(b.fechaCreacion || 0);
-          return fechaB - fechaA;
-        });
+      } catch (error) {
+        console.warn(`Error en consulta técnico, fallback:`, error.message);
         
-      } catch (fallbackError) {
-        console.warn(`Fallback también falló para ${type}, consulta básica:`, fallbackError.message);
+        const snapshot = await query.get();
         
-        // Fallback 2: Consulta más básica sin filtros complejos
-        const snapshot = await firestore.collection(collection).get();
+        documents = snapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
+              fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
+            };
+          })
+          .filter(doc => {
+            if (type === 'ordenes') {
+              return doc.tecnicoAsignado?.id === user.uid;
+            } else if (type === 'recordatorios') {
+              return doc.asignadoA === user.uid;
+            }
+            return false;
+          })
+          .sort((a, b) => {
+            const fechaA = new Date(a.fechaCreacion || 0);
+            const fechaB = new Date(b.fechaCreacion || 0);
+            return fechaB - fechaA;
+          })
+          .slice(0, 50);
+      }
+      
+    } else if (user.role === ROLES.ADMIN) {
+      // ADMIN: acceso completo
+      const { status, clientId, dateFrom, dateTo } = req.query;
+      
+      try {
+        // Aplicar filtros opcionales para admin
+        if (clientId) {
+          query = query.where('clienteId', '==', clientId);
+        }
         
-        let allDocuments = snapshot.docs.map(doc => {
+        if (status) {
+          query = query.where('estado', '==', status);
+        }
+        
+        const snapshot = await query.orderBy('fechaCreacion', 'desc').limit(100).get();
+        
+        documents = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
             id: doc.id,
@@ -157,42 +174,41 @@ async function getDocuments(req, res, type, user) {
           };
         });
         
-        // Filtrar en memoria según el rol
-        if (user.role === ROLES.CLIENTE && needsClientFilter) {
-          allDocuments = allDocuments.filter(doc => doc.clienteId === clienteIdToFilter);
-        } else if (user.role === ROLES.TECNICO) {
-          if (type === 'ordenes') {
-            allDocuments = allDocuments.filter(doc => 
-              doc.tecnicoAsignado?.id === user.uid
-            );
-          } else if (type === 'recordatorios') {
-            allDocuments = allDocuments.filter(doc => 
-              doc.asignadoA === user.uid
-            );
-          }
+      } catch (error) {
+        console.warn(`Error en consulta admin, fallback:`, error.message);
+        
+        const snapshot = await query.get();
+        
+        documents = snapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
+              fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
+            };
+          })
+          .sort((a, b) => {
+            const fechaA = new Date(a.fechaCreacion || 0);
+            const fechaB = new Date(b.fechaCreacion || 0);
+            return fechaB - fechaA;
+          });
+          
+        // Aplicar filtros en memoria si es necesario
+        if (clientId) {
+          documents = documents.filter(doc => doc.clienteId === clientId);
         }
         
-        // Aplicar filtros adicionales en memoria
         if (status) {
-          allDocuments = allDocuments.filter(doc => doc.estado === status);
+          documents = documents.filter(doc => doc.estado === status);
         }
         
-        if (clientId && user.role === ROLES.ADMIN) {
-          allDocuments = allDocuments.filter(doc => doc.clienteId === clientId);
-        }
-        
-        // Ordenar en memoria
-        allDocuments.sort((a, b) => {
-          const fechaA = new Date(a.fechaCreacion || 0);
-          const fechaB = new Date(b.fechaCreacion || 0);
-          return fechaB - fechaA;
-        });
-        
-        documents = allDocuments;
+        documents = documents.slice(0, 100);
       }
     }
 
-    // Filtros de fecha en memoria (para evitar más problemas de índices)
+    // Filtros de fecha en memoria (para todos los roles)
     const { dateFrom, dateTo } = req.query;
     if (dateFrom || dateTo) {
       documents = documents.filter(doc => {
@@ -210,10 +226,6 @@ async function getDocuments(req, res, type, user) {
         return incluir;
       });
     }
-
-    // Limitar resultados para performance
-    const limit = parseInt(req.query.limit) || 50;
-    documents = documents.slice(0, limit);
 
     return res.status(200).json({ 
       documents,
@@ -234,7 +246,7 @@ async function createDocument(req, res, type, user) {
     const collection = COLLECTIONS[type];
     const data = req.body;
 
-    // Validaciones según el tipo y rol (MANTIENE TU LÓGICA ORIGINAL)
+    // Validaciones según el tipo y rol
     if (user.role === ROLES.CLIENTE) {
       return res.status(403).json({ error: 'Clients cannot create documents' });
     }
@@ -243,21 +255,49 @@ async function createDocument(req, res, type, user) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Agregar metadatos (MANTIENE TU LÓGICA ORIGINAL)
+    // VALIDACIÓN CRÍTICA: Verificar clienteId si se proporciona
+    if (data.clienteId) {
+      try {
+        const clienteRef = await firestore.collection('usuarios').doc(data.clienteId).get();
+        if (!clienteRef.exists) {
+          return res.status(400).json({ error: 'Cliente no encontrado' });
+        }
+        
+        const clienteData = clienteRef.data();
+        if (clienteData.rol !== 'cliente') {
+          return res.status(400).json({ error: 'El ID proporcionado no corresponde a un cliente' });
+        }
+        
+        console.log(`Documento ${type} será asignado al cliente: ${clienteData.empresa} (${data.clienteId})`);
+      } catch (error) {
+        console.warn('Error al validar cliente:', error);
+        // Continuar sin validación estricta para no bloquear
+      }
+    }
+
+    // Preparar datos del documento
     const docData = {
       ...data,
       creadoPor: user.uid,
       fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
       fechaModificacion: admin.firestore.FieldValue.serverTimestamp(),
-      estado: data.estado || 'borrador'
+      estado: data.estado || 'pendiente' // Cambio: 'pendiente' por defecto, no 'borrador'
     };
+
+    // Log para debugging
+    console.log(`Creando ${type} con datos:`, {
+      clienteId: docData.clienteId,
+      numero: docData.numero,
+      creadoPor: docData.creadoPor
+    });
 
     const docRef = await firestore.collection(collection).add(docData);
     
     return res.status(201).json({
       id: docRef.id,
       message: 'Document created successfully',
-      success: true
+      success: true,
+      clienteAsignado: data.clienteId ? true : false
     });
   } catch (error) {
     console.error('Error creating document:', error);

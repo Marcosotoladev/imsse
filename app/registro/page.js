@@ -251,7 +251,7 @@ export default function RegistroPublico() {
   // Pantalla de éxito
   if (registroExitoso) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen mt-16 bg-gray-50">
         <div className="w-full max-w-md mx-4">
           <div className="p-8 text-center bg-white rounded-lg shadow-lg">
             <div className="mb-6">
