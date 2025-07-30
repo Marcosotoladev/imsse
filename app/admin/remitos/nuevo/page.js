@@ -1,10 +1,10 @@
-// app/admin/remitos/nuevo/page.jsx - Crear Remito IMSSE (Adaptado de Sincorp)
+// app/admin/remitos/nuevo/page.jsx - CON SELECTOR DE CLIENTE
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, RefreshCw, ArrowLeft, User, Building2 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
@@ -18,6 +18,12 @@ export default function NuevoRemito() {
     const [showCanvas, setShowCanvas] = useState(true);
     const [descargando, setDescargando] = useState(false);
     const sigCanvas = useRef({});
+
+    // NUEVO: Estados para gestión de clientes
+    const [clientesDisponibles, setClientesDisponibles] = useState([]);
+    const [cargandoClientes, setCargandoClientes] = useState(false);
+    const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
+    const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
     // Estado para el modal de descripción
     const [modalDescripcion, setModalDescripcion] = useState({
@@ -38,6 +44,7 @@ export default function NuevoRemito() {
     const [remito, setRemito] = useState({
         numero: `REM-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
         fecha: new Date().toISOString().split('T')[0],
+        clienteId: '', // ← NUEVO CAMPO CRÍTICO
         items: [
             { id: 1, descripcion: '', cantidad: '', unidad: 'unidad' }
         ],
@@ -54,6 +61,7 @@ export default function NuevoRemito() {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
+                cargarClientesDisponibles(); // ← Agregar carga de clientes
                 setLoading(false);
             } else {
                 router.push('/admin');
@@ -62,6 +70,58 @@ export default function NuevoRemito() {
 
         return () => unsubscribe();
     }, [router]);
+
+    // NUEVA FUNCIÓN: Cargar clientes activos del sistema
+    const cargarClientesDisponibles = async () => {
+        setCargandoClientes(true);
+        try {
+            const usuariosData = await apiService.obtenerUsuarios();
+            const clientes = usuariosData.users.filter(u => 
+                u.rol === 'cliente' && u.estado === 'activo'
+            );
+            setClientesDisponibles(clientes);
+            console.log('Clientes disponibles:', clientes);
+        } catch (error) {
+            console.error('Error al cargar clientes:', error);
+        } finally {
+            setCargandoClientes(false);
+        }
+    };
+
+    // NUEVA FUNCIÓN: Manejar selección de cliente existente
+    const handleSeleccionarCliente = (clienteId) => {
+        if (!clienteId) {
+            setClienteSeleccionado(null);
+            setRemito({ ...remito, clienteId: '' });
+            setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '' });
+            return;
+        }
+
+        const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
+        if (clienteEncontrado) {
+            setClienteSeleccionado(clienteEncontrado);
+            setRemito({ ...remito, clienteId: clienteId });
+            // Auto-llenar datos del cliente
+            setCliente({
+                nombre: clienteEncontrado.nombreCompleto || '',
+                empresa: clienteEncontrado.empresa || '',
+                email: clienteEncontrado.email || '',
+                telefono: clienteEncontrado.telefono || '',
+                direccion: clienteEncontrado.direccion || ''
+            });
+        }
+    };
+
+    // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
+    const handleCambiarTipoCliente = (tipo) => {
+        setTipoCliente(tipo);
+        if (tipo === 'manual') {
+            // Limpiar selección y permitir edición manual
+            setClienteSeleccionado(null);
+            setRemito({ ...remito, clienteId: '' });
+            setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '' });
+        }
+    };
 
     // Función para abrir el modal de descripción
     const abrirModalDescripcion = (itemId, descripcion) => {
@@ -180,6 +240,12 @@ export default function NuevoRemito() {
     };
 
     const handleGuardarRemito = async () => {
+        // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
+        if (tipoCliente === 'existente' && !remito.clienteId) {
+            alert('Por favor, selecciona un cliente del sistema.');
+            return;
+        }
+
         // Validaciones básicas
         if (!remito.numero || !cliente.nombre || !cliente.empresa) {
             alert('Por favor completa los campos obligatorios: Número, Cliente y Empresa');
@@ -197,6 +263,8 @@ export default function NuevoRemito() {
             const remitoData = {
                 numero: remito.numero,
                 fecha: remito.fecha,
+                clienteId: remito.clienteId || null, // ← CAMPO CRÍTICO
+                tipoCliente: tipoCliente, // Para referencia
                 estado: remito.estado,
                 destino: remito.destino,
                 transportista: remito.transportista,
@@ -207,8 +275,14 @@ export default function NuevoRemito() {
                 aclaracionFirma: remito.aclaracionFirma,
                 totalItems: remito.items.reduce((sum, item) => sum + Number(item.cantidad || 0), 0),
                 empresa: 'IMSSE INGENIERÍA S.A.S',
-                tipo: 'remito_entrega'
+                tipo: 'remito_entrega',
+                usuarioCreador: user.email,
+                creadoPor: user.email,
+                fechaCreacion: new Date(),
+                fechaModificacion: new Date()
             };
+
+            console.log('Guardando remito con datos:', remitoData);
 
             await apiService.crearRemito(remitoData);
             alert('Remito guardado exitosamente');
@@ -370,9 +444,103 @@ export default function NuevoRemito() {
                         </div>
                     </div>
 
+                    {/* NUEVA SECCIÓN: Selección de Cliente */}
+                    <div className="p-6 bg-white border-l-4 border-green-500 rounded-lg shadow-md">
+                        <h3 className="flex items-center mb-4 text-lg font-semibold text-primary">
+                            <User className="mr-2" size={20} />
+                            Selección de Cliente
+                        </h3>
+                        
+                        {/* Toggle entre cliente existente y manual */}
+                        <div className="mb-6">
+                            <div className="flex mb-4 space-x-4">
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="tipoCliente"
+                                        value="existente"
+                                        checked={tipoCliente === 'existente'}
+                                        onChange={() => handleCambiarTipoCliente('existente')}
+                                        className="mr-2"
+                                    />
+                                    <span className="text-sm font-medium">Cliente del sistema</span>
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="tipoCliente"
+                                        value="manual"
+                                        checked={tipoCliente === 'manual'}
+                                        onChange={() => handleCambiarTipoCliente('manual')}
+                                        className="mr-2"
+                                    />
+                                    <span className="text-sm font-medium">Cliente nuevo (manual)</span>
+                                </label>
+                            </div>
+
+                            {/* Selector de cliente existente */}
+                            {tipoCliente === 'existente' && (
+                                <div className="p-4 rounded-lg bg-green-50">
+                                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                                        Seleccionar cliente registrado *
+                                    </label>
+                                    <select
+                                        value={remito.clienteId}
+                                        onChange={(e) => handleSeleccionarCliente(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                                        disabled={cargandoClientes}
+                                    >
+                                        <option value="">
+                                            {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
+                                        </option>
+                                        {clientesDisponibles.map(cliente => (
+                                            <option key={cliente.id} value={cliente.id}>
+                                                {cliente.empresa} - {cliente.nombreCompleto}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    
+                                    {/* Información del cliente seleccionado */}
+                                    {clienteSeleccionado && (
+                                        <div className="p-3 mt-3 bg-white border border-green-200 rounded">
+                                            <div className="text-sm">
+                                                <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
+                                                <p className="text-gray-600">{clienteSeleccionado.email}</p>
+                                                {clienteSeleccionado.telefono && (
+                                                    <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {clientesDisponibles.length === 0 && !cargandoClientes && (
+                                        <p className="mt-2 text-sm text-yellow-600">
+                                            No hay clientes activos en el sistema. 
+                                            <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
+                                                Crear cliente aquí
+                                            </Link>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Modo manual */}
+                            {tipoCliente === 'manual' && (
+                                <div className="p-4 rounded-lg bg-gray-50">
+                                    <p className="mb-3 text-sm text-gray-600">
+                                        Los datos se ingresarán manualmente y no se asignará a un usuario del sistema.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Información del cliente */}
                     <div className="p-6 bg-white rounded-lg shadow-md">
-                        <h3 className="mb-4 text-lg font-semibold text-primary">Información del Cliente</h3>
+                        <h3 className="flex items-center mb-4 text-lg font-semibold text-primary">
+                            <Building2 className="mr-2" size={20} />
+                            Información del Cliente
+                        </h3>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Nombre *</label>
@@ -384,7 +552,13 @@ export default function NuevoRemito() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="Nombre del contacto"
                                     required
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
+                                {tipoCliente === 'existente' && clienteSeleccionado && (
+                                    <p className="mt-1 text-xs text-green-600">
+                                        ✅ Auto-completado desde el cliente seleccionado
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Empresa *</label>
@@ -396,7 +570,13 @@ export default function NuevoRemito() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="Nombre de la empresa"
                                     required
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
+                                {tipoCliente === 'existente' && clienteSeleccionado && (
+                                    <p className="mt-1 text-xs text-green-600">
+                                        ✅ Auto-completado desde el cliente seleccionado
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
@@ -407,7 +587,13 @@ export default function NuevoRemito() {
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="cliente@email.com"
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
+                                {tipoCliente === 'existente' && clienteSeleccionado && (
+                                    <p className="mt-1 text-xs text-green-600">
+                                        ✅ Auto-completado desde el cliente seleccionado
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Teléfono</label>
@@ -418,7 +604,13 @@ export default function NuevoRemito() {
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="+54 351 123 4567"
+                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
+                                {tipoCliente === 'existente' && clienteSeleccionado && (
+                                    <p className="mt-1 text-xs text-green-600">
+                                        ✅ Auto-completado desde el cliente seleccionado
+                                    </p>
+                                )}
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Dirección</label>
@@ -430,8 +622,30 @@ export default function NuevoRemito() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="Dirección completa"
                                 />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    💡 La dirección siempre es editable (no se guarda en el registro del cliente)
+                                </p>
                             </div>
                         </div>
+                        
+                        {/* Indicadores de asignación */}
+                        {tipoCliente === 'existente' && clienteSeleccionado && (
+                            <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
+                                <p className="text-sm text-green-800">
+                                    ✅ <strong>Remito será asignado a:</strong> {clienteSeleccionado.empresa}
+                                    <br />
+                                    <span className="text-green-600">El cliente podrá ver este remito en su panel.</span>
+                                </p>
+                            </div>
+                        )}
+                        
+                        {tipoCliente === 'manual' && (
+                            <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
+                                <p className="text-sm text-yellow-800">
+                                    ⚠️ <strong>Modo manual:</strong> Este remito no estará visible para ningún cliente en el sistema.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Items del remito */}

@@ -1,4 +1,4 @@
-// app/admin/ordenes/nuevo/page.jsx - Crear Orden de Trabajo IMSSE (Corregido)
+// app/admin/ordenes/nuevo/page.jsx - CON SELECTOR DE CLIENTE
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Shield,
   User,
+  Building2,
   MapPin,
   Calendar,
   Clock,
@@ -40,6 +41,12 @@ export default function CrearOrdenTrabajo() {
   const [mostrarPDF, setMostrarPDF] = useState(false);
   const router = useRouter();
 
+  // NUEVO: Estados para gestión de clientes
+  const [clientesDisponibles, setClientesDisponibles] = useState([]);
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+
   // Referencias para firmas
   const firmaTecnicoRef = useRef(null);
   const firmaClienteRef = useRef(null);
@@ -47,6 +54,7 @@ export default function CrearOrdenTrabajo() {
   // Estado del formulario
   const [orden, setOrden] = useState({
     numero: '',
+    clienteId: '', // ← NUEVO CAMPO CRÍTICO
     cliente: {
       empresa: '',
       nombre: '',
@@ -91,6 +99,7 @@ export default function CrearOrdenTrabajo() {
           fechaTrabajo: now.toISOString().split('T')[0]
         }));
 
+        cargarClientesDisponibles(); // ← Agregar carga de clientes
         setLoading(false);
       } else {
         router.push('/admin');
@@ -99,6 +108,78 @@ export default function CrearOrdenTrabajo() {
 
     return () => unsubscribe();
   }, [router]);
+
+  // NUEVA FUNCIÓN: Cargar clientes activos del sistema
+  const cargarClientesDisponibles = async () => {
+    setCargandoClientes(true);
+    try {
+      const usuariosData = await apiService.obtenerUsuarios();
+      const clientes = usuariosData.users.filter(u => 
+        u.rol === 'cliente' && u.estado === 'activo'
+      );
+      setClientesDisponibles(clientes);
+      console.log('Clientes disponibles:', clientes);
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+    } finally {
+      setCargandoClientes(false);
+    }
+  };
+
+  // NUEVA FUNCIÓN: Manejar selección de cliente existente
+  const handleSeleccionarCliente = (clienteId) => {
+    if (!clienteId) {
+      setClienteSeleccionado(null);
+      setOrden(prev => ({ 
+        ...prev, 
+        clienteId: '',
+        cliente: {
+          empresa: '',
+          nombre: '',
+          telefono: '',
+          direccion: '',
+          solicitadoPor: ''
+        }
+      }));
+      return;
+    }
+
+    const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
+    if (clienteEncontrado) {
+      setClienteSeleccionado(clienteEncontrado);
+      setOrden(prev => ({ 
+        ...prev, 
+        clienteId: clienteId,
+        cliente: {
+          empresa: clienteEncontrado.empresa || '',
+          nombre: clienteEncontrado.nombreCompleto || '',
+          telefono: clienteEncontrado.telefono || '',
+          direccion: '', // ← Siempre vacío porque no se guarda en el registro
+          solicitadoPor: ''
+        }
+      }));
+    }
+  };
+
+  // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
+  const handleCambiarTipoCliente = (tipo) => {
+    setTipoCliente(tipo);
+    if (tipo === 'manual') {
+      // Limpiar selección y permitir edición manual
+      setClienteSeleccionado(null);
+      setOrden(prev => ({ 
+        ...prev, 
+        clienteId: '',
+        cliente: {
+          empresa: '',
+          nombre: '',
+          telefono: '',
+          direccion: '',
+          solicitadoPor: ''
+        }
+      }));
+    }
+  };
 
   // useEffect para configurar los canvas de firma después del montaje
   useEffect(() => {
@@ -339,6 +420,12 @@ export default function CrearOrdenTrabajo() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
+    if (tipoCliente === 'existente' && !orden.clienteId) {
+      alert('Por favor, selecciona un cliente del sistema.');
+      return;
+    }
+
     // Validaciones
     if (!orden.numero || !orden.cliente.empresa || !orden.cliente.nombre) {
       alert('Por favor completa: Empresa y Contacto del cliente');
@@ -365,6 +452,8 @@ export default function CrearOrdenTrabajo() {
     try {
       const ordenData = {
         numero: orden.numero,
+        clienteId: orden.clienteId || null, // ← CAMPO CRÍTICO
+        tipoCliente: tipoCliente, // Para referencia
         cliente: orden.cliente,
         fechaTrabajo: orden.fechaTrabajo,
         horarioInicio: orden.horarioInicio,
@@ -373,8 +462,14 @@ export default function CrearOrdenTrabajo() {
         tareasRealizadas: orden.tareasRealizadas,
         fotos: orden.fotos,
         firmas: firmas,
-        empresa: 'IMSSE INGENIERÍA S.A.S'
+        empresa: 'IMSSE INGENIERÍA S.A.S',
+        usuarioCreador: user.email,
+        creadoPor: user.email,
+        fechaCreacion: new Date(),
+        fechaModificacion: new Date()
       };
+
+      console.log('Guardando orden con datos:', ordenData);
 
       await apiService.crearOrdenTrabajo(ordenData);
       alert('✅ Orden de trabajo creada exitosamente');
@@ -534,10 +629,101 @@ export default function CrearOrdenTrabajo() {
             </div>
           </div>
 
+          {/* NUEVA SECCIÓN: Selección de Cliente */}
+          <div className="p-4 bg-white border-l-4 border-green-500 rounded-lg shadow-md md:p-6">
+            <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+              <User className="mr-2" size={20} />
+              Selección de Cliente
+            </h3>
+            
+            {/* Toggle entre cliente existente y manual */}
+            <div className="mb-6">
+              <div className="flex mb-4 space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="tipoCliente"
+                    value="existente"
+                    checked={tipoCliente === 'existente'}
+                    onChange={() => handleCambiarTipoCliente('existente')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium">Cliente del sistema</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="tipoCliente"
+                    value="manual"
+                    checked={tipoCliente === 'manual'}
+                    onChange={() => handleCambiarTipoCliente('manual')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium">Cliente nuevo (manual)</span>
+                </label>
+              </div>
+
+              {/* Selector de cliente existente */}
+              {tipoCliente === 'existente' && (
+                <div className="p-4 rounded-lg bg-green-50">
+                  <label className="block mb-2 text-sm font-medium text-gray-700">
+                    Seleccionar cliente registrado *
+                  </label>
+                  <select
+                    value={orden.clienteId}
+                    onChange={(e) => handleSeleccionarCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                    disabled={cargandoClientes}
+                  >
+                    <option value="">
+                      {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
+                    </option>
+                    {clientesDisponibles.map(cliente => (
+                      <option key={cliente.id} value={cliente.id}>
+                        {cliente.empresa} - {cliente.nombreCompleto}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {/* Información del cliente seleccionado */}
+                  {clienteSeleccionado && (
+                    <div className="p-3 mt-3 bg-white border border-green-200 rounded">
+                      <div className="text-sm">
+                        <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
+                        <p className="text-gray-600">{clienteSeleccionado.email}</p>
+                        {clienteSeleccionado.telefono && (
+                          <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {clientesDisponibles.length === 0 && !cargandoClientes && (
+                    <p className="mt-2 text-sm text-yellow-600">
+                      No hay clientes activos en el sistema. 
+                      <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
+                        Crear cliente aquí
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Modo manual */}
+              {tipoCliente === 'manual' && (
+                <div className="p-4 rounded-lg bg-gray-50">
+                  <p className="mb-3 text-sm text-gray-600">
+                    Los datos se ingresarán manualmente y no se asignará a un usuario del sistema.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Cliente */}
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
-              <User size={20} className="mr-2 text-primary" />
+              <Building2 size={20} className="mr-2 text-primary" />
               Datos del Cliente
             </h3>
 
@@ -552,7 +738,13 @@ export default function CrearOrdenTrabajo() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Nombre de la empresa"
                   required
+                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
+                {tipoCliente === 'existente' && clienteSeleccionado && (
+                  <p className="mt-1 text-xs text-green-600">
+                    ✅ Auto-completado desde el cliente seleccionado
+                  </p>
+                )}
               </div>
 
               <div>
@@ -565,19 +757,13 @@ export default function CrearOrdenTrabajo() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Nombre del contacto"
                   required
+                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
-              </div>
-
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Teléfono</label>
-                <input
-                  type="tel"
-                  name="cliente.telefono"
-                  value={orden.cliente.telefono}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="+54 351 123 4567"
-                />
+                {tipoCliente === 'existente' && clienteSeleccionado && (
+                  <p className="mt-1 text-xs text-green-600">
+                    ✅ Auto-completado desde el cliente seleccionado
+                  </p>
+                )}
               </div>
 
               <div>
@@ -593,6 +779,9 @@ export default function CrearOrdenTrabajo() {
                     placeholder="Dirección donde se realizó el trabajo"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  💡 La dirección siempre es editable (específica para cada trabajo)
+                </p>
               </div>
 
               <div>
@@ -607,6 +796,25 @@ export default function CrearOrdenTrabajo() {
                 />
               </div>
             </div>
+            
+            {/* Indicadores de asignación */}
+            {tipoCliente === 'existente' && clienteSeleccionado && (
+              <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
+                <p className="text-sm text-green-800">
+                  ✅ <strong>Orden será asignada a:</strong> {clienteSeleccionado.empresa}
+                  <br />
+                  <span className="text-green-600">El cliente podrá ver esta orden en su panel.</span>
+                </p>
+              </div>
+            )}
+            
+            {tipoCliente === 'manual' && (
+              <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ <strong>Modo manual:</strong> Esta orden no estará visible para ningún cliente en el sistema.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Fecha y horarios */}
