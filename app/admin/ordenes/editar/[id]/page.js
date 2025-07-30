@@ -754,7 +754,7 @@ export default function EditarOrdenTrabajo({ params }) {
                         <button
                           type="button"
                           onClick={() => removeFoto(foto.id)}
-                          className="absolute p-1 text-white transition-opacity bg-red-500 rounded-full opacity-0 top-1 right-1 group-hover:opacity-100"
+                          className="absolute p-1 text-white transition-opacity bg-red-500 rounded-full top-1 right-1 group-hover:opacity-100"
                         >
                           <Trash2 size={12} />
                         </button>
