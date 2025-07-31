@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
-  FilePlus, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  Search, 
+import {
+  Home,
+  LogOut,
+  FilePlus,
+  Eye,
+  Edit,
+  Trash2,
+  Search,
   Download,
   Calendar,
   User,
@@ -74,9 +74,9 @@ export default function ListaOrdenesTrabajo() {
   }, [router]);
 
   const cargarOrdenes = async () => {
-  try {
-    const response = await apiService.obtenerOrdenesTrabajo();
-    const ordenesData = response.documents || response || [];
+    try {
+      const response = await apiService.obtenerOrdenesTrabajo();
+      const ordenesData = response.documents || response || [];
       setOrdenes(ordenesData);
       setOrdenesFiltradas(ordenesData);
       calcularEstadisticas(ordenesData);
@@ -136,31 +136,31 @@ export default function ListaOrdenesTrabajo() {
 
   const handleDescargarPDF = async (orden) => {
     if (descargando === orden.id) return; // Evitar doble descarga
-    
+
     setDescargando(orden.id);
-    
+
     try {
       // Importar dinámicamente react-pdf para generar el PDF
       const { pdf } = await import('@react-pdf/renderer');
       const { default: OrdenTrabajoPDF } = await import('../../components/pdf/OrdenTrabajoPDF');
-      
+
       // Generar el PDF
       const blob = await pdf(<OrdenTrabajoPDF orden={orden} />).toBlob();
-      
+
       // Crear URL y descargar
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${orden.numero}.pdf`;
       link.click();
-      
+
       // Limpiar URL
       URL.revokeObjectURL(url);
-      
+
       // Resetear estado y mostrar confirmación
       setDescargando(null);
       alert(`✅ Orden ${orden.numero} descargada exitosamente`);
-      
+
     } catch (error) {
       console.error('Error al generar PDF:', error);
       setDescargando(null);
@@ -200,9 +200,9 @@ export default function ListaOrdenesTrabajo() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -310,10 +310,13 @@ export default function ListaOrdenesTrabajo() {
 
         {/* Tabla de órdenes */}
         <div className="bg-white rounded-lg shadow-md">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
+          <div className="p-4 border-b border-gray-200 sm:p-6">
+            <h3 className="text-lg font-medium text-gray-900">
               Lista de Órdenes de Trabajo ({ordenesFiltradas.length})
             </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Gestión de trabajos de sistemas contra incendios
+            </p>
           </div>
 
           {ordenesFiltradas.length === 0 ? (
@@ -323,7 +326,7 @@ export default function ListaOrdenesTrabajo() {
                 {searchTerm ? 'No se encontraron órdenes' : 'No hay órdenes de trabajo'}
               </h3>
               <p className="text-gray-500">
-                {searchTerm 
+                {searchTerm
                   ? 'Intenta con otros términos de búsqueda'
                   : 'Comienza creando tu primera orden de trabajo IMSSE'
                 }
@@ -338,151 +341,160 @@ export default function ListaOrdenesTrabajo() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Número
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Fecha Trabajo
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Técnicos
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {ordenesFiltradas.map((orden, index) => (
-                    <tr 
-                      key={orden.id} 
-                      className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{orden.numero}</div>
-                        <div className="text-xs text-gray-500">
-                          Creada: {formatDate(orden.fechaCreacion)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatDate(orden.fechaTrabajo)}</div>
-                        <div className="text-xs text-gray-500">
-                          {formatTime(orden.horarioInicio)} - {formatTime(orden.horarioFin)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {orden.cliente?.empresa || 'Sin empresa'}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {orden.cliente?.nombre || 'Sin contacto'}
-                        </div>
-                        {orden.cliente?.direccion && (
-                          <div className="flex items-center mt-1 text-xs text-gray-500">
-                            <MapPin size={12} className="mr-1" />
-                            {orden.cliente.direccion.length > 30 
-                              ? `${orden.cliente.direccion.substring(0, 30)}...` 
-                              : orden.cliente.direccion
-                            }
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {orden.tecnicos?.length > 0 ? (
-                            <div>
-                              {orden.tecnicos.slice(0, 2).map((tecnico, idx) => (
-                                <div key={idx} className="text-xs text-gray-600">
-                                  • {tecnico.nombre}
+            <>
+              <div className="table-scroll-container">
+                <div className="table-wrapper">
+                  <table className="w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Número
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Fecha Trabajo
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Cliente
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Técnicos
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Estado
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase sm:px-6">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {ordenesFiltradas.map((orden, index) => (
+                        <tr
+                          key={orden.id}
+                          className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                        >
+                          <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                            <div className="text-sm font-medium text-gray-900">{orden.numero}</div>
+                            <div className="text-xs text-gray-500">
+                              Creada: {formatDate(orden.fechaCreacion)}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                            <div className="text-sm text-gray-900">{formatDate(orden.fechaTrabajo)}</div>
+                            <div className="text-xs text-gray-500">
+                              {formatTime(orden.horarioInicio)} - {formatTime(orden.horarioFin)}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 sm:px-6">
+                            <div className="text-sm font-medium text-gray-900">
+                              {orden.cliente?.empresa || 'Sin empresa'}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {orden.cliente?.nombre || 'Sin contacto'}
+                            </div>
+                            {orden.cliente?.direccion && (
+                              <div className="flex items-center mt-1 text-xs text-gray-500">
+                                <MapPin size={12} className="mr-1" />
+                                {orden.cliente.direccion.length > 30
+                                  ? `${orden.cliente.direccion.substring(0, 30)}...`
+                                  : orden.cliente.direccion
+                                }
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-4 sm:px-6">
+                            <div className="text-sm text-gray-900">
+                              {orden.tecnicos?.length > 0 ? (
+                                <div>
+                                  {orden.tecnicos.slice(0, 2).map((tecnico, idx) => (
+                                    <div key={idx} className="text-xs text-gray-600">
+                                      • {tecnico.nombre}
+                                    </div>
+                                  ))}
+                                  {orden.tecnicos.length > 2 && (
+                                    <div className="text-xs text-gray-400">
+                                      +{orden.tecnicos.length - 2} más
+                                    </div>
+                                  )}
                                 </div>
-                              ))}
-                              {orden.tecnicos.length > 2 && (
-                                <div className="text-xs text-gray-400">
-                                  +{orden.tecnicos.length - 2} más
+                              ) : (
+                                <span className="text-xs text-gray-400">Sin técnicos</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                            <div className="flex flex-col space-y-1">
+                              {/* Estado de firmas */}
+                              <div className="flex items-center space-x-2">
+                                <div className={`w-2 h-2 rounded-full ${orden.firmas?.tecnico?.firma ? 'bg-green-500' : 'bg-gray-300'
+                                  }`}></div>
+                                <span className="text-xs text-gray-600">Técnico</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <div className={`w-2 h-2 rounded-full ${orden.firmas?.cliente?.firma ? 'bg-green-500' : 'bg-gray-300'
+                                  }`}></div>
+                                <span className="text-xs text-gray-600">Cliente</span>
+                              </div>
+                              {/* Estado fotos */}
+                              {orden.fotos?.length > 0 && (
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                  <span className="text-xs text-gray-600">{orden.fotos.length} fotos</span>
                                 </div>
                               )}
                             </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">Sin técnicos</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col space-y-1">
-                          {/* Estado de firmas */}
-                          <div className="flex items-center space-x-2">
-                            <div className={`w-2 h-2 rounded-full ${
-                              orden.firmas?.tecnico?.firma ? 'bg-green-500' : 'bg-gray-300'
-                            }`}></div>
-                            <span className="text-xs text-gray-600">Técnico</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <div className={`w-2 h-2 rounded-full ${
-                              orden.firmas?.cliente?.firma ? 'bg-green-500' : 'bg-gray-300'
-                            }`}></div>
-                            <span className="text-xs text-gray-600">Cliente</span>
-                          </div>
-                          {/* Estado fotos */}
-                          {orden.fotos?.length > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <span className="text-xs text-gray-600">{orden.fotos.length} fotos</span>
+                          </td>
+                          <td className="px-3 py-4 text-center whitespace-nowrap sm:px-6">
+                            <div className="flex justify-center space-x-1">
+                              <Link
+                                href={`/admin/ordenes/${orden.id}`}
+                                className="p-2 text-blue-600 transition-colors rounded-md hover:bg-blue-100"
+                                title="Ver orden"
+                              >
+                                <Eye size={16} />
+                              </Link>
+                              <Link
+                                href={`/admin/ordenes/editar/${orden.id}`}
+                                className="p-2 text-orange-600 transition-colors rounded-md hover:bg-orange-100"
+                                title="Editar orden"
+                              >
+                                <Edit size={16} />
+                              </Link>
+                              <button
+                                onClick={() => handleDescargarPDF(orden)}
+                                disabled={descargando === orden.id}
+                                className={`p-2 transition-colors rounded-md ${descargando === orden.id
+                                    ? 'text-gray-400 cursor-not-allowed'
+                                    : 'text-green-600 hover:bg-green-100'
+                                  }`}
+                                title={descargando === orden.id ? 'Descargando...' : 'Descargar PDF'}
+                              >
+                                <Download size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleEliminarOrden(orden.id, orden.numero)}
+                                className="p-2 text-red-600 transition-colors rounded-md hover:bg-red-100"
+                                title="Eliminar orden"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                        <div className="flex justify-center space-x-1">
-                          <Link
-                            href={`/admin/ordenes/${orden.id}`}
-                            className="p-2 text-blue-600 transition-colors rounded-md hover:bg-blue-100"
-                            title="Ver orden"
-                          >
-                            <Eye size={16} />
-                          </Link>
-                          <Link
-                            href={`/admin/ordenes/editar/${orden.id}`}
-                            className="p-2 text-orange-600 transition-colors rounded-md hover:bg-orange-100"
-                            title="Editar orden"
-                          >
-                            <Edit size={16} />
-                          </Link>
-                          <button
-                            onClick={() => handleDescargarPDF(orden)}
-                            disabled={descargando === orden.id}
-                            className={`p-2 transition-colors rounded-md ${
-                              descargando === orden.id 
-                                ? 'text-gray-400 cursor-not-allowed' 
-                                : 'text-green-600 hover:bg-green-100'
-                            }`}
-                            title={descargando === orden.id ? 'Descargando...' : 'Descargar PDF'}
-                          >
-                            <Download size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleEliminarOrden(orden.id, orden.numero)}
-                            className="p-2 text-red-600 transition-colors rounded-md hover:bg-red-100"
-                            title="Eliminar orden"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+                <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+                  <span>👈</span>
+                  <span>Deslizá para ver más columnas</span>
+                  <span>👉</span>
+                </div>
+              </div>
+            </>
           )}
         </div>
 

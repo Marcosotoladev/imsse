@@ -43,11 +43,11 @@ export default function GestionUsuarios() {
   });
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [procesando, setProcesando] = useState(false);
-  
+
   // Estados para el modal
   const [modalAbierto, setModalAbierto] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
-  
+
   // Estados para permisos
   const [permisosTemporales, setPermisosTemporales] = useState({});
 
@@ -99,10 +99,10 @@ export default function GestionUsuarios() {
     try {
       setLoading(true);
       const usuariosData = await apiService.obtenerUsuarios();
-      
+
       // La estructura correcta es usuariosData.users
       const usuarios = usuariosData.users || [];
-      
+
       // Calcular estadísticas
       const estadisticas = {
         total: usuarios.length,
@@ -113,7 +113,7 @@ export default function GestionUsuarios() {
         pendientes: usuarios.filter(u => u.estado === 'pendiente').length,
         inactivos: usuarios.filter(u => u.estado === 'inactivo').length
       };
-      
+
       setUsuarios(usuarios);
       setUsuariosFiltrados(usuarios);
       setEstadisticas(estadisticas);
@@ -188,9 +188,9 @@ export default function GestionUsuarios() {
 
   const handleCambiarRolModal = async (nuevoRol) => {
     if (!usuarioSeleccionado) return;
-    
+
     if (!confirm(`¿Cambiar rol de "${usuarioSeleccionado.nombreCompleto || usuarioSeleccionado.email}" a "${nuevoRol}"?`)) return;
-    
+
     setProcesando(true);
     try {
       await apiService.actualizarUsuario(usuarioSeleccionado.id, { rol: nuevoRol });
@@ -207,15 +207,15 @@ export default function GestionUsuarios() {
 
   const handleCambiarEstadoModal = async (nuevoEstado) => {
     if (!usuarioSeleccionado) return;
-    
+
     const mensajes = {
       activo: '¿Activar este usuario?',
       inactivo: '¿Desactivar este usuario?',
       pendiente: '¿Marcar como pendiente?'
     };
-    
+
     if (!confirm(`${mensajes[nuevoEstado]} Usuario: ${usuarioSeleccionado.nombreCompleto || usuarioSeleccionado.email}`)) return;
-    
+
     setProcesando(true);
     try {
       await apiService.actualizarUsuario(usuarioSeleccionado.id, { estado: nuevoEstado });
@@ -241,11 +241,11 @@ export default function GestionUsuarios() {
   // Función para guardar los permisos
   const handleGuardarPermisos = async () => {
     if (!usuarioSeleccionado) return;
-    
+
     setProcesando(true);
     try {
-      await apiService.actualizarUsuario(usuarioSeleccionado.id, { 
-        permisos: permisosTemporales 
+      await apiService.actualizarUsuario(usuarioSeleccionado.id, {
+        permisos: permisosTemporales
       });
       await cargarDatos();
       alert('✅ Permisos actualizados correctamente');
@@ -261,7 +261,7 @@ export default function GestionUsuarios() {
   // Función para eliminar usuario
   const handleEliminarUsuario = async () => {
     if (!usuarioSeleccionado) return;
-    
+
     // Primera confirmación
     const nombreUsuario = usuarioSeleccionado.nombreCompleto || usuarioSeleccionado.email;
     const primeraConfirmacion = confirm(
@@ -272,9 +272,9 @@ export default function GestionUsuarios() {
       `• Sus configuraciones y permisos\n\n` +
       `Haz clic en "Aceptar" para continuar o "Cancelar" para abortar.`
     );
-    
+
     if (!primeraConfirmacion) return;
-    
+
     // Segunda confirmación - más específica
     const segundaConfirmacion = confirm(
       `🚨 CONFIRMACIÓN FINAL\n\n` +
@@ -285,20 +285,20 @@ export default function GestionUsuarios() {
       `Esta acción es IRREVERSIBLE.\n\n` +
       `¿Confirmas la eliminación?`
     );
-    
+
     if (!segundaConfirmacion) return;
-    
+
     setProcesando(true);
     try {
       // Llamar a la API para eliminar usuario
       await apiService.eliminarUsuario(usuarioSeleccionado.id);
-      
+
       // Recargar datos
       await cargarDatos();
-      
+
       // Mostrar confirmación
       alert(`✅ Usuario "${nombreUsuario}" eliminado correctamente del sistema.`);
-      
+
       // Cerrar modal
       cerrarModal();
     } catch (error) {
@@ -560,114 +560,134 @@ export default function GestionUsuarios() {
         </div>
 
         {/* Tabla de usuarios */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Usuario
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Rol
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Método
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Permisos
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Registro
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {usuariosFiltrados.map((usuario) => (
-                  <tr key={usuario.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 w-10 h-10">
-                          <div className="flex items-center justify-center w-10 h-10 bg-gray-300 rounded-full">
-                            <span className="text-sm font-medium text-gray-700">
-                              {usuario.nombreCompleto?.charAt(0)?.toUpperCase() || 'U'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {usuario.nombreCompleto || 'Sin nombre'}
-                          </div>
-                          <div className="text-sm text-gray-500">{usuario.email}</div>
-                          {usuario.empresa && (
-                            <div className="text-xs text-gray-400">{usuario.empresa}</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.rol, 'rol')}`}>
-                        {usuario.rol}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.estado, 'estado')}`}>
-                        {usuario.estado}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.metodoRegistro === 'google' ? 'google' : 'email', 'metodo')}`}>
-                        {usuario.metodoRegistro === 'google' ? 'Google' : 'Email'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {usuario.rol === 'cliente' ? (
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(usuario.permisos || {}).map(([tipo, activo]) => {
-                            if (!activo) return null;
-                            
-                            const IconoComponente = iconosDocumentos[tipo];
-                            return (
-                              <span
-                                key={tipo}
-                                className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full"
-                                title={nombresDocumentos[tipo]}
-                              >
-                                {IconoComponente && <IconoComponente size={12} className="mr-1" />}
-                                {tipo}
-                              </span>
-                            );
-                          })}
-                          {Object.values(usuario.permisos || {}).every(p => !p) && (
-                            <span className="text-xs text-gray-500">Sin permisos</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-500">Acceso completo</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {formatearFecha(usuario.fechaCreacion)}
-                    </td>
-                    <td className="relative px-6 py-4">
-                      <button
-                        onClick={() => abrirModal(usuario)}
-                        className="p-2 text-gray-600 transition-colors rounded-md hover:bg-gray-100 hover:text-gray-900"
-                        title="Gestionar usuario"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                    </td>
+        {/* Tabla de usuarios - REEMPLAZAR COMPLETA */}
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-4 border-b border-gray-200 sm:p-6">
+            <h3 className="text-lg font-medium text-gray-900">
+              Lista de Usuarios ({usuariosFiltrados.length})
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Gestión de usuarios, roles y permisos del sistema IMSSE
+            </p>
+          </div>
+
+          <div className="table-scroll-container">
+            <div className="table-wrapper">
+              <table className="w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Usuario
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Rol
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Estado
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Método
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Permisos
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Registro
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Acciones
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {usuariosFiltrados.map((usuario) => (
+                    <tr key={usuario.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-4 sm:px-6">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 w-10 h-10">
+                            <div className="flex items-center justify-center w-10 h-10 bg-gray-300 rounded-full">
+                              <span className="text-sm font-medium text-gray-700">
+                                {usuario.nombreCompleto?.charAt(0)?.toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {usuario.nombreCompleto || 'Sin nombre'}
+                            </div>
+                            <div className="text-sm text-gray-500">{usuario.email}</div>
+                            {usuario.empresa && (
+                              <div className="text-xs text-gray-400">{usuario.empresa}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-4 sm:px-6">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.rol, 'rol')}`}>
+                          {usuario.rol}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 sm:px-6">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.estado, 'estado')}`}>
+                          {usuario.estado}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 sm:px-6">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.metodoRegistro === 'google' ? 'google' : 'email', 'metodo')}`}>
+                          {usuario.metodoRegistro === 'google' ? 'Google' : 'Email'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 sm:px-6">
+                        {usuario.rol === 'cliente' ? (
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(usuario.permisos || {}).map(([tipo, activo]) => {
+                              if (!activo) return null;
+
+                              const IconoComponente = iconosDocumentos[tipo];
+                              return (
+                                <span
+                                  key={tipo}
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full"
+                                  title={nombresDocumentos[tipo]}
+                                >
+                                  {IconoComponente && <IconoComponente size={12} className="mr-1" />}
+                                  {tipo}
+                                </span>
+                              );
+                            })}
+                            {Object.values(usuario.permisos || {}).every(p => !p) && (
+                              <span className="text-xs text-gray-500">Sin permisos</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500">Acceso completo</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-4 text-sm text-gray-500 sm:px-6">
+                        {formatearFecha(usuario.fechaCreacion)}
+                      </td>
+                      <td className="relative px-3 py-4 sm:px-6">
+                        <button
+                          onClick={() => abrirModal(usuario)}
+                          className="p-2 text-gray-600 transition-colors rounded-md hover:bg-gray-100 hover:text-gray-900"
+                          title="Gestionar usuario"
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+            <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+              <span>👈</span>
+              <span>Deslizá para ver más columnas</span>
+              <span>👉</span>
+            </div>
           </div>
 
           {usuariosFiltrados.length === 0 && (
@@ -775,11 +795,10 @@ export default function GestionUsuarios() {
                       key={rol}
                       onClick={() => handleCambiarRolModal(rol)}
                       disabled={procesando || usuarioSeleccionado.rol === rol}
-                      className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                        usuarioSeleccionado.rol === rol
+                      className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${usuarioSeleccionado.rol === rol
                           ? 'bg-primary text-white cursor-default'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50'
-                      }`}
+                        }`}
                     >
                       {usuarioSeleccionado.rol === rol ? '✓ ' : ''}{rol}
                     </button>
@@ -800,11 +819,10 @@ export default function GestionUsuarios() {
                       key={estado.key}
                       onClick={() => handleCambiarEstadoModal(estado.key)}
                       disabled={procesando || usuarioSeleccionado.estado === estado.key}
-                      className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                        usuarioSeleccionado.estado === estado.key
+                      className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${usuarioSeleccionado.estado === estado.key
                           ? 'bg-primary text-white cursor-default'
                           : estado.color + ' disabled:opacity-50'
-                      }`}
+                        }`}
                     >
                       {usuarioSeleccionado.estado === estado.key ? '✓ ' : ''}{estado.label}
                     </button>
@@ -834,44 +852,40 @@ export default function GestionUsuarios() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                     <p className="mb-3 text-xs text-gray-600">
                       Selecciona qué tipos de documentos puede ver este cliente:
                     </p>
-                    
+
                     <div className="space-y-3">
                       {Object.entries(nombresDocumentos).map(([tipo, nombre]) => {
                         const IconoComponente = iconosDocumentos[tipo];
                         const esRecordatorio = tipo === 'recordatorios';
-                        
+
                         return (
-                          <label 
-                            key={tipo} 
-                            className={`flex items-center p-3 border rounded-md transition-colors ${
-                              esRecordatorio 
-                                ? 'bg-gray-100 border-gray-200 cursor-not-allowed' 
-                                : permisosTemporales[tipo] 
-                                  ? 'bg-blue-50 border-blue-200' 
+                          <label
+                            key={tipo}
+                            className={`flex items-center p-3 border rounded-md transition-colors ${esRecordatorio
+                                ? 'bg-gray-100 border-gray-200 cursor-not-allowed'
+                                : permisosTemporales[tipo]
+                                  ? 'bg-blue-50 border-blue-200'
                                   : 'bg-white border-gray-200 hover:bg-gray-50 cursor-pointer'
-                            }`}
+                              }`}
                           >
                             <input
                               type="checkbox"
                               checked={permisosTemporales[tipo] || false}
                               onChange={(e) => handleCambiarPermiso(tipo, e.target.checked)}
                               disabled={procesando || esRecordatorio}
-                              className={`mr-3 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded ${
-                                esRecordatorio ? 'cursor-not-allowed' : 'cursor-pointer'
-                              }`}
+                              className={`mr-3 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded ${esRecordatorio ? 'cursor-not-allowed' : 'cursor-pointer'
+                                }`}
                             />
-                            <IconoComponente size={18} className={`mr-3 ${
-                              esRecordatorio ? 'text-gray-400' : permisosTemporales[tipo] ? 'text-blue-600' : 'text-gray-500'
-                            }`} />
+                            <IconoComponente size={18} className={`mr-3 ${esRecordatorio ? 'text-gray-400' : permisosTemporales[tipo] ? 'text-blue-600' : 'text-gray-500'
+                              }`} />
                             <div className="flex-1">
-                              <span className={`text-sm font-medium ${
-                                esRecordatorio ? 'text-gray-400' : 'text-gray-700'
-                              }`}>
+                              <span className={`text-sm font-medium ${esRecordatorio ? 'text-gray-400' : 'text-gray-700'
+                                }`}>
                                 {nombre}
                               </span>
                               {esRecordatorio && (
@@ -884,7 +898,7 @@ export default function GestionUsuarios() {
                         );
                       })}
                     </div>
-                    
+
                     <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
                       <p className="text-xs text-yellow-800">
                         <strong>Nota:</strong> Los usuarios pueden ver únicamente los documentos que tengan asignados y para los cuales tengan permisos habilitados.
@@ -906,7 +920,7 @@ export default function GestionUsuarios() {
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-blue-700">
-                      {usuarioSeleccionado.rol === 'admin' 
+                      {usuarioSeleccionado.rol === 'admin'
                         ? 'Los administradores pueden gestionar usuarios, documentos y configuraciones del sistema.'
                         : 'Los técnicos pueden ver y gestionar todos los documentos, y comunicarse con administradores.'
                       }
@@ -930,7 +944,7 @@ export default function GestionUsuarios() {
                   </svg>
                   {procesando ? 'Eliminando...' : 'Eliminar Usuario'}
                 </button>
-                
+
                 {/* Botones de la derecha */}
                 <div className="flex space-x-3">
                   <button
@@ -940,7 +954,7 @@ export default function GestionUsuarios() {
                   >
                     {procesando ? 'Procesando...' : 'Cerrar'}
                   </button>
-                  
+
                   {/* Botón para guardar permisos - Solo para clientes */}
                   {usuarioSeleccionado.rol === 'cliente' && (
                     <button
