@@ -226,10 +226,10 @@ export default function HistorialPresupuestos() {
             <div className="text-2xl font-bold text-green-600">{estadisticas.aprobados}</div>
             <div className="text-sm text-gray-600">Aprobados</div>
           </div>
-          <div className="p-4 bg-white rounded-lg shadow-md">
+{/*           <div className="p-4 bg-white rounded-lg shadow-md">
             <div className="text-lg font-bold text-green-600">{formatCurrency(estadisticas.montoTotal)}</div>
             <div className="text-sm text-gray-600">Monto Aprobado</div>
-          </div>
+          </div> */}
         </div>
 
         {/* Filtros */}
@@ -265,148 +265,158 @@ export default function HistorialPresupuestos() {
         </div>
 
         {/* Tabla de presupuestos */}
-        <div className="p-6 bg-white rounded-lg shadow-md">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Número
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Cliente
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Total
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {presupuestosFiltrados.length > 0 ? (
-                  presupuestosFiltrados.map((presupuesto) => (
-                    <tr key={presupuesto.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{presupuesto.numero}</div>
-                        <div className="text-xs text-gray-500">
-                          {presupuesto.items?.length || 0} item{(presupuesto.items?.length || 0) !== 1 ? 's' : ''}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatDate(presupuesto.fechaCreacion || presupuesto.fecha)}
-                        </div>
+        {/* Tabla de presupuestos - REEMPLAZAR COMPLETA */}
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-4 border-b border-gray-200 sm:p-6">
+            <h3 className="text-lg font-medium text-gray-900">Lista de Presupuestos</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Mostrando {presupuestosFiltrados.length} de {presupuestos.length} presupuestos
+            </p>
+          </div>
 
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {presupuesto.cliente?.empresa || 'Sin empresa'}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {presupuesto.cliente?.nombre || 'Sin contacto'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
-                        {formatCurrency(presupuesto.total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="relative">
-                          <select
-                            value={presupuesto.estado || 'pendiente'}
-                            onChange={(e) => handleCambiarEstado(presupuesto.id, e.target.value)}
-                            className={`px-3 py-1 pr-8 text-xs font-semibold rounded-full border cursor-pointer focus:ring-2 focus:ring-primary focus:outline-none ${getStatusColor(presupuesto.estado)}`}
-                          >
-                            <option value="pendiente">Pendiente</option>
-                            <option value="aprobado">Aprobado</option>
-                            <option value="rechazado">Rechazado</option>
-                          </select>
-                          {/* Flecha del dropdown */}
-                          {/*                           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div> */}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
-                        <div className="flex justify-end space-x-3">
+          <div className="table-scroll-container">
+            <div className="table-wrapper">
+              <table className="w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Número
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Fecha
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Cliente
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Total
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Estado
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase sm:px-6">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {presupuestosFiltrados.length > 0 ? (
+                    presupuestosFiltrados.map((presupuesto) => (
+                      <tr key={presupuesto.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="text-sm font-medium text-gray-900">{presupuesto.numero}</div>
+                          <div className="text-xs text-gray-500">
+                            {presupuesto.items?.length || 0} item{(presupuesto.items?.length || 0) !== 1 ? 's' : ''}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="text-sm text-gray-900">
+                            {formatDate(presupuesto.fechaCreacion || presupuesto.fecha)}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="text-sm font-medium text-gray-900">
+                            {presupuesto.cliente?.empresa || 'Sin empresa'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {presupuesto.cliente?.nombre || 'Sin contacto'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 text-sm font-medium text-gray-900 whitespace-nowrap sm:px-6">
+                          {formatCurrency(presupuesto.total)}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="relative">
+                            <select
+                              value={presupuesto.estado || 'pendiente'}
+                              onChange={(e) => handleCambiarEstado(presupuesto.id, e.target.value)}
+                              className={`px-3 py-1 pr-8 text-xs font-semibold rounded-full border cursor-pointer focus:ring-2 focus:ring-primary focus:outline-none ${getStatusColor(presupuesto.estado)}`}
+                            >
+                              <option value="pendiente">Pendiente</option>
+                              <option value="aprobado">Aprobado</option>
+                              <option value="rechazado">Rechazado</option>
+                            </select>
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 text-sm font-medium text-right whitespace-nowrap sm:px-6">
+                          <div className="flex justify-end space-x-3">
+                            <Link
+                              href={`/admin/presupuestos/${presupuesto.id}`}
+                              title="Ver detalles"
+                              className="text-gray-600 transition-colors hover:text-primary"
+                            >
+                              <Eye size={18} />
+                            </Link>
+
+                            <PDFDownloadLink
+                              document={<PresupuestoPDF presupuesto={presupuesto} />}
+                              fileName={`${presupuesto.numero}.pdf`}
+                              className="text-blue-600 transition-colors hover:text-blue-800"
+                              title="Descargar PDF"
+                            >
+                              {({ blob, url, loading, error }) =>
+                                <Download size={18} className={loading ? "animate-pulse" : ""} />
+                              }
+                            </PDFDownloadLink>
+
+                            <Link
+                              href={`/admin/presupuestos/editar/${presupuesto.id}`}
+                              title="Editar"
+                              className="text-yellow-600 transition-colors hover:text-yellow-800"
+                            >
+                              <Edit size={18} />
+                            </Link>
+
+                            <button
+                              onClick={() => handleDeletePresupuesto(presupuesto.id)}
+                              title="Eliminar"
+                              className="text-red-500 transition-colors cursor-pointer hover:text-red-700"
+                            >
+                              <Trash size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-12 text-center">
+                        <FileText size={48} className="mx-auto mb-4 text-gray-400" />
+                        <p className="mb-2 text-gray-500">
+                          {filtro || filtroEstado !== 'todos'
+                            ? 'No hay presupuestos que coincidan con los filtros'
+                            : 'No hay presupuestos creados aún'
+                          }
+                        </p>
+                        <p className="text-sm text-gray-400">
+                          {filtro || filtroEstado !== 'todos'
+                            ? 'Intente ajustar los filtros de búsqueda'
+                            : 'Cree su primer presupuesto para comenzar'
+                          }
+                        </p>
+                        {!filtro && filtroEstado === 'todos' && (
                           <Link
-                            href={`/admin/presupuestos/${presupuesto.id}`}
-                            title="Ver detalles"
-                            className="text-gray-600 transition-colors hover:text-primary"
+                            href="/admin/presupuestos/nuevo"
+                            className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
                           >
-                            <Eye size={18} />
+                            <FilePlus size={16} className="mr-2" />
+                            Crear Primer Presupuesto
                           </Link>
-
-                          <PDFDownloadLink
-                            document={<PresupuestoPDF presupuesto={presupuesto} />}
-                            fileName={`${presupuesto.numero}.pdf`}
-                            className="text-blue-600 transition-colors hover:text-blue-800"
-                            title="Descargar PDF"
-                          >
-                            {({ blob, url, loading, error }) =>
-                              <Download size={18} className={loading ? "animate-pulse" : ""} />
-                            }
-                          </PDFDownloadLink>
-
-                          <Link
-                            href={`/admin/presupuestos/editar/${presupuesto.id}`}
-                            title="Editar"
-                            className="text-yellow-600 transition-colors hover:text-yellow-800"
-                          >
-                            <Edit size={18} />
-                          </Link>
-
-                          <button
-                            onClick={() => handleDeletePresupuesto(presupuesto.id)}
-                            title="Eliminar"
-                            className="text-red-500 transition-colors cursor-pointer hover:text-red-700"
-
-                          >
-                            <Trash size={18} />
-                          </button>
-                        </div>
+                        )}
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
-                      <FileText size={48} className="mx-auto mb-4 text-gray-400" />
-                      <p className="mb-2 text-gray-500">
-                        {filtro || filtroEstado !== 'todos'
-                          ? 'No hay presupuestos que coincidan con los filtros'
-                          : 'No hay presupuestos creados aún'
-                        }
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        {filtro || filtroEstado !== 'todos'
-                          ? 'Intente ajustar los filtros de búsqueda'
-                          : 'Cree su primer presupuesto para comenzar'
-                        }
-                      </p>
-                      {!filtro && filtroEstado === 'todos' && (
-                        <Link
-                          href="/admin/presupuestos/nuevo"
-                          className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
-                        >
-                          <FilePlus size={16} className="mr-2" />
-                          Crear Primer Presupuesto
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+            <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+              <span>👈</span>
+              <span>Deslizá para ver más columnas</span>
+              <span>👉</span>
+            </div>
           </div>
         </div>
       </div>
