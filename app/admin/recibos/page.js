@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
-  FilePlus, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  Search, 
+import {
+  Home,
+  LogOut,
+  FilePlus,
+  Eye,
+  Edit,
+  Trash2,
+  Search,
   Download,
   Calendar,
   DollarSign,
@@ -152,31 +152,31 @@ export default function ListaRecibos() {
 
   const handleDescargarPDF = async (recibo) => {
     if (descargando === recibo.id) return; // Evitar doble descarga
-    
+
     setDescargando(recibo.id);
-    
+
     try {
       // Importar dinámicamente react-pdf para generar el PDF
       const { pdf } = await import('@react-pdf/renderer');
       const { default: ReciboPDF } = await import('../../components/pdf/ReciboPDF');
-      
+
       // Generar el PDF
       const blob = await pdf(<ReciboPDF recibo={recibo} />).toBlob();
-      
+
       // Crear URL y descargar
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${recibo.numero}.pdf`;
       link.click();
-      
+
       // Limpiar URL
       URL.revokeObjectURL(url);
-      
+
       // Resetear estado y mostrar confirmación
       setDescargando(null);
       alert(`✅ Recibo ${recibo.numero} descargado exitosamente`);
-      
+
     } catch (error) {
       console.error('Error al generar PDF:', error);
       setDescargando(null);
@@ -215,9 +215,9 @@ export default function ListaRecibos() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -280,7 +280,7 @@ export default function ListaRecibos() {
               </div>
             </div>
           </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
+{/*           <div className="p-6 bg-white rounded-lg shadow-md">
             <div className="flex items-center">
               <DollarSign size={24} className="mr-3 text-green-600" />
               <div>
@@ -288,7 +288,7 @@ export default function ListaRecibos() {
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(estadisticas.montoTotal)}</p>
               </div>
             </div>
-          </div>
+          </div> */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <div className="flex items-center">
               <Calendar size={24} className="mr-3 text-blue-600" />
@@ -298,7 +298,7 @@ export default function ListaRecibos() {
               </div>
             </div>
           </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
+          {/*           <div className="p-6 bg-white rounded-lg shadow-md">
             <div className="flex items-center">
               <DollarSign size={24} className="mr-3 text-blue-600" />
               <div>
@@ -306,7 +306,7 @@ export default function ListaRecibos() {
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(estadisticas.montoEsteMes)}</p>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Búsqueda */}
@@ -325,10 +325,13 @@ export default function ListaRecibos() {
 
         {/* Tabla de recibos */}
         <div className="bg-white rounded-lg shadow-md">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
+          <div className="p-4 border-b border-gray-200 sm:p-6">
+            <h3 className="text-lg font-medium text-gray-900">
               Lista de Recibos ({recibosFiltrados?.length || 0})
             </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Gestión de recibos IMSSE - Servicios contra incendios
+            </p>
           </div>
 
           {(!recibosFiltrados || recibosFiltrados.length === 0) ? (
@@ -338,7 +341,7 @@ export default function ListaRecibos() {
                 {searchTerm ? 'No se encontraron recibos' : 'No hay recibos'}
               </h3>
               <p className="text-gray-500">
-                {searchTerm 
+                {searchTerm
                   ? 'Intenta con otros términos de búsqueda'
                   : 'Comienza creando tu primer recibo IMSSE'
                 }
@@ -353,107 +356,118 @@ export default function ListaRecibos() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Número
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Concepto
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                      Monto
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {recibosFiltrados.map((recibo, index) => (
-                    <tr 
-                      key={recibo.id} 
-                      className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{recibo.numero}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatDate(recibo.fecha)}</div>
-                        <div className="text-xs text-gray-500">
-                          {formatDate(recibo.fechaCreacion)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {recibo.recibiDe}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {recibo.concepto ? 
-                            (recibo.concepto.length > 50 
-                              ? `${recibo.concepto.substring(0, 50)}...` 
-                              : recibo.concepto
-                            ) : 'Sin concepto'
-                          }
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <div className="text-sm font-bold text-green-600">
-                          {formatCurrency(recibo.monto)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                        <div className="flex justify-center space-x-1">
-                          <Link
-                            href={`/admin/recibos/${recibo.id}`}
-                            className="p-2 text-blue-600 transition-colors rounded-md hover:bg-blue-100"
-                            title="Ver recibo"
-                          >
-                            <Eye size={16} />
-                          </Link>
-                          <Link
-                            href={`/admin/recibos/editar/${recibo.id}`}
-                            className="p-2 text-orange-600 transition-colors rounded-md hover:bg-orange-100"
-                            title="Editar recibo"
-                          >
-                            <Edit size={16} />
-                          </Link>
-                          <button
-                            onClick={() => handleDescargarPDF(recibo)}
-                            disabled={descargando === recibo.id}
-                            className={`p-2 transition-colors rounded-md ${
-                              descargando === recibo.id 
-                                ? 'text-gray-400 cursor-not-allowed' 
-                                : 'text-green-600 hover:bg-green-100'
-                            }`}
-                            title={descargando === recibo.id ? 'Descargando...' : 'Descargar PDF'}
-                          >
-                            <Download size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleEliminarRecibo(recibo.id, recibo.numero)}
-                            className="p-2 text-red-600 transition-colors rounded-md hover:bg-red-100"
-                            title="Eliminar recibo"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="table-scroll-container">
+                <div className="table-wrapper">
+                  <table className="w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Número
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Fecha
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Cliente
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          Concepto
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase sm:px-6">
+                          Monto
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase sm:px-6">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {recibosFiltrados.map((recibo, index) => (
+                        <tr
+                          key={recibo.id}
+                          className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                        >
+                          <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                            <div className="text-sm font-medium text-gray-900">{recibo.numero}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                            <div className="text-sm text-gray-900">{formatDate(recibo.fecha)}</div>
+                            <div className="text-xs text-gray-500">
+                              {formatDate(recibo.fechaCreacion)}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 sm:px-6">
+                            <div className="text-sm font-medium text-gray-900">
+                              {recibo.recibiDe}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 sm:px-6">
+                            <div className="text-sm text-gray-900">
+                              {recibo.concepto ?
+                                (recibo.concepto.length > 50
+                                  ? `${recibo.concepto.substring(0, 50)}...`
+                                  : recibo.concepto
+                                ) : 'Sin concepto'
+                              }
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 text-right whitespace-nowrap sm:px-6">
+                            <div className="text-sm font-bold text-green-600">
+                              {formatCurrency(recibo.monto)}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 text-center whitespace-nowrap sm:px-6">
+                            <div className="flex justify-center space-x-1">
+                              <Link
+                                href={`/admin/recibos/${recibo.id}`}
+                                className="p-2 text-blue-600 transition-colors rounded-md hover:bg-blue-100"
+                                title="Ver recibo"
+                              >
+                                <Eye size={16} />
+                              </Link>
+                              <Link
+                                href={`/admin/recibos/editar/${recibo.id}`}
+                                className="p-2 text-orange-600 transition-colors rounded-md hover:bg-orange-100"
+                                title="Editar recibo"
+                              >
+                                <Edit size={16} />
+                              </Link>
+                              <button
+                                onClick={() => handleDescargarPDF(recibo)}
+                                disabled={descargando === recibo.id}
+                                className={`p-2 transition-colors rounded-md ${descargando === recibo.id
+                                  ? 'text-gray-400 cursor-not-allowed'
+                                  : 'text-green-600 hover:bg-green-100'
+                                  }`}
+                                title={descargando === recibo.id ? 'Descargando...' : 'Descargar PDF'}
+                              >
+                                <Download size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleEliminarRecibo(recibo.id, recibo.numero)}
+                                className="p-2 text-red-600 transition-colors rounded-md hover:bg-red-100"
+                                title="Eliminar recibo"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+                <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+                  <span>👈</span>
+                  <span>Deslizá para ver más columnas</span>
+                  <span>👉</span>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
