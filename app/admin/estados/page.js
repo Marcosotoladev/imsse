@@ -4,15 +4,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
-  Trash2, 
+import {
+  Home,
+  LogOut,
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
+  Trash2,
   Download,
   Calendar,
   DollarSign,
@@ -55,7 +55,7 @@ export default function EstadosCuenta() {
       // ✅ USAR apiService
       const response = await apiService.obtenerEstadosCuenta();
       const estadosData = response.documents || response || [];
-      
+
       setEstados(estadosData);
       setFilteredEstados(estadosData);
     } catch (error) {
@@ -154,7 +154,7 @@ export default function EstadosCuenta() {
 
   // ✅ Funciones de estadísticas con validación
   const calcularTotalSaldosPendientes = () => {
-    return Array.isArray(estados) 
+    return Array.isArray(estados)
       ? estados.reduce((sum, estado) => sum + (estado.saldoActual > 0 ? estado.saldoActual : 0), 0)
       : 0;
   };
@@ -196,9 +196,9 @@ export default function EstadosCuenta() {
       <header className="text-white shadow bg-primary">
         <div className="container flex items-center justify-between px-4 py-4 mx-auto">
           <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
               className="w-8 h-8 mr-3"
             />
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
@@ -231,7 +231,7 @@ export default function EstadosCuenta() {
 
             {/* Botón crear nuevo */}
             <Link
-              href="/admin/estados-cuenta/nuevo"
+              href="/admin/estados/nuevo"
               className="flex items-center px-4 py-2 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
             >
               <Plus size={18} className="mr-2" />
@@ -250,7 +250,7 @@ export default function EstadosCuenta() {
           <p className="text-gray-600">
             Gestión de estados de cuenta para clientes IMSSE
           </p>
-          
+
           <div className="grid grid-cols-1 gap-4 mt-6 md:grid-cols-4">
             <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="flex items-center">
@@ -261,7 +261,7 @@ export default function EstadosCuenta() {
                 </div>
               </div>
             </div>
-            
+            {/*             
             <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="flex items-center">
                 <DollarSign size={24} className="mr-3 text-green-600" />
@@ -272,7 +272,7 @@ export default function EstadosCuenta() {
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="flex items-center">
@@ -314,7 +314,7 @@ export default function EstadosCuenta() {
                 className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
-            
+
             <div className="relative">
               <Filter size={20} className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
               <select
@@ -338,157 +338,170 @@ export default function EstadosCuenta() {
         </div>
 
         {/* Tabla de estados de cuenta */}
+
         <div className="bg-white rounded-lg shadow-md">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-700">Lista de Estados de Cuenta</h3>
+          <div className="p-4 border-b border-gray-200 sm:p-6">
+            <h3 className="text-lg font-medium text-gray-900">Lista de Estados de Cuenta</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Mostrando {currentItems.length} de {filteredEstados?.length || 0} estados de cuenta
+            </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Estado de Cuenta
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Cliente
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Período
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Saldo Actual
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Estado Financiero
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentItems.length > 0 ? (
-                  currentItems.map((estado) => (
-                    <tr key={estado.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{estado.numero}</div>
-                          <div className="text-sm text-gray-500">
-                            {estado.fechaCreacion && estado.fechaCreacion.toDate 
-                              ? formatDate(estado.fechaCreacion.toDate())
-                              : estado.fechaCreacion
-                                ? formatDate(estado.fechaCreacion)
-                                : 'Fecha no disponible'}
+          <div className="table-scroll-container">
+            <div className="table-wrapper">
+              <table className="w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Estado de Cuenta
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Cliente
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Período
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Saldo Actual
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Estado Financiero
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentItems.length > 0 ? (
+                    currentItems.map((estado) => (
+                      <tr key={estado.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{estado.numero}</div>
+                            <div className="text-sm text-gray-500">
+                              {estado.fechaCreacion && estado.fechaCreacion.toDate
+                                ? formatDate(estado.fechaCreacion.toDate())
+                                : estado.fechaCreacion
+                                  ? formatDate(estado.fechaCreacion)
+                                  : 'Fecha no disponible'}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {estado.cliente?.nombre || 'Sin nombre'}
+                        </td>
+                        <td className="px-3 py-4 sm:px-6">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {estado.cliente?.nombre || 'Sin nombre'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {estado.cliente?.empresa || 'Sin empresa'}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {estado.cliente?.empresa || 'Sin empresa'}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="text-sm text-gray-900">
+                            {formatDate(estado.periodo?.desde)} - {formatDate(estado.periodo?.hasta)}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatDate(estado.periodo?.desde)} - {formatDate(estado.periodo?.hasta)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm font-bold ${getSaldoColor(estado.saldoActual)}`}>
-                          {formatCurrency(Math.abs(estado.saldoActual || 0))}
-                        </div>
-                        <div className={`text-xs ${getSaldoColor(estado.saldoActual)}`}>
-                          {getSaldoText(estado.saldoActual)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          estado.saldoActual > 0 
-                            ? 'bg-red-100 text-red-800' 
-                            : estado.saldoActual < 0 
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {estado.saldoActual > 0 ? 'Pendiente' : estado.saldoActual < 0 ? 'A favor' : 'Al día'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
-                        <div className="flex space-x-2">
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className={`text-sm font-bold ${getSaldoColor(estado.saldoActual)}`}>
+                            {formatCurrency(Math.abs(estado.saldoActual || 0))}
+                          </div>
+                          <div className={`text-xs ${getSaldoColor(estado.saldoActual)}`}>
+                            {getSaldoText(estado.saldoActual)}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${estado.saldoActual > 0
+                              ? 'bg-red-100 text-red-800'
+                              : estado.saldoActual < 0
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                            {estado.saldoActual > 0 ? 'Pendiente' : estado.saldoActual < 0 ? 'A favor' : 'Al día'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 text-sm font-medium whitespace-nowrap sm:px-6">
+                          <div className="flex space-x-2">
+                            <Link
+                              href={`/admin/estados/${estado.id}`}
+                              className="text-blue-600 transition-colors hover:text-blue-900"
+                              title="Ver estado"
+                            >
+                              <Eye size={18} />
+                            </Link>
+                            <Link
+                              href={`/admin/estados/editar/${estado.id}`}
+                              className="text-green-600 transition-colors hover:text-green-900"
+                              title="Editar estado"
+                            >
+                              <Edit size={18} />
+                            </Link>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const { pdf } = await import('@react-pdf/renderer');
+                                  const { default: EstadoCuentaPDF } = await import('../../components/pdf/EstadoCuentaPDF');
+
+                                  const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estado} />).toBlob();
+                                  const url = URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${estado.numero}.pdf`;
+                                  link.click();
+
+                                  URL.revokeObjectURL(url);
+                                  alert(`✅ PDF ${estado.numero} descargado exitosamente`);
+                                } catch (error) {
+                                  console.error('Error al descargar PDF:', error);
+                                  alert('❌ Error al generar el PDF');
+                                }
+                              }}
+                              className="text-purple-600 transition-colors cursor-pointer hover:text-purple-900"
+                              title="Descargar PDF"
+                            >
+                              <Download size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(estado.id, estado.numero)}
+                              className="text-red-600 transition-colors cursor-pointer hover:text-red-900"
+                              title="Eliminar estado"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-12 text-center">
+                        <div className="text-gray-500">
+                          <BarChart3 size={48} className="mx-auto mb-4 text-gray-300" />
+                          <p className="text-lg font-medium">No hay estados de cuenta</p>
+                          <p className="mt-1">Comienza creando tu primer estado de cuenta</p>
                           <Link
-                            href={`/admin/estados-cuenta/${estado.id}`}
-                            className="text-blue-600 transition-colors hover:text-blue-900"
-                            title="Ver estado"
+                            href="/admin/estados-cuenta/nuevo"
+                            className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
                           >
-                            <Eye size={18} />
+                            <Plus size={18} className="mr-2" />
+                            Crear Estado de Cuenta
                           </Link>
-                          <Link
-                            href={`/admin/estados-cuenta/editar/${estado.id}`}
-                            className="text-green-600 transition-colors hover:text-green-900"
-                            title="Editar estado"
-                          >
-                            <Edit size={18} />
-                          </Link>
-                          <button
-                            onClick={async () => {
-                              try {
-                                const { pdf } = await import('@react-pdf/renderer');
-                                const { default: EstadoCuentaPDF } = await import('../../components/pdf/EstadoCuentaPDF');
-                                
-                                const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estado} />).toBlob();
-                                const url = URL.createObjectURL(blob);
-                                const link = document.createElement('a');
-                                link.href = url;
-                                link.download = `${estado.numero}.pdf`;
-                                link.click();
-                                
-                                URL.revokeObjectURL(url);
-                                alert(`✅ PDF ${estado.numero} descargado exitosamente`);
-                              } catch (error) {
-                                console.error('Error al descargar PDF:', error);
-                                alert('❌ Error al generar el PDF');
-                              }
-                            }}
-                            className="text-purple-600 transition-colors cursor-pointer hover:text-purple-900"
-                            title="Descargar PDF"
-                          >
-                            <Download size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(estado.id, estado.numero)}
-                            className="text-red-600 transition-colors cursor-pointer hover:text-red-900"
-                            title="Eliminar estado"
-                          >
-                            <Trash2 size={18} />
-                          </button>
                         </div>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
-                      <div className="text-gray-500">
-                        <BarChart3 size={48} className="mx-auto mb-4 text-gray-300" />
-                        <p className="text-lg font-medium">No hay estados de cuenta</p>
-                        <p className="mt-1">Comienza creando tu primer estado de cuenta</p>
-                        <Link
-                          href="/admin/estados-cuenta/nuevo"
-                          className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
-                        >
-                          <Plus size={18} className="mr-2" />
-                          Crear Estado de Cuenta
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+            <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+              <span>👈</span>
+              <span>Deslizá para ver más columnas</span>
+              <span>👉</span>
+            </div>
           </div>
 
           {/* Paginación */}

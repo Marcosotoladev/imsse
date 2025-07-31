@@ -213,7 +213,7 @@ export default function VerEstadoCuenta({ params }) {
               </Link>
               <span className="mx-2 text-gray-500">/</span>
               <Link
-                href="/admin/estados-cuenta"
+                href="/admin/estados"
                 className="flex items-center mr-4 text-primary hover:underline"
               >
                 Estados de Cuenta
@@ -225,13 +225,13 @@ export default function VerEstadoCuenta({ params }) {
             {/* Botones de acción */}
             <div className="flex flex-wrap gap-2">
               <Link
-                href="/admin/estados-cuenta"
+                href="/admin/estados"
                 className="flex items-center px-4 py-2 text-gray-700 transition-colors bg-gray-200 rounded-md hover:bg-gray-300"
               >
                 <ArrowLeft size={18} className="mr-2" /> Volver
               </Link>
               <Link
-                href={`/admin/estados-cuenta/editar/${id}`}
+                href={`/admin/estados/editar/${id}`}
                 className="flex items-center px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
               >
                 <Edit size={18} className="mr-2" /> Editar
