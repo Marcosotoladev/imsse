@@ -1,10 +1,10 @@
-// app/admin/estados-cuenta/nuevo/page.jsx - CON SELECTOR DE CLIENTE
+// app/admin/estados/nuevo/page.jsx - CON SCROLL HORIZONTAL MÓVIL
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign, User, Building2 } from 'lucide-react';
+import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign, User, Building2, FileText } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
@@ -15,10 +15,10 @@ export default function CrearEstadoCuenta() {
   const [guardando, setGuardando] = useState(false);
   const router = useRouter();
 
-  // NUEVO: Estados para gestión de clientes
+  // Estados para gestión de clientes
   const [clientesDisponibles, setClientesDisponibles] = useState([]);
   const [cargandoClientes, setCargandoClientes] = useState(false);
-  const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
+  const [tipoCliente, setTipoCliente] = useState('existente');
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
   // Estado del formulario
@@ -33,25 +33,34 @@ export default function CrearEstadoCuenta() {
 
   const [estadoCuenta, setEstadoCuenta] = useState({
     numero: '',
-    clienteId: '', // ← NUEVO CAMPO CRÍTICO
+    clienteId: '',
     periodo: {
       desde: '',
       hasta: ''
     },
-    saldoAnterior: 0,
+    saldoAnterior: '',
     movimientos: [
       { 
         id: 1, 
         fecha: '', 
-        tipo: 'factura', 
         concepto: '', 
-        numero: '', 
-        debe: 0, 
-        haber: 0 
+        monto: ''
       }
     ],
     observaciones: ''
   });
+
+  // FUNCIÓN SEGURA PARA PARSEAR NÚMEROS
+  const parseSecureFloat = (value) => {
+    if (value === '' || value === null || value === undefined) return 0;
+    
+    const cleanValue = String(value).replace(/[^\d.-]/g, '');
+    const parsed = parseFloat(cleanValue);
+    
+    if (isNaN(parsed)) return 0;
+    
+    return Math.round(parsed * 100) / 100;
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -68,7 +77,6 @@ export default function CrearEstadoCuenta() {
     return () => unsubscribe();
   }, [router]);
 
-  // NUEVA FUNCIÓN: Cargar clientes activos del sistema
   const cargarClientesDisponibles = async () => {
     setCargandoClientes(true);
     try {
@@ -77,7 +85,6 @@ export default function CrearEstadoCuenta() {
         u.rol === 'cliente' && u.estado === 'activo'
       );
       setClientesDisponibles(clientes);
-      console.log('Clientes disponibles:', clientes);
     } catch (error) {
       console.error('Error al cargar clientes:', error);
     } finally {
@@ -85,7 +92,6 @@ export default function CrearEstadoCuenta() {
     }
   };
 
-  // NUEVA FUNCIÓN: Manejar selección de cliente existente
   const handleSeleccionarCliente = (clienteId) => {
     if (!clienteId) {
       setClienteSeleccionado(null);
@@ -106,23 +112,20 @@ export default function CrearEstadoCuenta() {
       setClienteSeleccionado(clienteEncontrado);
       setEstadoCuenta({ ...estadoCuenta, clienteId: clienteId });
       
-      // Llenar automáticamente los datos del cliente
       setCliente({
         nombre: clienteEncontrado.nombreCompleto || '',
         empresa: clienteEncontrado.empresa || '',
         email: clienteEncontrado.email || '',
         telefono: clienteEncontrado.telefono || '',
-        direccion: '', // Se puede llenar manualmente
-        cuit: '' // Se puede llenar manualmente
+        direccion: '',
+        cuit: ''
       });
     }
   };
 
-  // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
   const handleCambiarTipoCliente = (tipo) => {
     setTipoCliente(tipo);
     if (tipo === 'manual') {
-      // Limpiar selección y permitir edición manual
       setClienteSeleccionado(null);
       setEstadoCuenta({ ...estadoCuenta, clienteId: '' });
       setCliente({
@@ -138,7 +141,6 @@ export default function CrearEstadoCuenta() {
 
   const generarNumeroEstado = async () => {
     try {
-      // Usar la API en lugar de Firestore directo
       const estadosData = await apiService.obtenerDocumentos('estados', { 
         ordenarPor: 'fechaCreacion', 
         limite: 1 
@@ -176,6 +178,7 @@ export default function CrearEstadoCuenta() {
     setCliente({ ...cliente, [name]: value });
   };
 
+  // MANEJO MEJORADO DE CAMBIOS EN ESTADO
   const handleEstadoChange = (e) => {
     const { name, value } = e.target;
     if (name.includes('.')) {
@@ -192,18 +195,11 @@ export default function CrearEstadoCuenta() {
     }
   };
 
+  // FUNCIÓN MEJORADA PARA MOVIMIENTOS
   const handleMovimientoChange = (id, field, value) => {
     const updatedMovimientos = estadoCuenta.movimientos.map(mov => {
       if (mov.id === id) {
-        const updatedMov = { ...mov, [field]: value };
-        
-        // Recalcular saldo automáticamente
-        if (field === 'debe' || field === 'haber') {
-          updatedMov.debe = field === 'debe' ? parseFloat(value) || 0 : mov.debe;
-          updatedMov.haber = field === 'haber' ? parseFloat(value) || 0 : mov.haber;
-        }
-        
-        return updatedMov;
+        return { ...mov, [field]: value };
       }
       return mov;
     });
@@ -223,11 +219,8 @@ export default function CrearEstadoCuenta() {
         { 
           id: newId, 
           fecha: '', 
-          tipo: 'factura', 
           concepto: '', 
-          numero: '', 
-          debe: 0, 
-          haber: 0 
+          monto: ''
         }
       ]
     });
@@ -243,12 +236,30 @@ export default function CrearEstadoCuenta() {
     });
   };
 
-  // Calcular saldo actual
+  // CÁLCULOS MEJORADOS
   const calcularSaldoActual = () => {
-    const saldoAnterior = parseFloat(estadoCuenta.saldoAnterior) || 0;
-    const totalDebe = estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.debe) || 0), 0);
-    const totalHaber = estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.haber) || 0), 0);
-    return saldoAnterior + totalDebe - totalHaber;
+    const saldoAnterior = parseSecureFloat(estadoCuenta.saldoAnterior);
+    const totalMovimientos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      return sum + parseSecureFloat(mov.monto);
+    }, 0);
+    return Math.round((saldoAnterior + totalMovimientos) * 100) / 100;
+  };
+
+  const calcularTotales = () => {
+    const totalCargos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseSecureFloat(mov.monto);
+      return monto > 0 ? sum + monto : sum;
+    }, 0);
+
+    const totalAbonos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseSecureFloat(mov.monto);
+      return monto < 0 ? sum + Math.abs(monto) : sum;
+    }, 0);
+
+    return { 
+      totalCargos: Math.round(totalCargos * 100) / 100, 
+      totalAbonos: Math.round(totalAbonos * 100) / 100 
+    };
   };
 
   const formatCurrency = (amount) => {
@@ -259,16 +270,36 @@ export default function CrearEstadoCuenta() {
     }).format(amount || 0);
   };
 
+  const getTipoMovimiento = (monto) => {
+    const valor = parseSecureFloat(monto);
+    if (valor > 0) return { 
+      tipo: 'Cargo', 
+      color: 'text-red-600 bg-red-50 border-red-200', 
+      icon: '+',
+      textColor: 'text-red-600'
+    };
+    if (valor < 0) return { 
+      tipo: 'Abono', 
+      color: 'text-green-600 bg-green-50 border-green-200', 
+      icon: '-',
+      textColor: 'text-green-600'
+    };
+    return { 
+      tipo: 'Neutro', 
+      color: 'text-gray-600 bg-gray-50 border-gray-200', 
+      icon: '=',
+      textColor: 'text-gray-600'
+    };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
     if (tipoCliente === 'existente' && !estadoCuenta.clienteId) {
       alert('Por favor, selecciona un cliente del sistema.');
       return;
     }
 
-    // Validaciones
     if (!estadoCuenta.numero || !cliente.nombre || !cliente.empresa) {
       alert('Por favor completa los campos obligatorios: Número, Cliente y Empresa');
       return;
@@ -290,14 +321,13 @@ export default function CrearEstadoCuenta() {
       const estadoData = {
         numero: estadoCuenta.numero,
         cliente: cliente,
-        clienteId: estadoCuenta.clienteId || null, // ← CAMPO CRÍTICO
-        tipoCliente: tipoCliente, // Para referencia
+        clienteId: estadoCuenta.clienteId || null,
+        tipoCliente: tipoCliente,
         periodo: estadoCuenta.periodo,
-        saldoAnterior: parseFloat(estadoCuenta.saldoAnterior) || 0,
+        saldoAnterior: parseSecureFloat(estadoCuenta.saldoAnterior),
         movimientos: estadoCuenta.movimientos.map(mov => ({
           ...mov,
-          debe: parseFloat(mov.debe) || 0,
-          haber: parseFloat(mov.haber) || 0
+          monto: parseSecureFloat(mov.monto)
         })),
         saldoActual: calcularSaldoActual(),
         observaciones: estadoCuenta.observaciones,
@@ -308,12 +338,9 @@ export default function CrearEstadoCuenta() {
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      console.log('Guardando estado de cuenta con datos:', estadoData);
-
-      // Usar apiService en lugar de addDoc
       await apiService.crearDocumento('estados', estadoData);
       alert('Estado de cuenta IMSSE creado exitosamente');
-      router.push('/admin/estados-cuenta');
+      router.push('/admin/estados');
     } catch (error) {
       console.error('Error al crear estado de cuenta:', error);
       alert('Error al crear el estado de cuenta. Inténtelo de nuevo más tarde.');
@@ -332,6 +359,8 @@ export default function CrearEstadoCuenta() {
       </div>
     );
   }
+
+  const { totalCargos, totalAbonos } = calcularTotales();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -362,24 +391,22 @@ export default function CrearEstadoCuenta() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="container px-4 py-4 mx-auto">
           <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-            {/* Breadcrumb */}
             <div className="flex items-center">
               <Link href="/admin/panel-control" className="text-primary hover:underline">
                 <Home size={16} className="inline mr-1" />
                 Panel de Control
               </Link>
               <span className="mx-2 text-gray-500">/</span>
-              <Link href="/admin/estados-cuenta" className="text-primary hover:underline">
+              <Link href="/admin/estados" className="text-primary hover:underline">
                 Estados de Cuenta
               </Link>
               <span className="mx-2 text-gray-500">/</span>
               <span className="font-medium text-gray-700">Nuevo Estado</span>
             </div>
 
-            {/* Botones de acción */}
             <div className="flex space-x-2">
               <Link
-                href="/admin/estados-cuenta"
+                href="/admin/estados"
                 className="flex items-center px-4 py-2 text-gray-700 transition-colors bg-gray-200 rounded-md hover:bg-gray-300"
               >
                 <ArrowLeft size={18} className="mr-2" />
@@ -451,23 +478,26 @@ export default function CrearEstadoCuenta() {
                 <input
                   type="number"
                   name="saldoAnterior"
-                  value={estadoCuenta.saldoAnterior || ''}
+                  value={estadoCuenta.saldoAnterior}
                   onChange={handleEstadoChange}
                   step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent md:w-1/3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="0.00"
+                  onBlur={(e) => {
+                    const value = parseSecureFloat(e.target.value);
+                    setEstadoCuenta(prev => ({ ...prev, saldoAnterior: value }));
+                  }}
                 />
               </div>
             </div>
 
-            {/* NUEVA SECCIÓN: Selección de Cliente */}
+            {/* Selección de Cliente */}
             <div className="p-6 bg-white border-l-4 border-orange-500 rounded-lg shadow-md">
               <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
                 <User className="mr-2" size={20} />
                 Selección de Cliente
               </h3>
               
-              {/* Toggle entre cliente existente y manual */}
               <div className="mb-6">
                 <div className="flex mb-4 space-x-4">
                   <label className="flex items-center">
@@ -494,7 +524,6 @@ export default function CrearEstadoCuenta() {
                   </label>
                 </div>
 
-                {/* Selector de cliente existente */}
                 {tipoCliente === 'existente' && (
                   <div className="p-4 rounded-lg bg-orange-50">
                     <label className="block mb-2 text-sm font-medium text-gray-700">
@@ -516,7 +545,6 @@ export default function CrearEstadoCuenta() {
                       ))}
                     </select>
                     
-                    {/* Información del cliente seleccionado */}
                     {clienteSeleccionado && (
                       <div className="p-3 mt-3 bg-white border border-orange-200 rounded">
                         <div className="text-sm">
@@ -540,7 +568,6 @@ export default function CrearEstadoCuenta() {
                   </div>
                 )}
 
-                {/* Modo manual */}
                 {tipoCliente === 'manual' && (
                   <div className="p-4 rounded-lg bg-gray-50">
                     <p className="mb-3 text-sm text-gray-600">
@@ -632,7 +659,6 @@ export default function CrearEstadoCuenta() {
                 </div>
               </div>
               
-              {/* Indicador de asignación */}
               {tipoCliente === 'existente' && clienteSeleccionado && (
                 <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
                   <p className="text-sm text-green-800">
@@ -652,141 +678,191 @@ export default function CrearEstadoCuenta() {
               )}
             </div>
 
-            {/* Movimientos */}
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h3 className="mb-4 text-lg font-semibold text-gray-700">Movimientos del Período</h3>
-              
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Fecha</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Tipo</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Número</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Concepto</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Debe</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Haber</th>
-                      <th className="w-16 px-4 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {estadoCuenta.movimientos.map((movimiento) => (
-                      <tr key={movimiento.id}>
-                        <td className="px-4 py-2">
-                          <input
-                            type="date"
-                            value={movimiento.fecha}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'fecha', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                            required
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <select
-                            value={movimiento.tipo}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'tipo', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                          >
-                            <option value="factura">Factura</option>
-                            <option value="pago">Pago</option>
-                            <option value="nota_credito">Nota Crédito</option>
-                            <option value="nota_debito">Nota Débito</option>
-                            <option value="ajuste">Ajuste</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="text"
-                            value={movimiento.numero}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'numero', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="Número"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="text"
-                            value={movimiento.concepto}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'concepto', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="Concepto del movimiento"
-                            required
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="number"
-                            value={movimiento.debe || ''}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'debe', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="number"
-                            value={movimiento.haber || ''}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'haber', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <button
-                            type="button"
-                            onClick={() => removeMovimiento(movimiento.id)}
-                            className="text-red-500 hover:text-red-700"
-                            disabled={estadoCuenta.movimientos.length === 1}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* TABLA DE MOVIMIENTOS CON SCROLL HORIZONTAL MEJORADO */}
+            <div className="bg-white rounded-lg shadow-md">
+              <div className="p-4 border-b border-gray-200 sm:p-6">
+                <h3 className="flex items-center text-lg font-medium text-gray-900">
+                  <FileText className="mr-2" size={20} />
+                  Movimientos del Período
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Agrega los movimientos que corresponden a este período
+                </p>
               </div>
 
-              <div className="mt-4">
+              {/* CONTENEDOR CON SCROLL HORIZONTAL */}
+              <div className="table-scroll-container">
+                <div className="table-wrapper">
+                  <table className="w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          <Calendar size={16} className="inline mr-1" />
+                          Fecha
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
+                          <FileText size={16} className="inline mr-1" />
+                          Concepto
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase sm:px-6">
+                          <DollarSign size={16} className="inline mr-1" />
+                          Monto
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase sm:px-6">
+                          Tipo
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase sm:px-6">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {estadoCuenta.movimientos.map((movimiento) => {
+                        const tipoInfo = getTipoMovimiento(movimiento.monto);
+                        return (
+                          <tr key={movimiento.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                              <input
+                                type="date"
+                                value={movimiento.fecha}
+                                onChange={(e) => handleMovimientoChange(movimiento.id, 'fecha', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                                required
+                              />
+                            </td>
+                            <td className="px-3 py-4 sm:px-6">
+                              <input
+                                type="text"
+                                value={movimiento.concepto}
+                                onChange={(e) => handleMovimientoChange(movimiento.id, 'concepto', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                                placeholder="Ej: Factura FC-001 - Servicios"
+                                required
+                              />
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                              <input
+                                type="number"
+                                value={movimiento.monto}
+                                onChange={(e) => handleMovimientoChange(movimiento.id, 'monto', e.target.value)}
+                                step="0.01"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="0.00"
+                                onBlur={(e) => {
+                                  const value = parseSecureFloat(e.target.value);
+                                  handleMovimientoChange(movimiento.id, 'monto', value);
+                                }}
+                              />
+                              <div className="mt-1 text-xs text-gray-500">
+                                + suma | - resta
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 text-center whitespace-nowrap sm:px-6">
+                              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${tipoInfo.color}`}>
+                                <span className="mr-1">{tipoInfo.icon}</span>
+                                {tipoInfo.tipo}
+                              </div>
+                              <div className={`text-xs mt-1 font-medium ${tipoInfo.textColor}`}>
+                                {formatCurrency(Math.abs(parseSecureFloat(movimiento.monto)))}
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 text-center whitespace-nowrap sm:px-6">
+                              <button
+                                type="button"
+                                onClick={() => removeMovimiento(movimiento.id)}
+                                className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                                disabled={estadoCuenta.movimientos.length === 1}
+                                title="Eliminar movimiento"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Indicador de scroll en móvil */}
+              <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+                <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+                  <span>👈</span>
+                  <span>Deslizá para ver más columnas</span>
+                  <span>👉</span>
+                </div>
+              </div>
+
+              {/* Botón agregar movimiento */}
+              <div className="px-4 py-4 sm:px-6">
                 <button
                   type="button"
                   onClick={addMovimiento}
-                  className="flex items-center text-blue-500 hover:text-blue-700"
+                  className="flex items-center px-4 py-2 text-blue-600 transition-colors border border-blue-200 rounded-md bg-blue-50 hover:bg-blue-100"
                 >
-                  <Plus size={18} className="mr-1" /> Agregar movimiento
+                  <Plus size={18} className="mr-2" /> 
+                  Agregar movimiento
                 </button>
               </div>
 
-              {/* Resumen */}
-              <div className="p-4 mt-6 rounded-lg bg-gray-50">
-                <h4 className="mb-3 text-sm font-semibold text-gray-700">Resumen del Estado de Cuenta</h4>
+              {/* Ejemplos de uso */}
+              <div className="px-4 py-4 sm:px-6">
+                <div className="p-3 text-sm border border-blue-200 rounded-md bg-blue-50">
+                  <h4 className="font-medium text-blue-800">💡 Ejemplos de uso:</h4>
+                  <ul className="mt-2 space-y-1 text-blue-700">
+                    <li><strong>Factura:</strong> "Factura FC-001 - Mantenimiento" → Monto: <span className="text-red-600">50000</span></li>
+                    <li><strong>Pago:</strong> "Pago recibido - Transferencia" → Monto: <span className="text-green-600">-30000</span></li>
+                    <li><strong>Nota de crédito:</strong> "NC-001 - Descuento" → Monto: <span className="text-green-600">-5000</span></li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Resumen financiero */}
+              <div className="px-4 py-6 border-t border-gray-200 sm:px-6 bg-gray-50">
+                <h4 className="mb-3 text-sm font-semibold text-gray-700">📊 Resumen del Estado de Cuenta</h4>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                  <div>
+                  <div className="p-3 bg-white border border-gray-200 rounded">
                     <span className="block text-xs text-gray-600">Saldo Anterior:</span>
-                    <span className="font-bold">{formatCurrency(estadoCuenta.saldoAnterior)}</span>
+                    <span className="text-sm font-bold text-gray-800">{formatCurrency(parseSecureFloat(estadoCuenta.saldoAnterior))}</span>
                   </div>
-                  <div>
-                    <span className="block text-xs text-gray-600">Total Debe:</span>
-                    <span className="font-bold text-red-600">
-                      {formatCurrency(estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.debe) || 0), 0))}
+                  <div className="p-3 bg-white border border-red-200 rounded">
+                    <span className="block text-xs text-gray-600">Total Cargos:</span>
+                    <span className="text-sm font-bold text-red-600">
+                      +{formatCurrency(totalCargos)}
                     </span>
                   </div>
-                  <div>
-                    <span className="block text-xs text-gray-600">Total Haber:</span>
-                    <span className="font-bold text-green-600">
-                      {formatCurrency(estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.haber) || 0), 0))}
+                  <div className="p-3 bg-white border border-green-200 rounded">
+                    <span className="block text-xs text-gray-600">Total Abonos:</span>
+                    <span className="text-sm font-bold text-green-600">
+                      -{formatCurrency(totalAbonos)}
                     </span>
                   </div>
-                  <div>
+                  <div className="p-3 bg-white border-2 rounded border-primary">
                     <span className="block text-xs text-gray-600">Saldo Actual:</span>
-                    <span className={`font-bold text-lg ${calcularSaldoActual() >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <span className={`text-lg font-bold ${calcularSaldoActual() >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {formatCurrency(calcularSaldoActual())}
                     </span>
                   </div>
+                </div>
+                
+                {/* Indicador visual del estado */}
+                <div className="mt-4 text-center">
+                  {calcularSaldoActual() > 0 && (
+                    <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-red-800 bg-red-100 border border-red-200 rounded-full">
+                      ⚠️ Cliente debe: {formatCurrency(calcularSaldoActual())}
+                    </span>
+                  )}
+                  {calcularSaldoActual() < 0 && (
+                    <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 border border-green-200 rounded-full">
+                      ✅ Saldo a favor: {formatCurrency(Math.abs(calcularSaldoActual()))}
+                    </span>
+                  )}
+                  {calcularSaldoActual() === 0 && (
+                    <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-gray-800 bg-gray-100 border border-gray-200 rounded-full">
+                      ✅ Cuenta al día
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -806,7 +882,7 @@ export default function CrearEstadoCuenta() {
             {/* Botones de acción */}
             <div className="flex justify-end space-x-2">
               <Link
-                href="/admin/estados-cuenta"
+                href="/admin/estados"
                 className="px-6 py-2 text-gray-700 transition-colors border border-gray-300 rounded-md hover:bg-gray-100"
               >
                 Cancelar
@@ -823,6 +899,43 @@ export default function CrearEstadoCuenta() {
           </form>
         </div>
       </div>
+
+      {/* ESTILOS PARA EL SCROLL HORIZONTAL */}
+      <style jsx>{`
+        .table-scroll-container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        .table-wrapper {
+          min-width: 800px;
+        }
+        
+        @media (min-width: 768px) {
+          .table-wrapper {
+            min-width: 100%;
+          }
+        }
+        
+        /* Personalizar scrollbar */
+        .table-scroll-container::-webkit-scrollbar {
+          height: 8px;
+        }
+        
+        .table-scroll-container::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        
+        .table-scroll-container::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        
+        .table-scroll-container::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
     </div>
   );
 }

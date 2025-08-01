@@ -1,4 +1,4 @@
-// app/admin/estados-cuenta/[id]/page.jsx - Ver Estado de Cuenta IMSSE (MIGRADO A API)
+// app/admin/estados-cuenta/[id]/page.jsx - VISUALIZACIÓN SIMPLIFICADA
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,7 +19,6 @@ export default function VerEstadoCuenta({ params }) {
   const [loading, setLoading] = useState(true);
   const [estadoCuenta, setEstadoCuenta] = useState(null);
 
-  // Función para formatear fechas
   const formatDate = (fecha) => {
     if (!fecha) return '';
     
@@ -35,35 +34,72 @@ export default function VerEstadoCuenta({ params }) {
     }
   };
 
-  // Función para formatear moneda estilo argentino
   const formatCurrency = (amount) => {
     if (!amount) return '$0,00';
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'ARS',
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(Math.abs(amount));
   };
 
-  // Función para obtener color del saldo
   const getSaldoColor = (saldo) => {
-    if (saldo > 0) return 'text-red-600'; // Debe
-    if (saldo < 0) return 'text-green-600'; // A favor
-    return 'text-gray-600'; // Sin saldo
+    if (saldo > 0) return 'text-red-600';
+    if (saldo < 0) return 'text-green-600';
+    return 'text-gray-600';
   };
 
-  // Función para obtener texto del saldo
   const getSaldoText = (saldo) => {
     if (saldo > 0) return 'DEBE';
     if (saldo < 0) return 'A FAVOR';
     return 'AL DÍA';
   };
 
-  // Función para obtener color del estado
   const getStatusColor = (saldo) => {
     if (saldo > 0) return 'bg-red-100 text-red-800 border-red-200';
     if (saldo < 0) return 'bg-green-100 text-green-800 border-green-200';
     return 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  // FUNCIONES PARA MOVIMIENTOS SIMPLIFICADOS
+  const getTipoMovimiento = (monto) => {
+    const valor = parseFloat(monto) || 0;
+    if (valor > 0) return { 
+      tipo: 'Cargo', 
+      color: 'text-red-600 bg-red-50 border-red-200', 
+      icon: '+',
+      textColor: 'text-red-600'
+    };
+    if (valor < 0) return { 
+      tipo: 'Abono', 
+      color: 'text-green-600 bg-green-50 border-green-200', 
+      icon: '-',
+      textColor: 'text-green-600'
+    };
+    return { 
+      tipo: 'Neutro', 
+      color: 'text-gray-600 bg-gray-50 border-gray-200', 
+      icon: '=',
+      textColor: 'text-gray-600'
+    };
+  };
+
+  const calcularTotales = () => {
+    if (!estadoCuenta?.movimientos) return { totalCargos: 0, totalAbonos: 0, totalMovimientos: 0 };
+    
+    const totalCargos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseFloat(mov.monto) || 0;
+      return monto > 0 ? sum + monto : sum;
+    }, 0);
+    
+    const totalAbonos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseFloat(mov.monto) || 0;
+      return monto < 0 ? sum + Math.abs(monto) : sum;
+    }, 0);
+
+    const totalMovimientos = estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.monto) || 0), 0);
+    
+    return { totalCargos, totalAbonos, totalMovimientos };
   };
 
   useEffect(() => {
@@ -73,9 +109,43 @@ export default function VerEstadoCuenta({ params }) {
       if (currentUser) {
         setUser(currentUser);
         try {
-          // ✅ USAR apiService
           const estadoData = await apiService.obtenerEstadoCuentaPorId(id);
-          setEstadoCuenta({ id, ...estadoData });
+          
+          // MIGRAR DATOS SI VIENEN EN FORMATO ANTIGUO (debe/haber)
+          let estadoMigrado = { ...estadoData };
+          
+          if (estadoData.movimientos && estadoData.movimientos.length > 0 && estadoData.movimientos[0].hasOwnProperty('debe')) {
+            // Convertir formato antiguo a nuevo
+            estadoMigrado.movimientos = estadoData.movimientos.map(mov => {
+              let monto = 0;
+              let concepto = mov.concepto || 'Sin concepto';
+              
+              // Convertir debe/haber a monto único
+              if (mov.debe && mov.debe > 0) {
+                monto = mov.debe;
+              } else if (mov.haber && mov.haber > 0) {
+                monto = -mov.haber;
+              }
+              
+              // Agregar información del tipo y número si existe
+              if (mov.tipo && mov.numero) {
+                const tipoTexto = mov.tipo.replace('_', ' ').toUpperCase();
+                concepto = `${tipoTexto} ${mov.numero} - ${concepto}`;
+              } else if (mov.tipo) {
+                const tipoTexto = mov.tipo.replace('_', ' ').toUpperCase();
+                concepto = `${tipoTexto} - ${concepto}`;
+              }
+              
+              return {
+                id: mov.id,
+                fecha: mov.fecha,
+                concepto: concepto,
+                monto: monto
+              };
+            });
+          }
+          
+          setEstadoCuenta({ id, ...estadoMigrado });
           setLoading(false);
         } catch (error) {
           console.error('Error al cargar estado de cuenta IMSSE:', error);
@@ -102,10 +172,9 @@ export default function VerEstadoCuenta({ params }) {
   const handleDeleteEstado = async () => {
     if (confirm(`¿Está seguro de que desea eliminar el estado de cuenta ${estadoCuenta.numero}?`)) {
       try {
-        // ✅ USAR apiService
         await apiService.eliminarEstadoCuenta(id);
         alert('Estado de cuenta eliminado exitosamente.');
-        router.push('/admin/estados-cuenta');
+        router.push('/admin/estados');
       } catch (error) {
         console.error('Error al eliminar estado de cuenta:', error);
         alert('Error al eliminar el estado de cuenta.');
@@ -116,7 +185,7 @@ export default function VerEstadoCuenta({ params }) {
   const handleDescargarPDF = async () => {
     try {
       const { pdf } = await import('@react-pdf/renderer');
-      const { default: EstadoCuentaPDF } = await import('../../../components/pdf/EstadoCuentaPDF');
+      const { default: EstadoCuentaPDF } = await import('../../../components/pdf/EstadoCuentaPDFSimplificado');
       
       const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estadoCuenta} />).toBlob();
       const url = URL.createObjectURL(blob);
@@ -132,16 +201,6 @@ export default function VerEstadoCuenta({ params }) {
       console.error('Error al generar PDF:', error);
       alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
     }
-  };
-
-  // Calcular totales
-  const calcularTotales = () => {
-    if (!estadoCuenta?.movimientos) return { totalDebe: 0, totalHaber: 0 };
-    
-    const totalDebe = estadoCuenta.movimientos.reduce((sum, mov) => sum + (mov.debe || 0), 0);
-    const totalHaber = estadoCuenta.movimientos.reduce((sum, mov) => sum + (mov.haber || 0), 0);
-    
-    return { totalDebe, totalHaber };
   };
 
   if (loading) {
@@ -161,7 +220,7 @@ export default function VerEstadoCuenta({ params }) {
         <div className="text-center">
           <h2 className="mb-2 text-xl font-semibold text-gray-900">Estado de cuenta no encontrado</h2>
           <Link
-            href="/admin/estados-cuenta"
+            href="/admin/estados"
             className="inline-flex items-center px-4 py-2 mt-4 text-white rounded-md bg-primary hover:bg-primary/90"
           >
             <ArrowLeft size={16} className="mr-2" />
@@ -172,7 +231,7 @@ export default function VerEstadoCuenta({ params }) {
     );
   }
 
-  const { totalDebe, totalHaber } = calcularTotales();
+  const { totalCargos, totalAbonos, totalMovimientos } = calcularTotales();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -203,7 +262,6 @@ export default function VerEstadoCuenta({ params }) {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="container px-4 py-4 mx-auto">
           <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-            {/* Breadcrumb */}
             <div className="flex items-center">
               <Link
                 href="/admin/panel-control"
@@ -222,7 +280,6 @@ export default function VerEstadoCuenta({ params }) {
               <span className="text-gray-700">Detalles</span>
             </div>
 
-            {/* Botones de acción */}
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/admin/estados"
@@ -253,7 +310,7 @@ export default function VerEstadoCuenta({ params }) {
         </div>
       </div>
 
-      {/* Contenido principal - Responsive */}
+      {/* Contenido principal */}
       <div className="container px-4 py-8 mx-auto">
         <div className="max-w-4xl mx-auto space-y-6">
           
@@ -390,7 +447,7 @@ export default function VerEstadoCuenta({ params }) {
               </div>
             </div>
 
-            {/* Tabla de movimientos */}
+            {/* TABLA DE MOVIMIENTOS SIMPLIFICADA */}
             <div className="px-8 py-6">
               <h3 className="mb-4 text-lg font-bold text-center text-red-600">
                 DETALLE DE MOVIMIENTOS ({estadoCuenta.movimientos?.length || 0} movimientos)
@@ -398,56 +455,51 @@ export default function VerEstadoCuenta({ params }) {
               
               {estadoCuenta.movimientos && estadoCuenta.movimientos.length > 0 ? (
                 <div className="overflow-x-auto">
+                  {/* Tabla simplificada - Solo 4 columnas */}
                   <table className="w-full border border-gray-300">
                     <thead>
                       <tr className="bg-gray-100">
-                        <th className="px-4 py-3 text-sm font-bold text-left text-gray-700 border-b border-gray-300">
+                        <th className="px-4 py-3 text-sm font-bold text-center text-gray-700 border-b border-gray-300">
                           FECHA
-                        </th>
-                        <th className="px-4 py-3 text-sm font-bold text-center text-gray-700 border-b border-l border-gray-300">
-                          TIPO
-                        </th>
-                        <th className="px-4 py-3 text-sm font-bold text-center text-gray-700 border-b border-l border-gray-300">
-                          NÚMERO
                         </th>
                         <th className="px-4 py-3 text-sm font-bold text-left text-gray-700 border-b border-l border-gray-300">
                           CONCEPTO
                         </th>
                         <th className="px-4 py-3 text-sm font-bold text-right text-gray-700 border-b border-l border-gray-300">
-                          DEBE
+                          MONTO
                         </th>
-                        <th className="px-4 py-3 text-sm font-bold text-right text-gray-700 border-b border-l border-gray-300">
-                          HABER
+                        <th className="px-4 py-3 text-sm font-bold text-center text-gray-700 border-b border-l border-gray-300">
+                          TIPO
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {estadoCuenta.movimientos.map((movimiento, index) => (
-                        <tr key={movimiento.id || index} className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}>
-                          <td className="px-4 py-3 text-sm text-black border-b border-gray-200">
-                            {formatDate(movimiento.fecha)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-center text-black capitalize border-b border-l border-gray-200">
-                            {movimiento.tipo?.replace('_', ' ')}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-center text-black border-b border-l border-gray-200">
-                            {movimiento.numero || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-black border-b border-l border-gray-200">
-                            {movimiento.concepto || 'Sin concepto'}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-bold text-right text-red-600 border-b border-l border-gray-200">
-                            {movimiento.debe > 0 ? formatCurrency(movimiento.debe) : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-bold text-right text-green-600 border-b border-l border-gray-200">
-                            {movimiento.haber > 0 ? formatCurrency(movimiento.haber) : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                      {estadoCuenta.movimientos.map((movimiento, index) => {
+                        const tipoInfo = getTipoMovimiento(movimiento.monto);
+                        return (
+                          <tr key={movimiento.id || index} className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="px-4 py-3 text-sm text-center text-black border-b border-gray-200">
+                              {formatDate(movimiento.fecha)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-black border-b border-l border-gray-200">
+                              {movimiento.concepto || 'Sin concepto'}
+                            </td>
+                            <td className={`px-4 py-3 text-sm font-bold text-right border-b border-l border-gray-200 ${tipoInfo.textColor}`}>
+                              {tipoInfo.icon}{formatCurrency(Math.abs(parseFloat(movimiento.monto) || 0))}
+                            </td>
+                            <td className="px-4 py-3 text-center border-b border-l border-gray-200">
+                              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${tipoInfo.color}`}>
+                                <span className="mr-1">{tipoInfo.icon}</span>
+                                {tipoInfo.tipo}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
 
-                  {/* Totales */}
+                  {/* Totales SIMPLIFICADOS */}
                   <div className="flex justify-end mt-6">
                     <div className="w-full max-w-md">
                       <div className="p-4 border rounded-lg bg-gray-50">
@@ -457,12 +509,18 @@ export default function VerEstadoCuenta({ params }) {
                             <span className="font-bold text-gray-900">{formatCurrency(estadoCuenta.saldoAnterior)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="font-medium text-gray-700">TOTAL DEBE:</span>
-                            <span className="font-bold text-red-600">{formatCurrency(totalDebe)}</span>
+                            <span className="font-medium text-gray-700">TOTAL CARGOS:</span>
+                            <span className="font-bold text-red-600">+{formatCurrency(totalCargos)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="font-medium text-gray-700">TOTAL HABER:</span>
-                            <span className="font-bold text-green-600">{formatCurrency(totalHaber)}</span>
+                            <span className="font-medium text-gray-700">TOTAL ABONOS:</span>
+                            <span className="font-bold text-green-600">-{formatCurrency(totalAbonos)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium text-gray-700">MOVIMIENTOS NETOS:</span>
+                            <span className={`font-bold ${totalMovimientos >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              {totalMovimientos >= 0 ? '+' : ''}{formatCurrency(totalMovimientos)}
+                            </span>
                           </div>
                           <div className="pt-2 border-t border-gray-300">
                             <div className="flex justify-between text-lg font-bold">

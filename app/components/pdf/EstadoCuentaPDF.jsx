@@ -1,8 +1,7 @@
-// components/pdf/EstadoCuentaPDF.js - PDF Estado de Cuenta IMSSE
+// components/pdf/EstadoCuentaPDFSimplificado.js - PDF SIMPLIFICADO COMPLETO
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
-// Estilos profesionales para PDF IMSSE
 const styles = StyleSheet.create({
   page: {
     padding: 30,
@@ -144,13 +143,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: 'center'
   },
+  // ESTRUCTURA DE TABLA SIMPLIFICADA
   tableHeader: {
     backgroundColor: '#f8f9fa',
     borderWidth: 1,
     borderColor: '#e9ecef',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    fontSize: 9,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    fontSize: 10,
     fontWeight: 'bold',
     flexDirection: 'row',
   },
@@ -160,23 +160,58 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderRightWidth: 1,
     borderColor: '#e9ecef',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    fontSize: 8,
-    minHeight: 20
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    fontSize: 9,
+    minHeight: 25
   },
   oddRow: {
     backgroundColor: '#f9f9f9',
   },
-  col1: {
-    flex: 1,
+  // Columnas simplificadas (solo 4 columnas ahora)
+  colFecha: {
+    width: 80,
     textAlign: 'center'
   },
-  col2: {
-    flex: 2,
+  colConcepto: {
+    flex: 1,
+    paddingRight: 10
   },
-  col3: {
-    flex: 3,
+  colMonto: {
+    width: 100,
+    textAlign: 'right'
+  },
+  colTipo: {
+    width: 60,
+    textAlign: 'center'
+  },
+  // Estilos para tipos de movimiento
+  cargo: {
+    color: '#DC2626',
+    fontWeight: 'bold'
+  },
+  abono: {
+    color: '#059669',
+    fontWeight: 'bold'
+  },
+  neutro: {
+    color: '#6B7280',
+    fontWeight: 'bold'
+  },
+  tipoIndicator: {
+    fontSize: 8,
+    backgroundColor: '#f3f4f6',
+    padding: 2,
+    borderRadius: 2,
+    textAlign: 'center'
+  },
+  tipoIndicatorCargo: {
+    backgroundColor: '#fee2e2',
+    color: '#991b1b'
+  },
+  tipoIndicatorAbono: {
+    backgroundColor: '#d1fae5',
+    color: '#065f46'
   },
   totalSection: {
     marginTop: 15,
@@ -272,7 +307,7 @@ const styles = StyleSheet.create({
   }
 });
 
-const EstadoCuentaPDF = ({ estadoCuenta }) => {
+const EstadoCuentaPDFSimplificado = ({ estadoCuenta }) => {
   const formatDate = (fecha) => {
     if (!fecha) return '';
     try {
@@ -293,7 +328,7 @@ const EstadoCuentaPDF = ({ estadoCuenta }) => {
       style: 'currency',
       currency: 'ARS',
       minimumFractionDigits: 2
-    }).format(amount);
+    }).format(Math.abs(amount));
   };
 
   // Funciones para obtener estilos del saldo
@@ -315,19 +350,51 @@ const EstadoCuentaPDF = ({ estadoCuenta }) => {
     return styles.totalValueGray;
   };
 
-  // Calcular totales
+  // Funciones para movimientos simplificados
+  const getTipoMovimiento = (monto) => {
+    const valor = parseFloat(monto) || 0;
+    if (valor > 0) return { 
+      tipo: 'CARGO', 
+      style: styles.cargo,
+      indicatorStyle: styles.tipoIndicatorCargo,
+      symbol: '+'
+    };
+    if (valor < 0) return { 
+      tipo: 'ABONO', 
+      style: styles.abono,
+      indicatorStyle: styles.tipoIndicatorAbono,
+      symbol: '-'
+    };
+    return { 
+      tipo: 'NEUTRO', 
+      style: styles.neutro,
+      indicatorStyle: styles.tipoIndicator,
+      symbol: '='
+    };
+  };
+
+  // Calcular totales simplificados
   const calcularTotales = () => {
-    if (!estadoCuenta?.movimientos) return { totalDebe: 0, totalHaber: 0 };
+    if (!estadoCuenta?.movimientos) return { totalCargos: 0, totalAbonos: 0, totalMovimientos: 0 };
     
-    const totalDebe = estadoCuenta.movimientos.reduce((sum, mov) => sum + (mov.debe || 0), 0);
-    const totalHaber = estadoCuenta.movimientos.reduce((sum, mov) => sum + (mov.haber || 0), 0);
+    const totalCargos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseFloat(mov.monto) || 0;
+      return monto > 0 ? sum + monto : sum;
+    }, 0);
     
-    return { totalDebe, totalHaber };
+    const totalAbonos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseFloat(mov.monto) || 0;
+      return monto < 0 ? sum + Math.abs(monto) : sum;
+    }, 0);
+
+    const totalMovimientos = estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.monto) || 0), 0);
+    
+    return { totalCargos, totalAbonos, totalMovimientos };
   };
 
   // Datos seguros con validaciones
   const safeEstado = estadoCuenta || {};
-  const { totalDebe, totalHaber } = calcularTotales();
+  const { totalCargos, totalAbonos, totalMovimientos } = calcularTotales();
 
   return (
     <Document>
@@ -439,48 +506,45 @@ const EstadoCuentaPDF = ({ estadoCuenta }) => {
           </View>
         </View>
 
-        {/* Tabla de movimientos */}
+        {/* Tabla de movimientos SIMPLIFICADA */}
         <View style={styles.tableSection}>
           <Text style={styles.tableTitle}>
             DETALLE DE MOVIMIENTOS ({safeEstado.movimientos?.length || 0} movimientos)
           </Text>
 
-          {/* Encabezado de tabla */}
+          {/* Encabezado de tabla simplificada - Solo 4 columnas */}
           <View style={styles.tableHeader}>
-            <Text style={[styles.col1, { fontWeight: 'bold' }]}>FECHA</Text>
-            <Text style={[styles.col1, { fontWeight: 'bold', textAlign: 'center' }]}>TIPO</Text>
-            <Text style={[styles.col1, { fontWeight: 'bold', textAlign: 'center' }]}>NÚM.</Text>
-            <Text style={[styles.col3, { fontWeight: 'bold' }]}>CONCEPTO</Text>
-            <Text style={[styles.col1, { fontWeight: 'bold', textAlign: 'right' }]}>DEBE</Text>
-            <Text style={[styles.col1, { fontWeight: 'bold', textAlign: 'right' }]}>HABER</Text>
+            <Text style={[styles.colFecha, { fontWeight: 'bold' }]}>FECHA</Text>
+            <Text style={[styles.colConcepto, { fontWeight: 'bold' }]}>CONCEPTO</Text>
+            <Text style={[styles.colMonto, { fontWeight: 'bold' }]}>MONTO</Text>
+            <Text style={[styles.colTipo, { fontWeight: 'bold' }]}>TIPO</Text>
           </View>
 
-          {/* Filas de movimientos */}
-          {(safeEstado.movimientos || []).map((movimiento, index) => (
-            <View key={movimiento.id || index} style={[styles.tableRow, index % 2 === 1 ? styles.oddRow : {}]}>
-              <Text style={styles.col1}>
-                {formatDate(movimiento.fecha)}
-              </Text>
-              <Text style={[styles.col1, { textAlign: 'center', textTransform: 'capitalize' }]}>
-                {movimiento.tipo?.replace('_', ' ') || '-'}
-              </Text>
-              <Text style={[styles.col1, { textAlign: 'center' }]}>
-                {movimiento.numero || '-'}
-              </Text>
-              <Text style={styles.col3}>
-                {movimiento.concepto || 'Sin concepto'}
-              </Text>
-              <Text style={[styles.col1, { textAlign: 'right', fontWeight: 'bold', color: '#DC2626' }]}>
-                {movimiento.debe > 0 ? formatCurrency(movimiento.debe) : '-'}
-              </Text>
-              <Text style={[styles.col1, { textAlign: 'right', fontWeight: 'bold', color: '#059669' }]}>
-                {movimiento.haber > 0 ? formatCurrency(movimiento.haber) : '-'}
-              </Text>
-            </View>
-          ))}
+          {/* Filas de movimientos simplificadas */}
+          {(safeEstado.movimientos || []).map((movimiento, index) => {
+            const tipoInfo = getTipoMovimiento(movimiento.monto);
+            return (
+              <View key={movimiento.id || index} style={[styles.tableRow, index % 2 === 1 ? styles.oddRow : {}]}>
+                <Text style={styles.colFecha}>
+                  {formatDate(movimiento.fecha)}
+                </Text>
+                <Text style={styles.colConcepto}>
+                  {movimiento.concepto || 'Sin concepto'}
+                </Text>
+                <Text style={[styles.colMonto, tipoInfo.style]}>
+                  {tipoInfo.symbol}{formatCurrency(Math.abs(parseFloat(movimiento.monto) || 0))}
+                </Text>
+                <View style={styles.colTipo}>
+                  <Text style={[styles.tipoIndicator, tipoInfo.indicatorStyle]}>
+                    {tipoInfo.tipo}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
 
-        {/* Totales */}
+        {/* Totales SIMPLIFICADOS */}
         <View style={styles.totalSection}>
           <Text style={styles.totalTitle}>RESUMEN FINANCIERO</Text>
           
@@ -492,16 +556,23 @@ const EstadoCuentaPDF = ({ estadoCuenta }) => {
           </View>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>TOTAL DEBE:</Text>
+            <Text style={styles.totalLabel}>TOTAL CARGOS (+):</Text>
             <Text style={[styles.totalValue, styles.totalValueRed]}>
-              {formatCurrency(totalDebe)}
+              +{formatCurrency(totalCargos)}
             </Text>
           </View>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>TOTAL HABER:</Text>
+            <Text style={styles.totalLabel}>TOTAL ABONOS (-):</Text>
             <Text style={[styles.totalValue, styles.totalValueGreen]}>
-              {formatCurrency(totalHaber)}
+              -{formatCurrency(totalAbonos)}
+            </Text>
+          </View>
+
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>MOVIMIENTOS NETOS:</Text>
+            <Text style={[styles.totalValue, getTotalValueStyle(totalMovimientos)]}>
+              {totalMovimientos >= 0 ? '+' : ''}{formatCurrency(totalMovimientos)}
             </Text>
           </View>
 
@@ -535,4 +606,4 @@ const EstadoCuentaPDF = ({ estadoCuenta }) => {
   );
 };
 
-export default EstadoCuentaPDF;
+export default EstadoCuentaPDFSimplificado;

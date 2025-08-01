@@ -1,10 +1,10 @@
-// app/admin/estados-cuenta/editar/[id]/page.jsx - Editar Estado de Cuenta IMSSE (MIGRADO A API)
+// app/admin/estados-cuenta/editar/[id]/page.jsx - SIMPLIFICADO
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Download } from 'lucide-react';
+import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Download, Calendar, DollarSign, FileText } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
@@ -41,11 +41,8 @@ export default function EditarEstadoCuenta({ params }) {
       {
         id: 1,
         fecha: '',
-        tipo: 'factura',
         concepto: '',
-        numero: '',
-        debe: 0,
-        haber: 0
+        monto: 0
       }
     ],
     observaciones: ''
@@ -58,9 +55,42 @@ export default function EditarEstadoCuenta({ params }) {
       if (currentUser) {
         setUser(currentUser);
         try {
-          // ✅ USAR apiService en lugar de getDoc
           const estadoData = await apiService.obtenerEstadoCuentaPorId(id);
           setEstadoOriginal(estadoData);
+
+          // MIGRAR DATOS SI VIENEN EN FORMATO ANTIGUO (debe/haber)
+          let movimientosMigrados = estadoData.movimientos || [];
+          
+          if (movimientosMigrados.length > 0 && movimientosMigrados[0].hasOwnProperty('debe')) {
+            // Convertir formato antiguo a nuevo
+            movimientosMigrados = movimientosMigrados.map(mov => {
+              let monto = 0;
+              let concepto = mov.concepto || 'Sin concepto';
+              
+              // Convertir debe/haber a monto único
+              if (mov.debe && mov.debe > 0) {
+                monto = mov.debe;
+              } else if (mov.haber && mov.haber > 0) {
+                monto = -mov.haber;
+              }
+              
+              // Agregar información del tipo y número si existe
+              if (mov.tipo && mov.numero) {
+                const tipoTexto = mov.tipo.replace('_', ' ').toUpperCase();
+                concepto = `${tipoTexto} ${mov.numero} - ${concepto}`;
+              } else if (mov.tipo) {
+                const tipoTexto = mov.tipo.replace('_', ' ').toUpperCase();
+                concepto = `${tipoTexto} - ${concepto}`;
+              }
+              
+              return {
+                id: mov.id,
+                fecha: mov.fecha,
+                concepto: concepto,
+                monto: monto
+              };
+            });
+          }
 
           setEstadoCuenta({
             numero: estadoData.numero || '',
@@ -69,15 +99,12 @@ export default function EditarEstadoCuenta({ params }) {
               hasta: estadoData.periodo?.hasta || ''
             },
             saldoAnterior: estadoData.saldoAnterior || 0,
-            movimientos: estadoData.movimientos || [
+            movimientos: movimientosMigrados.length > 0 ? movimientosMigrados : [
               {
                 id: 1,
                 fecha: '',
-                tipo: 'factura',
                 concepto: '',
-                numero: '',
-                debe: 0,
-                haber: 0
+                monto: 0
               }
             ],
             observaciones: estadoData.observaciones || ''
@@ -96,7 +123,7 @@ export default function EditarEstadoCuenta({ params }) {
         } catch (error) {
           console.error('Error al cargar estado de cuenta IMSSE:', error);
           alert('Error al cargar los datos del estado de cuenta.');
-          router.push('/admin/estados-cuenta');
+          router.push('/admin/estados');
         }
       } else {
         router.push('/admin');
@@ -136,18 +163,11 @@ export default function EditarEstadoCuenta({ params }) {
     }
   };
 
+  // FUNCIÓN SIMPLIFICADA
   const handleMovimientoChange = (id, field, value) => {
     const updatedMovimientos = estadoCuenta.movimientos.map(mov => {
       if (mov.id === id) {
-        const updatedMov = { ...mov, [field]: value };
-
-        // Recalcular saldo automáticamente
-        if (field === 'debe' || field === 'haber') {
-          updatedMov.debe = field === 'debe' ? parseFloat(value) || 0 : mov.debe;
-          updatedMov.haber = field === 'haber' ? parseFloat(value) || 0 : mov.haber;
-        }
-
-        return updatedMov;
+        return { ...mov, [field]: value };
       }
       return mov;
     });
@@ -167,11 +187,8 @@ export default function EditarEstadoCuenta({ params }) {
         {
           id: newId,
           fecha: '',
-          tipo: 'factura',
           concepto: '',
-          numero: '',
-          debe: 0,
-          haber: 0
+          monto: 0
         }
       ]
     });
@@ -187,12 +204,25 @@ export default function EditarEstadoCuenta({ params }) {
     });
   };
 
-  // Calcular saldo actual
+  // CÁLCULO SIMPLIFICADO
   const calcularSaldoActual = () => {
     const saldoAnterior = parseFloat(estadoCuenta.saldoAnterior) || 0;
-    const totalDebe = estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.debe) || 0), 0);
-    const totalHaber = estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.haber) || 0), 0);
-    return saldoAnterior + totalDebe - totalHaber;
+    const totalMovimientos = estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.monto) || 0), 0);
+    return saldoAnterior + totalMovimientos;
+  };
+
+  const calcularTotales = () => {
+    const totalCargos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseFloat(mov.monto) || 0;
+      return monto > 0 ? sum + monto : sum;
+    }, 0);
+
+    const totalAbonos = estadoCuenta.movimientos.reduce((sum, mov) => {
+      const monto = parseFloat(mov.monto) || 0;
+      return monto < 0 ? sum + Math.abs(monto) : sum;
+    }, 0);
+
+    return { totalCargos, totalAbonos };
   };
 
   const formatCurrency = (amount) => {
@@ -201,6 +231,28 @@ export default function EditarEstadoCuenta({ params }) {
       currency: 'ARS',
       minimumFractionDigits: 2
     }).format(amount || 0);
+  };
+
+  const getTipoMovimiento = (monto) => {
+    const valor = parseFloat(monto) || 0;
+    if (valor > 0) return { 
+      tipo: 'Cargo', 
+      color: 'text-red-600 bg-red-50 border-red-200', 
+      icon: '+',
+      textColor: 'text-red-600'
+    };
+    if (valor < 0) return { 
+      tipo: 'Abono', 
+      color: 'text-green-600 bg-green-50 border-green-200', 
+      icon: '-',
+      textColor: 'text-green-600'
+    };
+    return { 
+      tipo: 'Neutro', 
+      color: 'text-gray-600 bg-gray-50 border-gray-200', 
+      icon: '=',
+      textColor: 'text-gray-600'
+    };
   };
 
   const handleDescargarPDF = async () => {
@@ -234,7 +286,6 @@ export default function EditarEstadoCuenta({ params }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validaciones
     if (!estadoCuenta.numero || !cliente.nombre || !cliente.empresa) {
       alert('Por favor completa los campos obligatorios: Número, Cliente y Empresa');
       return;
@@ -260,8 +311,7 @@ export default function EditarEstadoCuenta({ params }) {
         saldoAnterior: parseFloat(estadoCuenta.saldoAnterior) || 0,
         movimientos: estadoCuenta.movimientos.map(mov => ({
           ...mov,
-          debe: parseFloat(mov.debe) || 0,
-          haber: parseFloat(mov.haber) || 0
+          monto: parseFloat(mov.monto) || 0
         })),
         saldoActual: calcularSaldoActual(),
         observaciones: estadoCuenta.observaciones,
@@ -269,10 +319,9 @@ export default function EditarEstadoCuenta({ params }) {
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      // ✅ USAR apiService en lugar de updateDoc
       await apiService.actualizarEstadoCuenta(id, estadoData);
       alert('Estado de cuenta IMSSE actualizado exitosamente');
-      router.push('/admin/estados-cuenta');
+      router.push('/admin/estados');
     } catch (error) {
       console.error('Error al actualizar estado de cuenta:', error);
       alert('Error al actualizar el estado de cuenta. Inténtelo de nuevo más tarde.');
@@ -291,6 +340,8 @@ export default function EditarEstadoCuenta({ params }) {
       </div>
     );
   }
+
+  const { totalCargos, totalAbonos } = calcularTotales();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -321,24 +372,22 @@ export default function EditarEstadoCuenta({ params }) {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="container px-4 py-4 mx-auto">
           <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-            {/* Breadcrumb */}
             <div className="flex items-center">
               <Link href="/admin/panel-control" className="text-primary hover:underline">
                 <Home size={16} className="inline mr-1" />
                 Panel de Control
               </Link>
               <span className="mx-2 text-gray-500">/</span>
-              <Link href="/admin/estados-cuenta" className="text-primary hover:underline">
+              <Link href="/admin/estados" className="text-primary hover:underline">
                 Estados de Cuenta
               </Link>
               <span className="mx-2 text-gray-500">/</span>
               <span className="font-medium text-gray-700">Editar {estadoCuenta.numero}</span>
             </div>
 
-            {/* Botones de acción */}
             <div className="flex space-x-2">
               <Link
-                href="/admin/estados-cuenta"
+                href="/admin/estados"
                 className="flex items-center px-4 py-2 text-gray-700 transition-colors bg-gray-200 rounded-md hover:bg-gray-300"
               >
                 <ArrowLeft size={18} className="mr-2" />
@@ -502,101 +551,95 @@ export default function EditarEstadoCuenta({ params }) {
               </div>
             </div>
 
-            {/* Movimientos */}
+            {/* TABLA DE MOVIMIENTOS SIMPLIFICADA */}
             <div className="p-6 bg-white rounded-lg shadow-md">
-              <h3 className="mb-4 text-lg font-semibold text-gray-700">Movimientos del Período</h3>
+              <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+                <FileText className="mr-2" size={20} />
+                Movimientos del Período
+              </h3>
 
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
                     <tr className="bg-gray-100">
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Fecha</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Tipo</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Número</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Concepto</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Debe</th>
-                      <th className="px-4 py-2 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">Haber</th>
-                      <th className="w-16 px-4 py-2"></th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">
+                        <Calendar size={16} className="inline mr-1" />
+                        Fecha
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">
+                        <FileText size={16} className="inline mr-1" />
+                        Concepto
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-700 uppercase">
+                        <DollarSign size={16} className="inline mr-1" />
+                        Monto
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-700 uppercase">
+                        Tipo
+                      </th>
+                      <th className="w-16 px-4 py-3"></th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {estadoCuenta.movimientos.map((movimiento) => (
-                      <tr key={movimiento.id}>
-                        <td className="px-4 py-2">
-                          <input
-                            type="date"
-                            value={movimiento.fecha}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'fecha', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                            required
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <select
-                            value={movimiento.tipo}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'tipo', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                          >
-                            <option value="factura">Factura</option>
-                            <option value="pago">Pago</option>
-                            <option value="nota_credito">Nota Crédito</option>
-                            <option value="nota_debito">Nota Débito</option>
-                            <option value="ajuste">Ajuste</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="text"
-                            value={movimiento.numero}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'numero', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="Número"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="text"
-                            value={movimiento.concepto}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'concepto', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="Concepto del movimiento"
-                            required
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="number"
-                            value={movimiento.debe || ''}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'debe', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="number"
-                            value={movimiento.haber || ''}
-                            onChange={(e) => handleMovimientoChange(movimiento.id, 'haber', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <button
-                            type="button"
-                            onClick={() => removeMovimiento(movimiento.id)}
-                            className="text-red-500 hover:text-red-700"
-                            disabled={estadoCuenta.movimientos.length === 1}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {estadoCuenta.movimientos.map((movimiento) => {
+                      const tipoInfo = getTipoMovimiento(movimiento.monto);
+                      return (
+                        <tr key={movimiento.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="date"
+                              value={movimiento.fecha}
+                              onChange={(e) => handleMovimientoChange(movimiento.id, 'fecha', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                              required
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              value={movimiento.concepto}
+                              onChange={(e) => handleMovimientoChange(movimiento.id, 'concepto', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                              placeholder="Ej: Factura FC-001 - Servicios de mantenimiento"
+                              required
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={movimiento.monto || ''}
+                              onChange={(e) => handleMovimientoChange(movimiento.id, 'monto', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              placeholder="0.00"
+                              step="0.01"
+                            />
+                            <div className="mt-1 text-xs text-gray-500">
+                              Positivo: suma | Negativo: resta
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${tipoInfo.color}`}>
+                              <span className="mr-1">{tipoInfo.icon}</span>
+                              {tipoInfo.tipo}
+                            </div>
+                            <div className={`text-xs mt-1 font-medium ${tipoInfo.textColor}`}>
+                              {formatCurrency(Math.abs(parseFloat(movimiento.monto) || 0))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => removeMovimiento(movimiento.id)}
+                              className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                              disabled={estadoCuenta.movimientos.length === 1}
+                              title="Eliminar movimiento"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -605,38 +648,58 @@ export default function EditarEstadoCuenta({ params }) {
                 <button
                   type="button"
                   onClick={addMovimiento}
-                  className="flex items-center text-blue-500 hover:text-blue-700"
+                  className="flex items-center px-4 py-2 text-blue-600 transition-colors border border-blue-200 rounded-md bg-blue-50 hover:bg-blue-100"
                 >
-                  <Plus size={18} className="mr-1" /> Agregar movimiento
+                  <Plus size={18} className="mr-2" /> 
+                  Agregar movimiento
                 </button>
               </div>
 
-              {/* Resumen */}
+              {/* Resumen financiero */}
               <div className="p-4 mt-6 rounded-lg bg-gray-50">
-                <h4 className="mb-3 text-sm font-semibold text-gray-700">Resumen del Estado de Cuenta</h4>
+                <h4 className="mb-3 text-sm font-semibold text-gray-700">📊 Resumen del Estado de Cuenta</h4>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                  <div>
+                  <div className="p-3 bg-white border border-gray-200 rounded">
                     <span className="block text-xs text-gray-600">Saldo Anterior:</span>
-                    <span className="font-bold">{formatCurrency(estadoCuenta.saldoAnterior)}</span>
+                    <span className="text-sm font-bold text-gray-800">{formatCurrency(estadoCuenta.saldoAnterior)}</span>
                   </div>
-                  <div>
-                    <span className="block text-xs text-gray-600">Total Debe:</span>
-                    <span className="font-bold text-red-600">
-                      {formatCurrency(estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.debe) || 0), 0))}
+                  <div className="p-3 bg-white border border-red-200 rounded">
+                    <span className="block text-xs text-gray-600">Total Cargos:</span>
+                    <span className="text-sm font-bold text-red-600">
+                      +{formatCurrency(totalCargos)}
                     </span>
                   </div>
-                  <div>
-                    <span className="block text-xs text-gray-600">Total Haber:</span>
-                    <span className="font-bold text-green-600">
-                      {formatCurrency(estadoCuenta.movimientos.reduce((sum, mov) => sum + (parseFloat(mov.haber) || 0), 0))}
+                  <div className="p-3 bg-white border border-green-200 rounded">
+                    <span className="block text-xs text-gray-600">Total Abonos:</span>
+                    <span className="text-sm font-bold text-green-600">
+                      -{formatCurrency(totalAbonos)}
                     </span>
                   </div>
-                  <div>
+                  <div className="p-3 bg-white border-2 rounded border-primary">
                     <span className="block text-xs text-gray-600">Saldo Actual:</span>
-                    <span className={`font-bold text-lg ${calcularSaldoActual() >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <span className={`text-lg font-bold ${calcularSaldoActual() >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {formatCurrency(calcularSaldoActual())}
                     </span>
                   </div>
+                </div>
+                
+                {/* Indicador visual del estado */}
+                <div className="mt-3 text-center">
+                  {calcularSaldoActual() > 0 && (
+                    <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-red-800 bg-red-100 border border-red-200 rounded-full">
+                      ⚠️ Cliente debe: {formatCurrency(calcularSaldoActual())}
+                    </span>
+                  )}
+                  {calcularSaldoActual() < 0 && (
+                    <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 border border-green-200 rounded-full">
+                      ✅ Saldo a favor: {formatCurrency(Math.abs(calcularSaldoActual()))}
+                    </span>
+                  )}
+                  {calcularSaldoActual() === 0 && (
+                    <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-gray-800 bg-gray-100 border border-gray-200 rounded-full">
+                      ✅ Cuenta al día
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -656,7 +719,7 @@ export default function EditarEstadoCuenta({ params }) {
             {/* Botones de acción */}
             <div className="flex justify-end space-x-2">
               <Link
-                href="/admin/estados-cuenta"
+                href="/admin/estados"
                 className="px-6 py-2 text-gray-700 transition-colors border border-gray-300 rounded-md hover:bg-gray-100"
               >
                 Cancelar
