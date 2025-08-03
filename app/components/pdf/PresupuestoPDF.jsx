@@ -1,4 +1,4 @@
-// components/pdf/PresupuestoPDF.js - Versión corregida para IMSSE
+// components/pdf/PresupuestoPDF.js - CON DESCUENTO
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   textCenter: { textAlign: 'center' },
   textRight: { textAlign: 'right' },
 
-  // Totales simplificados
+  // Totales mejorados con descuento
   totalsSection: {
     alignItems: 'flex-end',
     marginBottom: 30,
@@ -203,6 +203,33 @@ const styles = StyleSheet.create({
     width: 80,
     fontSize: 10,
     color: '#1F2937',
+    textAlign: 'right',
+    fontWeight: 'bold',
+  },
+  
+  // NUEVOS ESTILOS PARA DESCUENTO
+  discountRow: {
+    flexDirection: 'row',
+    marginBottom: 3,
+    minWidth: 200,
+    backgroundColor: '#FEF3C7',
+    padding: 4,
+    borderRadius: 2,
+  },
+  
+  discountLabel: {
+    flex: 1,
+    fontSize: 10,
+    color: '#92400E',
+    textAlign: 'right',
+    paddingRight: 10,
+    fontWeight: 'bold',
+  },
+  
+  discountValue: {
+    width: 80,
+    fontSize: 10,
+    color: '#92400E',
     textAlign: 'right',
     fontWeight: 'bold',
   },
@@ -333,6 +360,11 @@ export default function PresupuestoPDF({ presupuesto }) {
   const iva = parseFloat(safePresupuesto.iva) || 0;
   const total = parseFloat(safePresupuesto.total) || 0;
   const mostrarIva = Boolean(safePresupuesto.mostrarIva);
+  
+  // NUEVOS CAMPOS DE DESCUENTO
+  const tipoDescuento = safePresupuesto.tipoDescuento || 'porcentaje';
+  const valorDescuento = parseFloat(safePresupuesto.valorDescuento) || 0;
+  const montoDescuento = parseFloat(safePresupuesto.montoDescuento) || 0;
 
   return (
     <Document>
@@ -457,7 +489,7 @@ export default function PresupuestoPDF({ presupuesto }) {
           )}
         </View>
 
-        {/* Totales simplificados */}
+        {/* Totales con descuento */}
         <View style={styles.totalsSection}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal:</Text>
@@ -469,6 +501,17 @@ export default function PresupuestoPDF({ presupuesto }) {
               <Text style={styles.totalValue}>{formatCurrency(iva)}</Text>
             </View>
           )}
+          
+          {/* MOSTRAR DESCUENTO SI EXISTE */}
+          {montoDescuento > 0 && (
+            <View style={styles.discountRow}>
+              <Text style={styles.discountLabel}>
+                Descuento ({tipoDescuento === 'porcentaje' ? `${valorDescuento}%` : 'Monto fijo'}):
+              </Text>
+              <Text style={styles.discountValue}>-{formatCurrency(montoDescuento)}</Text>
+            </View>
+          )}
+          
           <View style={styles.finalTotal}>
             <Text style={styles.finalTotalLabel}>TOTAL:</Text>
             <Text style={styles.finalTotalValue}>{formatCurrency(total)}</Text>
@@ -480,6 +523,18 @@ export default function PresupuestoPDF({ presupuesto }) {
           <View style={styles.observaciones}>
             <Text style={styles.observacionesTitle}>Observaciones:</Text>
             <Text style={styles.observacionesText}>{observaciones}</Text>
+          </View>
+        )}
+
+        {/* Condiciones de descuento si aplica */}
+        {montoDescuento > 0 && (
+          <View style={styles.condiciones}>
+            <Text style={styles.condicionesTitle}>Información del Descuento:</Text>
+            <Text style={styles.condicionesText}>
+              Se ha aplicado un descuento de {tipoDescuento === 'porcentaje' ? `${valorDescuento}%` : formatCurrency(valorDescuento)} 
+              {tipoDescuento === 'monto' ? ' (monto fijo)' : ''} sobre el total antes de descuento.
+              {'\n'}Descuento total aplicado: {formatCurrency(montoDescuento)}
+            </Text>
           </View>
         )}
 

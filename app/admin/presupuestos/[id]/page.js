@@ -1,4 +1,4 @@
-// Función para adaptar datos para el PDF// app/admin/presupuestos/[id]/page.jsx - Ver Presupuesto IMSSE (Formato elegante como recibo)
+// app/admin/presupuestos/[id]/page.jsx - Ver Presupuesto IMSSE COMPLETO CON DESCUENTO
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -102,6 +102,7 @@ export default function VerPresupuesto({ params }) {
       }
     }
   };
+
   const adaptarDatosParaPDF = (presupuesto) => {
     return {
       ...presupuesto,
@@ -119,6 +120,10 @@ export default function VerPresupuesto({ params }) {
       items: presupuesto.items || [],
       subtotal: presupuesto.subtotal || 0,
       iva: presupuesto.iva || 0,
+      // CAMPOS DE DESCUENTO
+      tipoDescuento: presupuesto.tipoDescuento || 'porcentaje',
+      valorDescuento: presupuesto.valorDescuento || 0,
+      montoDescuento: presupuesto.montoDescuento || 0,
       total: presupuesto.total || 0,
       observaciones: presupuesto.observaciones || presupuesto.notas || '',
       estado: presupuesto.estado || 'pendiente',
@@ -469,7 +474,7 @@ export default function VerPresupuesto({ params }) {
                     </tbody>
                   </table>
 
-                  {/* Totales */}
+                  {/* Totales CON DESCUENTO */}
                   <div className="flex justify-end mt-6">
                     <div className="w-full max-w-sm">
                       <div className="p-4 border rounded-lg bg-gray-50">
@@ -484,12 +489,39 @@ export default function VerPresupuesto({ params }) {
                               <span className="font-bold text-gray-900">{formatCurrency(presupuesto.iva)}</span>
                             </div>
                           )}
+                          
+                          {/* MOSTRAR DESCUENTO SI EXISTE */}
+                          {presupuesto.montoDescuento > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium text-orange-700">
+                                DESCUENTO ({presupuesto.tipoDescuento === 'porcentaje' 
+                                  ? `${presupuesto.valorDescuento}%` 
+                                  : 'Monto fijo'}):
+                              </span>
+                              <span className="font-bold text-orange-700">-{formatCurrency(presupuesto.montoDescuento)}</span>
+                            </div>
+                          )}
+                          
                           <div className="pt-2 border-t border-gray-300">
                             <div className="flex justify-between text-lg font-bold">
                               <span className="text-gray-900">TOTAL:</span>
                               <span className="text-primary">{formatCurrency(presupuesto.total)}</span>
                             </div>
                           </div>
+                          
+                          {/* Información adicional del descuento */}
+                          {presupuesto.montoDescuento > 0 && (
+                            <div className="p-2 pt-2 mt-2 text-xs border-t border-orange-200 rounded bg-orange-50">
+                              <div className="text-orange-800">
+                                <strong>Descuento aplicado:</strong><br />
+                                Tipo: {presupuesto.tipoDescuento === 'porcentaje' ? 'Porcentaje' : 'Monto fijo'}<br />
+                                Valor: {presupuesto.tipoDescuento === 'porcentaje' 
+                                  ? `${presupuesto.valorDescuento}%` 
+                                  : formatCurrency(presupuesto.valorDescuento)}<br />
+                                Total descontado: {formatCurrency(presupuesto.montoDescuento)}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

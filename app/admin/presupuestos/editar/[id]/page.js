@@ -1,10 +1,10 @@
-// app/admin/presupuestos/editar/[id]/page.jsx - Editar Presupuesto IMSSE (CORREGIDO)
+// app/admin/presupuestos/editar/[id]/page.jsx - CON CAMPO DESCUENTO
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2 } from 'lucide-react';
+import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, Percent, DollarSign } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
@@ -30,7 +30,7 @@ export default function EditarPresupuesto({ params }) {
     value: ''
   });
 
-  // Estado del formulario - Adaptado para IMSSE
+  // Estado del formulario
   const [cliente, setCliente] = useState({
     nombre: '',
     empresa: '',
@@ -49,18 +49,48 @@ export default function EditarPresupuesto({ params }) {
     observaciones: '',
     subtotal: 0,
     iva: 0,
+    // NUEVOS CAMPOS PARA DESCUENTO
+    tipoDescuento: 'porcentaje',
+    valorDescuento: 0,
+    montoDescuento: 0,
     total: 0,
     mostrarIva: false
   });
 
+  // FUNCIÓN: Calcular totales con descuento
+  const calcularTotales = (items, mostrarIva, tipoDescuento, valorDescuento) => {
+    const subtotal = items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+    const iva = mostrarIva ? Math.round(subtotal * 0.21) : 0;
+    const totalAntesDescuento = subtotal + iva;
+
+    let montoDescuento = 0;
+    if (valorDescuento > 0) {
+      if (tipoDescuento === 'porcentaje') {
+        const porcentajeValido = Math.min(valorDescuento, 100);
+        montoDescuento = Math.round(totalAntesDescuento * (porcentajeValido / 100));
+      } else {
+        montoDescuento = Math.min(valorDescuento, totalAntesDescuento);
+      }
+    }
+
+    const total = totalAntesDescuento - montoDescuento;
+
+    return {
+      subtotal,
+      iva,
+      montoDescuento,
+      total: Math.max(total, 0)
+    };
+  };
+
   // Función para formatear moneda estilo argentino
   const formatMoney = (amount) => {
-    if (amount === undefined || amount === null) return '$0,00';
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    const formatted = num.toFixed(2).replace('.', ',');
-    const parts = formatted.split(',');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return '$' + parts.join(',');
+    if (!amount) return '$0,00';
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 2,
+    }).format(amount);
   };
 
   useEffect(() => {
@@ -72,34 +102,24 @@ export default function EditarPresupuesto({ params }) {
 
         try {
           const presupuestoData = await apiService.obtenerPresupuestoPorId(id);
-          console.log('Datos recibidos:', presupuestoData); // Para debug
           setPresupuestoOriginal(presupuestoData);
 
-          // Procesar fechas de Firebase
           const procesarFecha = (fecha) => {
             if (!fecha) return '';
-
-            // Si es un Timestamp de Firestore con _seconds
             if (fecha._seconds) {
               const date = new Date(fecha._seconds * 1000);
               return date.toISOString().split('T')[0];
             }
-
-            // Si es string de fecha ISO
             if (typeof fecha === 'string') {
               return new Date(fecha).toISOString().split('T')[0];
             }
-
-            // Si es objeto con toDate (Firestore)
             if (fecha.toDate) {
               return fecha.toDate().toISOString().split('T')[0];
             }
-
-            // Si es objeto Date
             return new Date(fecha).toISOString().split('T')[0];
           };
 
-          // Actualizar estado con los datos cargados
+          // CARGAR DATOS CON SOPORTE PARA DESCUENTO
           setPresupuesto({
             numero: presupuestoData.numero || '',
             fecha: procesarFecha(presupuestoData.fecha),
@@ -107,6 +127,10 @@ export default function EditarPresupuesto({ params }) {
             observaciones: presupuestoData.observaciones || '',
             subtotal: presupuestoData.subtotal || 0,
             iva: presupuestoData.iva || 0,
+            // CAMPOS DE DESCUENTO (con valores por defecto si no existen)
+            tipoDescuento: presupuestoData.tipoDescuento || 'porcentaje',
+            valorDescuento: presupuestoData.valorDescuento || 0,
+            montoDescuento: presupuestoData.montoDescuento || 0,
             total: presupuestoData.total || 0,
             mostrarIva: presupuestoData.mostrarIva || false
           });
@@ -114,7 +138,7 @@ export default function EditarPresupuesto({ params }) {
           setCliente(presupuestoData.cliente || {});
           setLoading(false);
         } catch (error) {
-          console.error('Error al cargar presupuesto IMSSE:', error);
+          console.error('Error al cargar presupuesto:', error);
           alert('Error al cargar los datos del presupuesto.');
           router.push('/admin/presupuestos');
         }
@@ -135,22 +159,20 @@ export default function EditarPresupuesto({ params }) {
     }
   };
 
-  // Función para adaptar datos para el PDF
   const adaptarDatosParaPDF = (presupuesto, cliente) => {
     return {
       ...presupuesto,
-      // Asegurar que las fechas estén en formato correcto
       fecha: new Date(presupuesto.fecha),
       fechaVencimiento: new Date(presupuesto.fechaVencimiento),
-      // Cliente
       cliente: cliente,
-      // Asegurar items
       items: presupuesto.items || [],
-      // Asegurar totales
       subtotal: presupuesto.subtotal || 0,
       iva: presupuesto.iva || 0,
+      // INCLUIR CAMPOS DE DESCUENTO EN PDF
+      tipoDescuento: presupuesto.tipoDescuento || 'porcentaje',
+      valorDescuento: presupuesto.valorDescuento || 0,
+      montoDescuento: presupuesto.montoDescuento || 0,
       total: presupuesto.total || 0,
-      // Asegurar otros campos
       validez: presupuesto.validez || '30 días',
       estado: presupuestoOriginal?.estado || 'pendiente',
       mostrarIva: presupuesto.mostrarIva || false
@@ -193,28 +215,69 @@ export default function EditarPresupuesto({ params }) {
       return item;
     });
 
-    // Recalcular totales con IVA condicional
-    const subtotal = updatedItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-    const iva = presupuesto.mostrarIva ? Math.round(subtotal * 0.21) : 0;
-    const total = subtotal + iva;
+    // Recalcular totales con descuento
+    const totales = calcularTotales(
+      updatedItems,
+      presupuesto.mostrarIva,
+      presupuesto.tipoDescuento,
+      presupuesto.valorDescuento
+    );
 
     setPresupuesto({
       ...presupuesto,
       items: updatedItems,
-      subtotal: subtotal,
-      iva: iva,
-      total: total
+      ...totales
+    });
+  };
+
+  // FUNCIÓN: Manejar cambios en el descuento
+  const handleDescuentoChange = (field, value) => {
+    let updatedPresupuesto = { ...presupuesto };
+
+    if (field === 'tipoDescuento') {
+      updatedPresupuesto.tipoDescuento = value;
+      updatedPresupuesto.valorDescuento = 0;
+    } else if (field === 'valorDescuento') {
+      const numValue = parseFloat(value) || 0;
+      if (presupuesto.tipoDescuento === 'porcentaje') {
+        updatedPresupuesto.valorDescuento = Math.min(Math.max(numValue, 0), 100);
+      } else {
+        updatedPresupuesto.valorDescuento = Math.max(numValue, 0);
+      }
+    }
+
+    // Recalcular totales
+    const totales = calcularTotales(
+      presupuesto.items,
+      presupuesto.mostrarIva,
+      updatedPresupuesto.tipoDescuento,
+      updatedPresupuesto.valorDescuento
+    );
+
+    setPresupuesto({
+      ...updatedPresupuesto,
+      ...totales
     });
   };
 
   const addItem = () => {
     const newId = Math.max(...presupuesto.items.map(item => item.id), 0) + 1;
+    const updatedItems = [
+      ...presupuesto.items,
+      { id: newId, descripcion: '', cantidad: 1, precioUnitario: 0, subtotal: 0, categoria: 'deteccion' }
+    ];
+
+    const totales = calcularTotales(
+      updatedItems,
+      presupuesto.mostrarIva,
+      presupuesto.tipoDescuento,
+      presupuesto.valorDescuento
+    );
+
     setPresupuesto({
       ...presupuesto,
-      items: [
-        ...presupuesto.items,
-        { id: newId, descripcion: '', cantidad: 1, precioUnitario: 0, subtotal: 0, categoria: 'deteccion' }
-      ]
+      items: updatedItems,
+      ...totales
     });
   };
 
@@ -222,23 +285,23 @@ export default function EditarPresupuesto({ params }) {
     if (presupuesto.items.length === 1) return;
 
     const updatedItems = presupuesto.items.filter(item => item.id !== id);
-    const subtotal = updatedItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-    const iva = presupuesto.mostrarIva ? Math.round(subtotal * 0.21) : 0;
-    const total = subtotal + iva;
+    const totales = calcularTotales(
+      updatedItems,
+      presupuesto.mostrarIva,
+      presupuesto.tipoDescuento,
+      presupuesto.valorDescuento
+    );
 
     setPresupuesto({
       ...presupuesto,
       items: updatedItems,
-      subtotal: subtotal,
-      iva: iva,
-      total: total
+      ...totales
     });
   };
 
   const handleGuardarPresupuesto = async () => {
     setGuardando(true);
     try {
-      // Preparar datos del presupuesto para IMSSE
       const presupuestoData = {
         numero: presupuesto.numero,
         fecha: new Date(presupuesto.fecha),
@@ -247,6 +310,10 @@ export default function EditarPresupuesto({ params }) {
         observaciones: presupuesto.observaciones,
         subtotal: presupuesto.subtotal,
         iva: presupuesto.iva,
+        // INCLUIR CAMPOS DE DESCUENTO AL GUARDAR
+        tipoDescuento: presupuesto.tipoDescuento,
+        valorDescuento: presupuesto.valorDescuento,
+        montoDescuento: presupuesto.montoDescuento,
         total: presupuesto.total,
         mostrarIva: presupuesto.mostrarIva,
         estado: presupuestoOriginal.estado || 'pendiente',
@@ -254,10 +321,10 @@ export default function EditarPresupuesto({ params }) {
       };
 
       await apiService.actualizarPresupuesto(id, presupuestoData);
-      alert('Presupuesto IMSSE actualizado exitosamente');
+      alert('Presupuesto actualizado exitosamente');
       router.push('/admin/presupuestos');
     } catch (error) {
-      console.error('Error al actualizar el presupuesto IMSSE:', error);
+      console.error('Error al actualizar el presupuesto:', error);
       alert('Error al actualizar el presupuesto. Inténtelo de nuevo más tarde.');
     } finally {
       setGuardando(false);
@@ -527,21 +594,20 @@ export default function EditarPresupuesto({ params }) {
                       </td>
                       <td className="px-4 py-2">
                         <input
-                          type="number"
+                          type="text"
                           value={item.cantidad}
                           onChange={(e) => handleItemChange(item.id, 'cantidad', parseInt(e.target.value) || 0)}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md"
-                          min="1"
+                          placeholder="1"
                         />
                       </td>
                       <td className="px-4 py-2">
                         <input
-                          type="number"
+                          type="text"
                           value={item.precioUnitario}
                           onChange={(e) => handleItemChange(item.id, 'precioUnitario', parseFloat(e.target.value) || 0)}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md"
-                          min="0"
-                          step="0.01"
+                          placeholder="0.00"
                         />
                       </td>
                       <td className="px-4 py-2 font-medium text-gray-700">
@@ -572,7 +638,7 @@ export default function EditarPresupuesto({ params }) {
               </button>
             </div>
 
-            {/* Totales con IVA opcional - Edición */}
+            {/* Totales con IVA y DESCUENTO - Edición */}
             <div className="w-full mt-6 ml-auto md:w-80">
               <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                 <div className="flex justify-between py-2 text-sm">
@@ -580,39 +646,109 @@ export default function EditarPresupuesto({ params }) {
                   <span className="font-medium">{formatMoney(presupuesto.subtotal)}</span>
                 </div>
                 {presupuesto.mostrarIva && (
-                  <div className="flex justify-between py-2 text-sm border-b border-gray-300">
+                  <div className="flex justify-between py-2 text-sm">
                     <span className="text-gray-700">IVA (21%):</span>
                     <span className="font-medium">{formatMoney(presupuesto.iva)}</span>
                   </div>
                 )}
+
+                {/* SECCIÓN DE DESCUENTO */}
+                {presupuesto.montoDescuento > 0 && (
+                  <div className="flex justify-between py-2 text-sm text-red-600 border-b border-gray-300">
+                    <span>
+                      Descuento ({presupuesto.tipoDescuento === 'porcentaje'
+                        ? `${presupuesto.valorDescuento}%`
+                        : 'Monto fijo'}):
+                    </span>
+                    <span className="font-medium">-{formatMoney(presupuesto.montoDescuento)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between py-3 text-lg font-bold text-primary">
                   <span>TOTAL:</span>
                   <span>{formatMoney(presupuesto.total)}</span>
                 </div>
 
-                {/* Checkbox para controlar IVA en edición */}
-                <div className="pt-3 mt-3 border-t border-gray-300">
+                {/* Controles */}
+                <div className="pt-3 mt-3 space-y-3 border-t border-gray-300">
+                  {/* Checkbox IVA */}
                   <label className="flex items-center">
                     <input
                       type="checkbox"
                       checked={presupuesto.mostrarIva || false}
                       onChange={(e) => {
                         const mostrarIva = e.target.checked;
-                        const subtotal = presupuesto.subtotal || 0;
-                        const iva = mostrarIva ? Math.round(subtotal * 0.21) : 0;
-                        const total = subtotal + iva;
+                        const totales = calcularTotales(
+                          presupuesto.items,
+                          mostrarIva,
+                          presupuesto.tipoDescuento,
+                          presupuesto.valorDescuento
+                        );
 
                         setPresupuesto({
                           ...presupuesto,
                           mostrarIva,
-                          iva,
-                          total
+                          ...totales
                         });
                       }}
                       className="mr-2"
                     />
                     <span className="text-sm text-gray-700">Incluir IVA (21%)</span>
                   </label>
+
+                  {/* CONTROLES DE DESCUENTO */}
+                  <div className="p-3 border border-orange-200 rounded-md bg-orange-50">
+                    <h4 className="mb-3 text-sm font-medium text-orange-800">Descuento</h4>
+
+                    {/* Tipo de descuento */}
+                    <div className="flex mb-3 space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="tipoDescuento"
+                          value="porcentaje"
+                          checked={presupuesto.tipoDescuento === 'porcentaje'}
+                          onChange={(e) => handleDescuentoChange('tipoDescuento', e.target.value)}
+                          className="mr-2"
+                        />
+                        <Percent size={16} className="mr-1" />
+                        <span className="text-sm">Porcentaje</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="tipoDescuento"
+                          value="monto"
+                          checked={presupuesto.tipoDescuento === 'monto'}
+                          onChange={(e) => handleDescuentoChange('tipoDescuento', e.target.value)}
+                          className="mr-2"
+                        />
+                        <DollarSign size={16} className="mr-1" />
+                        <span className="text-sm">Monto fijo</span>
+                      </label>
+                    </div>
+
+                    {/* Input de valor */}
+                    <div className="flex items-center">
+                      <input
+                        type="text"
+                        value={presupuesto.valorDescuento}
+                        onChange={(e) => handleDescuentoChange('valorDescuento', e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md"
+                        placeholder={presupuesto.tipoDescuento === 'porcentaje' ? '0-100' : '0.00'}
+                      />
+                      <span className="ml-2 text-sm text-gray-600">
+                        {presupuesto.tipoDescuento === 'porcentaje' ? '%' : '$'}
+                      </span>
+                    </div>
+
+                    {/* Información del descuento */}
+                    {presupuesto.valorDescuento > 0 && (
+                      <div className="mt-2 text-xs text-orange-700">
+                        Descuento aplicado: {formatMoney(presupuesto.montoDescuento)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
