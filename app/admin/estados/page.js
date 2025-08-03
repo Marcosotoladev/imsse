@@ -1,4 +1,4 @@
-// app/admin/estados-cuenta/page.jsx - Lista Estados de Cuenta IMSSE (MIGRADO A API)
+// app/admin/estados/page.jsx - Lista Estados de Cuenta IMSSE (MIGRADO A API)
 'use client';
 
 import { useState, useEffect } from 'react';

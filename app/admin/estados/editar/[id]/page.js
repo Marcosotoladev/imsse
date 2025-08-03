@@ -1,4 +1,4 @@
-// app/admin/estados-cuenta/editar/[id]/page.jsx - SIMPLIFICADO
+// app/admin/estados/editar/[id]/page.jsx - SIMPLIFICADO
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -60,20 +60,20 @@ export default function EditarEstadoCuenta({ params }) {
 
           // MIGRAR DATOS SI VIENEN EN FORMATO ANTIGUO (debe/haber)
           let movimientosMigrados = estadoData.movimientos || [];
-          
+
           if (movimientosMigrados.length > 0 && movimientosMigrados[0].hasOwnProperty('debe')) {
             // Convertir formato antiguo a nuevo
             movimientosMigrados = movimientosMigrados.map(mov => {
               let monto = 0;
               let concepto = mov.concepto || 'Sin concepto';
-              
+
               // Convertir debe/haber a monto único
               if (mov.debe && mov.debe > 0) {
                 monto = mov.debe;
               } else if (mov.haber && mov.haber > 0) {
                 monto = -mov.haber;
               }
-              
+
               // Agregar información del tipo y número si existe
               if (mov.tipo && mov.numero) {
                 const tipoTexto = mov.tipo.replace('_', ' ').toUpperCase();
@@ -82,7 +82,7 @@ export default function EditarEstadoCuenta({ params }) {
                 const tipoTexto = mov.tipo.replace('_', ' ').toUpperCase();
                 concepto = `${tipoTexto} - ${concepto}`;
               }
-              
+
               return {
                 id: mov.id,
                 fecha: mov.fecha,
@@ -235,21 +235,21 @@ export default function EditarEstadoCuenta({ params }) {
 
   const getTipoMovimiento = (monto) => {
     const valor = parseFloat(monto) || 0;
-    if (valor > 0) return { 
-      tipo: 'Cargo', 
-      color: 'text-red-600 bg-red-50 border-red-200', 
+    if (valor > 0) return {
+      tipo: 'Cargo',
+      color: 'text-red-600 bg-red-50 border-red-200',
       icon: '+',
       textColor: 'text-red-600'
     };
-    if (valor < 0) return { 
-      tipo: 'Abono', 
-      color: 'text-green-600 bg-green-50 border-green-200', 
+    if (valor < 0) return {
+      tipo: 'Abono',
+      color: 'text-green-600 bg-green-50 border-green-200',
       icon: '-',
       textColor: 'text-green-600'
     };
-    return { 
-      tipo: 'Neutro', 
-      color: 'text-gray-600 bg-gray-50 border-gray-200', 
+    return {
+      tipo: 'Neutro',
+      color: 'text-gray-600 bg-gray-50 border-gray-200',
       icon: '=',
       textColor: 'text-gray-600'
     };
@@ -552,96 +552,108 @@ export default function EditarEstadoCuenta({ params }) {
             </div>
 
             {/* TABLA DE MOVIMIENTOS SIMPLIFICADA */}
+
+            {/* TABLA DE MOVIMIENTOS SIMPLIFICADA - REEMPLAZAR SECCIÓN COMPLETA */}
             <div className="p-6 bg-white rounded-lg shadow-md">
               <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
                 <FileText className="mr-2" size={20} />
                 Movimientos del Período
               </h3>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">
-                        <Calendar size={16} className="inline mr-1" />
-                        Fecha
-                      </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-700 uppercase">
-                        <FileText size={16} className="inline mr-1" />
-                        Concepto
-                      </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-700 uppercase">
-                        <DollarSign size={16} className="inline mr-1" />
-                        Monto
-                      </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-700 uppercase">
-                        Tipo
-                      </th>
-                      <th className="w-16 px-4 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {estadoCuenta.movimientos.map((movimiento) => {
-                      const tipoInfo = getTipoMovimiento(movimiento.monto);
-                      return (
-                        <tr key={movimiento.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <input
-                              type="date"
-                              value={movimiento.fecha}
-                              onChange={(e) => handleMovimientoChange(movimiento.id, 'fecha', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                              required
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              value={movimiento.concepto}
-                              onChange={(e) => handleMovimientoChange(movimiento.id, 'concepto', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                              placeholder="Ej: Factura FC-001 - Servicios de mantenimiento"
-                              required
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              value={movimiento.monto || ''}
-                              onChange={(e) => handleMovimientoChange(movimiento.id, 'monto', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              placeholder="0.00"
-                              step="0.01"
-                            />
-                            <div className="mt-1 text-xs text-gray-500">
-                              Positivo: suma | Negativo: resta
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${tipoInfo.color}`}>
-                              <span className="mr-1">{tipoInfo.icon}</span>
-                              {tipoInfo.tipo}
-                            </div>
-                            <div className={`text-xs mt-1 font-medium ${tipoInfo.textColor}`}>
-                              {formatCurrency(Math.abs(parseFloat(movimiento.monto) || 0))}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() => removeMovimiento(movimiento.id)}
-                              className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                              disabled={estadoCuenta.movimientos.length === 1}
-                              title="Eliminar movimiento"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="table-scroll-container">
+                <div className="table-wrapper">
+                  <table className="w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-700 uppercase sm:px-4">
+                          <Calendar size={16} className="inline mr-1" />
+                          Fecha
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-700 uppercase sm:px-4">
+                          <FileText size={16} className="inline mr-1" />
+                          Concepto
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-700 uppercase sm:px-4">
+                          <DollarSign size={16} className="inline mr-1" />
+                          Monto
+                        </th>
+                        <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-700 uppercase sm:px-4">
+                          Tipo
+                        </th>
+                        <th className="w-12 px-3 py-3 sm:w-16 sm:px-4"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {estadoCuenta.movimientos.map((movimiento) => {
+                        const tipoInfo = getTipoMovimiento(movimiento.monto);
+                        return (
+                          <tr key={movimiento.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-3 sm:px-4">
+                              <input
+                                type="date"
+                                value={movimiento.fecha}
+                                onChange={(e) => handleMovimientoChange(movimiento.id, 'fecha', e.target.value)}
+                                className="w-full px-2 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent sm:px-3"
+                                required
+                              />
+                            </td>
+                            <td className="px-3 py-3 sm:px-4">
+                              <input
+                                type="text"
+                                value={movimiento.concepto}
+                                onChange={(e) => handleMovimientoChange(movimiento.id, 'concepto', e.target.value)}
+                                className="w-full px-2 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent sm:px-3"
+                                placeholder="Ej: Factura FC-001 - Servicios de mantenimiento"
+                                required
+                              />
+                            </td>
+                            <td className="px-3 py-3 sm:px-4">
+                              <input
+                                type="number"
+                                value={movimiento.monto || ''}
+                                onChange={(e) => handleMovimientoChange(movimiento.id, 'monto', e.target.value)}
+                                className="w-full px-2 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent sm:px-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="0.00"
+                                step="0.01"
+                              />
+                              <div className="mt-1 text-xs text-gray-500">
+                                Positivo: suma | Negativo: resta
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 sm:px-4">
+                              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${tipoInfo.color}`}>
+                                <span className="mr-1">{tipoInfo.icon}</span>
+                                {tipoInfo.tipo}
+                              </div>
+                              <div className={`text-xs mt-1 font-medium ${tipoInfo.textColor}`}>
+                                {formatCurrency(Math.abs(parseFloat(movimiento.monto) || 0))}
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 sm:px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeMovimiento(movimiento.id)}
+                                className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                                disabled={estadoCuenta.movimientos.length === 1}
+                                title="Eliminar movimiento"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+                <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+                  <span>👈</span>
+                  <span>Deslizá para ver más columnas</span>
+                  <span>👉</span>
+                </div>
               </div>
 
               <div className="mt-4">
@@ -650,7 +662,7 @@ export default function EditarEstadoCuenta({ params }) {
                   onClick={addMovimiento}
                   className="flex items-center px-4 py-2 text-blue-600 transition-colors border border-blue-200 rounded-md bg-blue-50 hover:bg-blue-100"
                 >
-                  <Plus size={18} className="mr-2" /> 
+                  <Plus size={18} className="mr-2" />
                   Agregar movimiento
                 </button>
               </div>
@@ -682,7 +694,7 @@ export default function EditarEstadoCuenta({ params }) {
                     </span>
                   </div>
                 </div>
-                
+
                 {/* Indicador visual del estado */}
                 <div className="mt-3 text-center">
                   {calcularSaldoActual() > 0 && (
@@ -703,6 +715,7 @@ export default function EditarEstadoCuenta({ params }) {
                 </div>
               </div>
             </div>
+
 
             {/* Observaciones */}
             <div className="p-6 bg-white rounded-lg shadow-md">
