@@ -7,8 +7,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, Download, PlusCircle, Trash2, RefreshCw } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../../../../lib/firebase';
-import apiService from '../../../../lib/services/apiService';
+import { auth } from '../../../../../lib/firebase';
+import apiService from '../../../../../lib/services/apiService';
 import SignatureCanvas from 'react-signature-canvas';
 
 export default function EditarRemito() {

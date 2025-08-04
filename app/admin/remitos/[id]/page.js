@@ -7,8 +7,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Edit, ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
-import apiService from '../../../lib/services/apiService';
+import { auth } from '../../../../lib/firebase';
+import apiService from '../../../../lib/services/apiService';
 
 export default function VerRemito() {
   const router = useRouter();

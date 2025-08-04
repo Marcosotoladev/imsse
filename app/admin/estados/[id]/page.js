@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Edit, ArrowLeft, Download, Trash2, Calendar, Building, TrendingUp, TrendingDown } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
-import apiService from '../../../lib/services/apiService';
+import { auth } from '../../../../lib/firebase';
+import apiService from '../../../../lib/services/apiService';
 import { use } from 'react';
 
 export default function VerEstadoCuenta({ params }) {
@@ -185,7 +185,7 @@ export default function VerEstadoCuenta({ params }) {
   const handleDescargarPDF = async () => {
     try {
       const { pdf } = await import('@react-pdf/renderer');
-      const { default: EstadoCuentaPDF } = await import('../../../components/pdf/EstadoCuentaPDFSimplificado');
+      const { default: EstadoCuentaPDF } = await import('../../../components/pdf/EstadoCuentaPDF');
       
       const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estadoCuenta} />).toBlob();
       const url = URL.createObjectURL(blob);

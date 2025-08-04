@@ -8,8 +8,8 @@ import { FilePlus, FileText, Home, LogOut, Search, Download, Edit, Trash, Eye, F
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import PresupuestoPDF from '../../components/pdf/PresupuestoPDF';
-import { auth } from '../../lib/firebase';
-import apiService from '../../lib/services/apiService';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function HistorialPresupuestos() {
   const [user, setUser] = useState(null);

@@ -7,8 +7,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Save, ArrowLeft, Bell, Calendar, AlertCircle, Clock, Eye } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../../../lib/firebase';
-import apiService from '../../../../lib/services/apiService';
+import { auth } from '../../../../../lib/firebase';
+import apiService from '../../../../../lib/services/apiService';
 
 export default function EditarRecordatorio() {
   const router = useRouter();

@@ -19,8 +19,8 @@ import {
   FileCheck
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
-import apiService from '../../lib/services/apiService';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function ListaRemitos() {
   const router = useRouter();

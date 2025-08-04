@@ -19,8 +19,8 @@ import {
   Eye
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
-import apiService from '../../lib/services/apiService';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function DashboardCliente() {
   const [perfil, setPerfil] = useState(null);

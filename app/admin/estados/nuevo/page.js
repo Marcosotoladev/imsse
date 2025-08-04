@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign, User, Building2, FileText } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
-import apiService from '../../../lib/services/apiService';
+import { auth } from '../../../../lib/firebase';
+import apiService from '../../../../lib/services/apiService';
 
 export default function CrearEstadoCuenta() {
   const [user, setUser] = useState(null);

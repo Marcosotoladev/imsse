@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, User, Building, Mail, Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '../lib/firebase';
-import apiService from '../lib/services/apiService';
+import { auth } from '../../lib/firebase';
+import apiService from '../../lib/services/apiService';
 
 export default function RegistroPublico() {
   const router = useRouter();
