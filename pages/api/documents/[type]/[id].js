@@ -50,15 +50,18 @@ async function getDocument(req, res, type, id, user) {
     }
 
     if (user.role === ROLES.TECNICO) {
-      if (type === 'ordenes' && docData.tecnicoAsignado?.id !== user.uid) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      if (type === 'recordatorios' && docData.asignadoA !== user.uid) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
+      // ✅ CAMBIO: Técnicos pueden acceder a TODAS las órdenes y recordatorios
       if (!['ordenes', 'recordatorios'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
+      // ✅ Removemos las verificaciones de asignación específica
+      // Las siguientes líneas se eliminan:
+      // if (type === 'ordenes' && docData.tecnicoAsignado?.id !== user.uid) {
+      //   return res.status(403).json({ error: 'Access denied' });
+      // }
+      // if (type === 'recordatorios' && docData.asignadoA !== user.uid) {
+      //   return res.status(403).json({ error: 'Access denied' });
+      // }
     }
 
     return res.status(200).json({
@@ -84,7 +87,7 @@ async function updateDocument(req, res, type, id, user) {
     }
 
     const docData = doc.data();
-    let updateData; // ✅ DECLARAR AQUÍ
+    let updateData;
     
     // Verificar permisos de edición
     if (user.role === ROLES.CLIENTE) {
@@ -92,19 +95,26 @@ async function updateDocument(req, res, type, id, user) {
     }
 
     if (user.role === ROLES.TECNICO) {
-      // Solo puede editar ordenes asignadas y recordatorios propios
-      if (type === 'ordenes' && docData.tecnicoAsignado?.id !== user.uid) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      if (type === 'recordatorios' && docData.asignadoA !== user.uid) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
+      // ✅ CAMBIO: Técnicos pueden editar TODAS las órdenes y recordatorios
       if (!['ordenes', 'recordatorios'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      // Técnico solo puede actualizar ciertos campos
-      const allowedFields = ['estado', 'notas', 'fechaCompletado', 'descripcionTrabajo', 'fotos'];
+      // ✅ Removemos las verificaciones de asignación específica
+      // Las siguientes líneas se eliminan:
+      // if (type === 'ordenes' && docData.tecnicoAsignado?.id !== user.uid) {
+      //   return res.status(403).json({ error: 'Access denied' });
+      // }
+      // if (type === 'recordatorios' && docData.asignadoA !== user.uid) {
+      //   return res.status(403).json({ error: 'Access denied' });
+      // }
+      
+      // ✅ CAMBIO: Técnicos pueden actualizar más campos
+      const allowedFields = [
+        'estado', 'notas', 'fechaCompletado', 'descripcionTrabajo', 'fotos',
+        'titulo', 'descripcion', 'fechaRecordatorio', 'prioridad', 'completado',
+        'cliente', 'direccion', 'telefono', 'email', 'observaciones'
+      ];
       updateData = {};
       
       Object.keys(req.body).forEach(key => {
@@ -116,7 +126,7 @@ async function updateDocument(req, res, type, id, user) {
       updateData.fechaModificacion = admin.firestore.FieldValue.serverTimestamp();
       updateData.modificadoPor = user.uid;
     } else {
-      // ✅ Admin puede actualizar todo
+      // Admin puede actualizar todo
       updateData = {
         ...req.body,
         fechaModificacion: admin.firestore.FieldValue.serverTimestamp(),
@@ -128,7 +138,8 @@ async function updateDocument(req, res, type, id, user) {
     
     return res.status(200).json({
       id,
-      message: 'Document updated successfully'
+      message: 'Document updated successfully',
+      success: true
     });
   } catch (error) {
     console.error('Error updating document:', error);
@@ -138,9 +149,13 @@ async function updateDocument(req, res, type, id, user) {
 
 async function deleteDocument(req, res, type, id, user) {
   try {
-    // Solo admin puede eliminar
-    if (user.role !== ROLES.ADMIN) {
-      return res.status(403).json({ error: 'Only admin can delete documents' });
+    // ✅ CAMBIO: Técnicos también pueden eliminar órdenes y recordatorios
+    if (user.role === ROLES.CLIENTE) {
+      return res.status(403).json({ error: 'Clients cannot delete documents' });
+    }
+
+    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios'].includes(type)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     const collection = COLLECTIONS[type];
@@ -148,7 +163,8 @@ async function deleteDocument(req, res, type, id, user) {
     
     return res.status(200).json({
       id,
-      message: 'Document deleted successfully'
+      message: 'Document deleted successfully',
+      success: true
     });
   } catch (error) {
     console.error('Error deleting document:', error);

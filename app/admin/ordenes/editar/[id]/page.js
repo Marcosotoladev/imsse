@@ -26,11 +26,9 @@ import {
   FileText
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../../../lib/firebase';
-import apiService from '../../../../lib/services/apiService';
+import { auth } from '../../../../../lib/firebase';
+import apiService from '../../../../../lib/services/apiService';
 import { use } from 'react';
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import OrdenTrabajoPDF from '../../../../components/pdf/OrdenTrabajoPDF';
 import SignatureCanvas from 'react-signature-canvas';
 
 export default function EditarOrdenTrabajo({ params }) {
@@ -42,7 +40,6 @@ export default function EditarOrdenTrabajo({ params }) {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
-  const [mostrarPDF, setMostrarPDF] = useState(false);
 
   // Referencias para firmas
   const firmaTecnicoRef = useRef(null);
@@ -139,6 +136,27 @@ export default function EditarOrdenTrabajo({ params }) {
       router.push('/admin');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
+    }
+  };
+
+  const handleDescargarPDF = async () => {
+    try {
+      const { pdf } = await import('@react-pdf/renderer');
+      const { default: OrdenTrabajoPDF } = await import('../../../../components/pdf/OrdenTrabajoPDF');
+
+      const blob = await pdf(<OrdenTrabajoPDF orden={{...orden, firmas}} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${orden.numero}.pdf`;
+      link.click();
+
+      URL.revokeObjectURL(url);
+      alert(`✅ Orden ${orden.numero} descargada exitosamente`);
+
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
     }
   };
 
@@ -427,7 +445,7 @@ export default function EditarOrdenTrabajo({ params }) {
               </Link>
               {orden.cliente.empresa && orden.tareasRealizadas && (
                 <button
-                  onClick={() => setMostrarPDF(true)}
+                  onClick={handleDescargarPDF}
                   className="flex items-center px-3 py-2 text-sm text-white transition-colors bg-purple-600 rounded-md hover:bg-purple-700 md:px-4"
                 >
                   <Download size={16} className="mr-1 md:mr-2" />
@@ -443,27 +461,6 @@ export default function EditarOrdenTrabajo({ params }) {
                 <Save size={16} className="mr-1 md:mr-2" />
                 {guardando ? 'Guardando...' : 'Guardar'}
               </button>
-
-              {/* PDF bajo demanda */}
-              {mostrarPDF && (
-                <div style={{ position: 'absolute', left: '-9999px' }}>
-                  <PDFDownloadLink
-                    document={<OrdenTrabajoPDF orden={orden} />}
-                    fileName={`${orden.numero}.pdf`}
-                  >
-                    {({ blob, url, loading, error }) => {
-                      if (url) {
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `${orden.numero}.pdf`;
-                        link.click();
-                        setMostrarPDF(false);
-                      }
-                      return null;
-                    }}
-                  </PDFDownloadLink>
-                </div>
-              )}
             </div>
           </div>
         </div>

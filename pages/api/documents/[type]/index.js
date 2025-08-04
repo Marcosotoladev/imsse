@@ -1,4 +1,4 @@
-// pages/api/documents/[type]/index.js - OPTIMIZADA PARA clienteId
+// pages/api/documents/[type]/index.js - MODIFICADO para que técnicos vean TODOS los documentos
 import { withAuth, PERMISSIONS, ROLES } from '../../../../lib/auth-middleware';
 import { firestore } from '../../../../lib/firebase-admin';
 import admin from '../../../../lib/firebase-admin';
@@ -91,21 +91,14 @@ async function getDocuments(req, res, type, user) {
       }
       
     } else if (user.role === ROLES.TECNICO) {
-      // Técnico: solo órdenes y recordatorios
+      // ✅ CAMBIO PRINCIPAL: Técnico puede ver TODOS los documentos de órdenes y recordatorios
       if (!['ordenes', 'recordatorios'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
       try {
-        let tecnicoQuery = query;
-        
-        if (type === 'ordenes') {
-          tecnicoQuery = query.where('tecnicoAsignado.id', '==', user.uid);
-        } else if (type === 'recordatorios') {
-          tecnicoQuery = query.where('asignadoA', '==', user.uid);
-        }
-        
-        const snapshot = await tecnicoQuery.orderBy('fechaCreacion', 'desc').limit(50).get();
+        // ✅ NUEVO: Obtener TODOS los documentos, sin filtrar por técnico asignado
+        const snapshot = await query.orderBy('fechaCreacion', 'desc').limit(100).get();
         
         documents = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -132,20 +125,12 @@ async function getDocuments(req, res, type, user) {
               fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
             };
           })
-          .filter(doc => {
-            if (type === 'ordenes') {
-              return doc.tecnicoAsignado?.id === user.uid;
-            } else if (type === 'recordatorios') {
-              return doc.asignadoA === user.uid;
-            }
-            return false;
-          })
           .sort((a, b) => {
             const fechaA = new Date(a.fechaCreacion || 0);
             const fechaB = new Date(b.fechaCreacion || 0);
             return fechaB - fechaA;
           })
-          .slice(0, 50);
+          .slice(0, 100);
       }
       
     } else if (user.role === ROLES.ADMIN) {
@@ -232,6 +217,7 @@ async function getDocuments(req, res, type, user) {
       success: true,
       count: documents.length,
       type: type,
+      userRole: user.role, // Para debugging
       message: documents.length === 0 ? 'No documents found' : undefined
     });
     
@@ -251,7 +237,7 @@ async function createDocument(req, res, type, user) {
       return res.status(403).json({ error: 'Clients cannot create documents' });
     }
 
-    if (user.role === ROLES.TECNICO && !['recordatorios'].includes(type)) {
+    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios'].includes(type)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -281,7 +267,7 @@ async function createDocument(req, res, type, user) {
       creadoPor: user.uid,
       fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
       fechaModificacion: admin.firestore.FieldValue.serverTimestamp(),
-      estado: data.estado || 'pendiente' // Cambio: 'pendiente' por defecto, no 'borrador'
+      estado: data.estado || 'pendiente'
     };
 
     // Log para debugging

@@ -22,8 +22,8 @@ import {
   Users
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
-import apiService from '../../lib/services/apiService';
+import { auth } from '../../../lib/firebase';
+import apiService from '../../../lib/services/apiService';
 
 export default function AdminLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -34,33 +34,43 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        try {
-          // Obtener perfil del usuario para conocer su rol
-          const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
-          
-          // Verificar que tenga acceso al panel admin
-          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
-            router.push('/cliente/dashboard');
-            return;
-          }
+// En tu components/admin/AdminLayout.jsx
+// Reemplaza SOLO la parte del useEffect donde se verifica el usuario:
 
-          setUser(currentUser);
-          setPerfil(perfilUsuario);
-          setLoading(false);
-        } catch (error) {
-          console.error('Error al obtener perfil:', error);
-          router.push('/admin');
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    if (currentUser) {
+      try {
+        // Obtener perfil del usuario para conocer su rol
+        const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
+        
+        // Verificar que tenga acceso al panel admin
+        if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+          router.push('/cliente/dashboard');
+          return;
         }
-      } else {
+
+        // NUEVO: Redirigir técnicos a su dashboard específico
+        // Solo si están intentando acceder al panel-control
+        if (perfilUsuario.rol === 'tecnico' && pathname === '/admin/panel-control') {
+          router.push('/admin/dashboard-tecnico');
+          return;
+        }
+
+        setUser(currentUser);
+        setPerfil(perfilUsuario);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error al obtener perfil:', error);
         router.push('/admin');
       }
-    });
+    } else {
+      router.push('/admin');
+    }
+  });
 
-    return () => unsubscribe();
-  }, [router]);
+  return () => unsubscribe();
+}, [router, pathname]); // Agregar pathname como dependencia
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {

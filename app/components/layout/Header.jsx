@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Menu, X, Home, Shield, Wrench, Users, MessageSquare, ChevronDown, Flame, Eye, Zap, LogIn, LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
+import { auth } from '../../../lib/firebase';
 
 import { useRouter } from "next/navigation";
 

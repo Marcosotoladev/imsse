@@ -27,11 +27,12 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
-import apiService from '../../../lib/services/apiService';
+import { auth } from '../../../../lib/firebase';
+import apiService from '../../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import OrdenTrabajoPDF from '../../../components/pdf/OrdenTrabajoPDF';
 import SignatureCanvas from 'react-signature-canvas';
+import tecnicoService from '../../../../lib/services/tecnicoService';
 
 export default function CrearOrdenTrabajo() {
   const [user, setUser] = useState(null);
@@ -39,6 +40,7 @@ export default function CrearOrdenTrabajo() {
   const [guardando, setGuardando] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mostrarPDF, setMostrarPDF] = useState(false);
+  const [perfil, setPerfil] = useState(null);
   const router = useRouter();
 
   // NUEVO: Estados para gestión de clientes
@@ -84,23 +86,39 @@ export default function CrearOrdenTrabajo() {
     }
   });
 
+  // Reemplaza el useEffect completo:
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
+        try {
+          // ✅ AGREGADO: Obtener perfil del usuario
+          const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
 
-        // Generar número de orden automático
-        const now = new Date();
-        const numeroOrden = `OT${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+          // Verificar que tenga acceso (admin o técnico)
+          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+            router.push('/cliente/dashboard');
+            return;
+          }
 
-        setOrden(prev => ({
-          ...prev,
-          numero: numeroOrden,
-          fechaTrabajo: now.toISOString().split('T')[0]
-        }));
+          setUser(currentUser);
+          setPerfil(perfilUsuario); // ✅ AGREGADO
 
-        cargarClientesDisponibles(); // ← Agregar carga de clientes
-        setLoading(false);
+          // Generar número de orden automático
+          const now = new Date();
+          const numeroOrden = `OT${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+
+          setOrden(prev => ({
+            ...prev,
+            numero: numeroOrden,
+            fechaTrabajo: now.toISOString().split('T')[0]
+          }));
+
+          cargarClientesDisponibles(perfilUsuario); // ✅ MODIFICADO: pasar perfil
+          setLoading(false);
+        } catch (error) {
+          console.error('Error al obtener perfil:', error);
+          router.push('/admin');
+        }
       } else {
         router.push('/admin');
       }
@@ -109,18 +127,31 @@ export default function CrearOrdenTrabajo() {
     return () => unsubscribe();
   }, [router]);
 
-  // NUEVA FUNCIÓN: Cargar clientes activos del sistema
-  const cargarClientesDisponibles = async () => {
+  // Reemplaza SOLO esta función en tu código existente:
+  const cargarClientesDisponibles = async (perfilUsuario) => {
     setCargandoClientes(true);
     try {
-      const usuariosData = await apiService.obtenerUsuarios();
-      const clientes = usuariosData.users.filter(u => 
-        u.rol === 'cliente' && u.estado === 'activo'
-      );
+      let clientes = [];
+
+      if (perfilUsuario && perfilUsuario.rol === 'tecnico') {
+        // ✅ TÉCNICOS: usar endpoint específico
+        console.log('Cargando clientes para técnico...');
+        const clientesData = await tecnicoService.obtenerClientes();
+        clientes = clientesData.users || clientesData.clientes || [];
+      } else {
+        // ✅ ADMIN: usar endpoint normal
+        console.log('Cargando clientes para admin...');
+        const usuariosData = await apiService.obtenerUsuarios();
+        clientes = usuariosData.users.filter(u =>
+          u.rol === 'cliente' && u.estado === 'activo'
+        );
+      }
+
       setClientesDisponibles(clientes);
       console.log('Clientes disponibles:', clientes);
     } catch (error) {
       console.error('Error al cargar clientes:', error);
+      setClientesDisponibles([]);
     } finally {
       setCargandoClientes(false);
     }
@@ -130,8 +161,8 @@ export default function CrearOrdenTrabajo() {
   const handleSeleccionarCliente = (clienteId) => {
     if (!clienteId) {
       setClienteSeleccionado(null);
-      setOrden(prev => ({ 
-        ...prev, 
+      setOrden(prev => ({
+        ...prev,
         clienteId: '',
         cliente: {
           empresa: '',
@@ -147,8 +178,8 @@ export default function CrearOrdenTrabajo() {
     const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
     if (clienteEncontrado) {
       setClienteSeleccionado(clienteEncontrado);
-      setOrden(prev => ({ 
-        ...prev, 
+      setOrden(prev => ({
+        ...prev,
         clienteId: clienteId,
         cliente: {
           empresa: clienteEncontrado.empresa || '',
@@ -167,8 +198,8 @@ export default function CrearOrdenTrabajo() {
     if (tipo === 'manual') {
       // Limpiar selección y permitir edición manual
       setClienteSeleccionado(null);
-      setOrden(prev => ({ 
-        ...prev, 
+      setOrden(prev => ({
+        ...prev,
         clienteId: '',
         cliente: {
           empresa: '',
@@ -635,7 +666,7 @@ export default function CrearOrdenTrabajo() {
               <User className="mr-2" size={20} />
               Selección de Cliente
             </h3>
-            
+
             {/* Toggle entre cliente existente y manual */}
             <div className="mb-6">
               <div className="flex mb-4 space-x-4">
@@ -684,7 +715,7 @@ export default function CrearOrdenTrabajo() {
                       </option>
                     ))}
                   </select>
-                  
+
                   {/* Información del cliente seleccionado */}
                   {clienteSeleccionado && (
                     <div className="p-3 mt-3 bg-white border border-green-200 rounded">
@@ -697,10 +728,10 @@ export default function CrearOrdenTrabajo() {
                       </div>
                     </div>
                   )}
-                  
+
                   {clientesDisponibles.length === 0 && !cargandoClientes && (
                     <p className="mt-2 text-sm text-yellow-600">
-                      No hay clientes activos en el sistema. 
+                      No hay clientes activos en el sistema.
                       <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
                         Crear cliente aquí
                       </Link>
@@ -796,7 +827,7 @@ export default function CrearOrdenTrabajo() {
                 />
               </div>
             </div>
-            
+
             {/* Indicadores de asignación */}
             {tipoCliente === 'existente' && clienteSeleccionado && (
               <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
@@ -807,7 +838,7 @@ export default function CrearOrdenTrabajo() {
                 </p>
               </div>
             )}
-            
+
             {tipoCliente === 'manual' && (
               <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
                 <p className="text-sm text-yellow-800">
@@ -988,7 +1019,7 @@ export default function CrearOrdenTrabajo() {
                         <button
                           type="button"
                           onClick={() => removeFoto(foto.id)}
-                          className="absolute p-1 text-white transition-opacity bg-red-500 rounded-full opacity-0 top-1 right-1 group-hover:opacity-100"
+                          className="absolute p-1 text-white bg-red-500 rounded-full top-1 right-1"
                         >
                           <Trash2 size={12} />
                         </button>

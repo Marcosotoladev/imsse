@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { MessageCircle, X, Shield } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
+import { auth } from '../../../lib/firebase';
 
 const WhatsAppBadge = ({ phoneNumber }) => {
   const [isVisible, setIsVisible] = useState(false);
