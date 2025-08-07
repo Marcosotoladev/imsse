@@ -1,4 +1,4 @@
-// components/admin/AdminLayout.jsx - Layout con filtros por rol
+// components/admin/AdminLayout.jsx - Layout con filtros por rol + Calendario de Visitas
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -19,7 +19,8 @@ import {
   Bell,
   BarChart3,
   ChevronRight,
-  Users
+  Users,
+  CalendarDays
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -142,11 +143,17 @@ useEffect(() => {
         case 'recordatorios':
           displayName = 'Recordatorios';
           break;
+        case 'calendario-visitas':
+          displayName = 'Calendario de Visitas';
+          break;
         case 'usuarios':
           displayName = 'Gestión de Usuarios';
           break;
         case 'nuevo':
           displayName = 'Nuevo';
+          break;
+        case 'nueva':
+          displayName = 'Nueva';
           break;
         case 'editar':
           displayName = 'Editar';
@@ -171,7 +178,14 @@ useEffect(() => {
       name: 'Panel de Control',
       path: '/admin/panel-control',
       icon: BarChart3,
-      roles: ['admin', 'tecnico'] // Ambos roles
+      roles: ['admin'], // Solo admin ve el panel-control normal
+      pathTecnico: '/admin/dashboard-tecnico' // Técnicos van a su dashboard específico
+    },
+    {
+      name: 'Panel de Control',
+      path: '/admin/dashboard-tecnico',
+      icon: BarChart3,
+      roles: ['tecnico'] // Solo técnicos ven su dashboard
     },
     {
       name: 'Presupuestos',
@@ -208,6 +222,12 @@ useEffect(() => {
       path: '/admin/recordatorios',
       icon: Bell,
       roles: ['admin', 'tecnico'] // Ambos roles
+    },
+    {
+      name: 'Calendario de Visitas',
+      path: '/admin/calendario-visitas',
+      icon: CalendarDays,
+      roles: ['admin', 'tecnico'] // Ambos roles - NUEVO
     },
     {
       name: 'Gestión de Usuarios',

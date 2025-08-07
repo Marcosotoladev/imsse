@@ -1,4 +1,4 @@
-// pages/api/documents/[type]/count.js - Contar documentos sin traer todos
+// pages/api/documents/[type]/count.js - MODIFICADO para incluir visitas
 import { withAuth, ROLES } from '../../../../lib/auth-middleware';
 import { firestore } from '../../../../lib/firebase-admin';
 
@@ -16,7 +16,8 @@ async function handler(req, res) {
     remitos: 'remitos',
     estados: 'estados_cuenta',
     ordenes: 'ordenes_trabajo',
-    recordatorios: 'recordatorios'
+    recordatorios: 'recordatorios',
+    visitas: 'visitas'
   };
 
   if (!COLLECTIONS[type]) {
@@ -38,15 +39,18 @@ async function handler(req, res) {
       
       query = query.where('clienteId', '==', user.uid);
     } else if (user.role === ROLES.TECNICO) {
-      if (!['ordenes', 'recordatorios'].includes(type)) {
+      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
+      // ✅ CAMBIO: Para visitas, no filtrar por técnico asignado
+      // Solo aplicar filtro para órdenes y recordatorios:
       if (type === 'ordenes') {
         query = query.where('tecnicoAsignado.id', '==', user.uid);
       } else if (type === 'recordatorios') {
         query = query.where('asignadoA', '==', user.uid);
       }
+      // Para 'visitas' no aplicamos filtro adicional - técnicos ven todas las visitas
     }
 
     // Filtros adicionales

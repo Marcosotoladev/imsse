@@ -9,7 +9,8 @@ const COLLECTIONS = {
   remitos: 'remitos',
   estados: 'estados_cuenta',
   ordenes: 'ordenes_trabajo',
-  recordatorios: 'recordatorios'
+  recordatorios: 'recordatorios',
+  visitas: 'visitas'
 };
 
 async function handler(req, res) {
@@ -91,8 +92,8 @@ async function getDocuments(req, res, type, user) {
       }
       
     } else if (user.role === ROLES.TECNICO) {
-      // ✅ CAMBIO PRINCIPAL: Técnico puede ver TODOS los documentos de órdenes y recordatorios
-      if (!['ordenes', 'recordatorios'].includes(type)) {
+      // ✅ CAMBIO PRINCIPAL: Técnico puede ver TODOS los documentos de órdenes, recordatorios y visitas
+      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
@@ -237,7 +238,7 @@ async function createDocument(req, res, type, user) {
       return res.status(403).json({ error: 'Clients cannot create documents' });
     }
 
-    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios'].includes(type)) {
+    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios', 'visitas'].includes(type)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -270,11 +271,18 @@ async function createDocument(req, res, type, user) {
       estado: data.estado || 'pendiente'
     };
 
+    // Para visitas, agregar campos específicos de auditoría
+    if (type === 'visitas') {
+      docData.usuarioCreador = user.displayName || user.email || 'Usuario IMSSE';
+      docData.emailCreador = user.email || 'admin@imsse.com';
+    }
+
     // Log para debugging
     console.log(`Creando ${type} con datos:`, {
       clienteId: docData.clienteId,
       numero: docData.numero,
-      creadoPor: docData.creadoPor
+      creadoPor: docData.creadoPor,
+      tipo: type
     });
 
     const docRef = await firestore.collection(collection).add(docData);

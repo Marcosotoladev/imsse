@@ -1,4 +1,4 @@
-// app/admin/dashboard-tecnico/page.jsx - Dashboard simple para técnicos
+// app/admin/dashboard-tecnico/page.jsx - Dashboard final para técnicos con calendario
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +12,9 @@ import {
   CheckCircle,
   User,
   Building,
-  Calendar
+  Calendar,
+  CalendarDays,
+  MapPin
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -25,7 +27,8 @@ export default function DashboardTecnico() {
   const [loading, setLoading] = useState(true);
   const [estadisticas, setEstadisticas] = useState({
     ordenes: 0,
-    recordatorios: 0
+    recordatorios: 0,
+    visitas: 0
   });
 
   useEffect(() => {
@@ -69,14 +72,16 @@ export default function DashboardTecnico() {
     try {
       setLoading(true);
       
-      // Cargar solo las cantidades
-      const [ordenesResponse, recordatoriosResponse] = await Promise.allSettled([
+      // Cargar estadísticas incluyendo visitas
+      const [ordenesResponse, recordatoriosResponse, visitasResponse] = await Promise.allSettled([
         apiService.obtenerOrdenesTrabajo(),
-        apiService.obtenerRecordatorios()
+        apiService.obtenerRecordatorios(),
+        apiService.obtenerVisitas()
       ]);
 
       let totalOrdenes = 0;
       let totalRecordatorios = 0;
+      let totalVisitas = 0;
 
       // Procesar órdenes
       if (ordenesResponse.status === 'fulfilled') {
@@ -90,15 +95,20 @@ export default function DashboardTecnico() {
         totalRecordatorios = Array.isArray(recordatorios) ? recordatorios.length : 0;
       }
 
+      // Procesar visitas
+      if (visitasResponse.status === 'fulfilled') {
+        const visitas = visitasResponse.value?.documents || visitasResponse.value || [];
+        totalVisitas = Array.isArray(visitas) ? visitas.length : 0;
+      }
+
       setEstadisticas({
         ordenes: totalOrdenes,
-        recordatorios: totalRecordatorios
+        recordatorios: totalRecordatorios,
+        visitas: totalVisitas
       });
 
-      console.log(`📊 Estadísticas cargadas: ${totalOrdenes} órdenes, ${totalRecordatorios} recordatorios`);
-
     } catch (error) {
-      console.error('❌ Error al cargar estadísticas:', error);
+      console.error('Error al cargar estadísticas:', error);
     } finally {
       setLoading(false);
     }
@@ -201,8 +211,8 @@ export default function DashboardTecnico() {
           </div>
         </div>
 
-        {/* Cards de estadísticas - Solo 2 cards */}
-        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2">
+        {/* Cards de estadísticas - 3 cards */}
+        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
           {/* Card Órdenes de Trabajo */}
           <Link
             href="/admin/ordenes"
@@ -248,12 +258,35 @@ export default function DashboardTecnico() {
               </div>
             </div>
           </Link>
+
+          {/* Card Calendario de Visitas */}
+          <Link
+            href="/admin/calendario-visitas"
+            className="p-6 transition-all bg-white border-l-4 rounded-lg shadow border-l-blue-500 hover:shadow-lg hover:bg-blue-50"
+          >
+            <div className="flex items-center">
+              <div className="flex-shrink-0 p-3 bg-blue-100 rounded-lg">
+                <CalendarDays size={24} className="text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-900">
+                  Calendario Visitas
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {estadisticas.visitas}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Click para ver calendario
+                </p>
+              </div>
+            </div>
+          </Link>
         </div>
 
-        {/* Acciones Rápidas - Solo 2 botones */}
+        {/* Acciones Rápidas - 3 botones */}
         <div className="mb-8">
           <h3 className="mb-4 text-xl font-semibold text-gray-900">Acciones Rápidas</h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Link
               href="/admin/ordenes/nuevo"
               className="flex items-center p-6 transition-all bg-white border-2 border-red-200 rounded-lg shadow hover:border-red-400 hover:bg-red-50"
@@ -262,8 +295,8 @@ export default function DashboardTecnico() {
                 <Plus size={24} className="text-red-600" />
               </div>
               <div className="ml-4">
-                <h4 className="text-lg font-medium text-red-800">Nueva Orden de Trabajo</h4>
-                <p className="text-sm text-red-600">Crear nueva orden de trabajo</p>
+                <h4 className="text-lg font-medium text-red-800">Nueva Orden</h4>
+                <p className="text-sm text-red-600">Crear orden de trabajo</p>
               </div>
             </Link>
 
@@ -276,7 +309,21 @@ export default function DashboardTecnico() {
               </div>
               <div className="ml-4">
                 <h4 className="text-lg font-medium text-yellow-800">Nuevo Recordatorio</h4>
-                <p className="text-sm text-yellow-600">Crear nuevo recordatorio</p>
+                <p className="text-sm text-yellow-600">Crear recordatorio</p>
+              </div>
+            </Link>
+
+            {/* Botón Nueva Visita */}
+            <Link
+              href="/admin/calendario-visitas/nueva"
+              className="flex items-center p-6 transition-all bg-white border-2 border-blue-200 rounded-lg shadow hover:border-blue-400 hover:bg-blue-50"
+            >
+              <div className="flex-shrink-0 p-3 bg-blue-100 rounded-lg">
+                <MapPin size={24} className="text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <h4 className="text-lg font-medium text-blue-800">Nueva Visita</h4>
+                <p className="text-sm text-blue-600">Programar visita</p>
               </div>
             </Link>
           </div>
@@ -286,7 +333,7 @@ export default function DashboardTecnico() {
         <div className="p-6 mt-8 text-center bg-white border border-blue-200 rounded-lg shadow-md">
           <div className="text-sm text-gray-600">
             <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-            <p>Panel Técnico - Gestión de órdenes y recordatorios</p>
+            <p>Panel Técnico - Gestión completa</p>
             <p className="mt-2">
               <span className="font-medium">Técnico:</span> {perfil?.nombreCompleto}
             </p>

@@ -1,4 +1,4 @@
-// app/admin/panel-control/page.jsx - Panel Simplificado para Admin y Técnicos
+// app/admin/panel-control/page.jsx - Panel Final con Calendario de Visitas
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +13,9 @@ import {
   Truck,
   CreditCard,
   Wrench,
-  Bell
+  Bell,
+  CalendarDays,
+  MapPin
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -30,12 +32,13 @@ export default function PanelControl() {
   const configuracionModulos = {
     admin: {
       documentos: [
-        { key: 'presupuestos', nombre: 'Presupuestos', icono: FileText, color: 'blue', acceso: true },
-        { key: 'recibos', nombre: 'Recibos', icono: Receipt, color: 'green', acceso: true },
-        { key: 'remitos', nombre: 'Remitos', icono: Truck, color: 'purple', acceso: true },
-        { key: 'estados', nombre: 'Estados de Cuenta', icono: CreditCard, color: 'orange', acceso: true },
-        { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', acceso: true },
-        { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', acceso: true }
+        { key: 'presupuestos', nombre: 'Presupuestos', icono: FileText, color: 'blue' },
+        { key: 'recibos', nombre: 'Recibos', icono: Receipt, color: 'green' },
+        { key: 'remitos', nombre: 'Remitos', icono: Truck, color: 'purple' },
+        { key: 'estados', nombre: 'Estados de Cuenta', icono: CreditCard, color: 'orange' },
+        { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red' },
+        { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow' },
+        { key: 'visitas', nombre: 'Calendario Visitas', icono: CalendarDays, color: 'indigo' }
       ],
       accionesRapidas: [
         { key: 'presupuestos', nombre: 'Nuevo Presupuesto', icono: FileText, url: '/admin/presupuestos/nuevo', color: 'blue' },
@@ -43,17 +46,20 @@ export default function PanelControl() {
         { key: 'recibos', nombre: 'Nuevo Recibo', icono: Receipt, url: '/admin/recibos/nuevo', color: 'green' },
         { key: 'remitos', nombre: 'Nuevo Remito', icono: Truck, url: '/admin/remitos/nuevo', color: 'purple' },
         { key: 'ordenes', nombre: 'Nueva Orden de Trabajo', icono: Wrench, url: '/admin/ordenes/nuevo', color: 'red' },
-        { key: 'recordatorios', nombre: 'Nuevo Recordatorio', icono: Bell, url: '/admin/recordatorios/nuevo', color: 'yellow' }
+        { key: 'recordatorios', nombre: 'Nuevo Recordatorio', icono: Bell, url: '/admin/recordatorios/nuevo', color: 'yellow' },
+        { key: 'visitas', nombre: 'Nueva Visita', icono: MapPin, url: '/admin/calendario-visitas/nueva', color: 'indigo' }
       ]
     },
     tecnico: {
       documentos: [
-        { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', acceso: true },
-        { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', acceso: true }
+        { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red' },
+        { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow' },
+        { key: 'visitas', nombre: 'Calendario Visitas', icono: CalendarDays, color: 'indigo' }
       ],
       accionesRapidas: [
         { key: 'ordenes', nombre: 'Nueva Orden de Trabajo', icono: Wrench, url: '/admin/ordenes/nuevo', color: 'red' },
-        { key: 'recordatorios', nombre: 'Nuevo Recordatorio', icono: Bell, url: '/admin/recordatorios/nuevo', color: 'yellow' }
+        { key: 'recordatorios', nombre: 'Nuevo Recordatorio', icono: Bell, url: '/admin/recordatorios/nuevo', color: 'yellow' },
+        { key: 'visitas', nombre: 'Nueva Visita', icono: MapPin, url: '/admin/calendario-visitas/nueva', color: 'indigo' }
       ]
     }
   };
@@ -64,13 +70,11 @@ export default function PanelControl() {
         try {
           const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
           
-          // Verificar que tenga acceso (admin o técnico)
           if (perfilUsuario.rol !== 'admin' && perfilUsuario.rol !== 'tecnico') {
             router.push('/cliente/dashboard');
             return;
           }
 
-          // Verificar estado activo
           if (perfilUsuario.estado !== 'activo') {
             router.push('/admin');
             return;
@@ -94,19 +98,19 @@ export default function PanelControl() {
   const cargarEstadisticas = async (perfilUsuario) => {
     try {
       setLoading(true);
-      
       const stats = {};
 
       if (perfilUsuario.rol === 'admin') {
-        // Admin ve todo
+        // Admin ve todo incluyendo visitas
         try {
-          const [presupuestos, recibos, remitos, estados, ordenes, recordatorios, usuarios] = await Promise.allSettled([
+          const [presupuestos, recibos, remitos, estados, ordenes, recordatorios, visitas, usuarios] = await Promise.allSettled([
             apiService.obtenerPresupuestos(),
             apiService.obtenerRecibos(),
             apiService.obtenerRemitos(),
             apiService.obtenerEstadosCuenta(),
             apiService.obtenerOrdenesTrabajo(),
             apiService.obtenerRecordatorios(),
+            apiService.obtenerVisitas(),
             apiService.obtenerUsuarios()
           ]);
 
@@ -116,21 +120,24 @@ export default function PanelControl() {
           stats.estados = estados.status === 'fulfilled' ? (estados.value?.documents || estados.value || []).length : 0;
           stats.ordenes = ordenes.status === 'fulfilled' ? (ordenes.value?.documents || ordenes.value || []).length : 0;
           stats.recordatorios = recordatorios.status === 'fulfilled' ? (recordatorios.value?.documents || recordatorios.value || []).length : 0;
+          stats.visitas = visitas.status === 'fulfilled' ? (visitas.value?.documents || visitas.value || []).length : 0;
           stats.usuarios = usuarios.status === 'fulfilled' ? (usuarios.value?.users || usuarios.value || []).length : 0;
 
         } catch (error) {
           console.error('Error cargando datos de admin:', error);
         }
       } else if (perfilUsuario.rol === 'tecnico') {
-        // Técnico solo ve órdenes y recordatorios
+        // Técnico ve órdenes, recordatorios y visitas
         try {
-          const [ordenes, recordatorios] = await Promise.allSettled([
+          const [ordenes, recordatorios, visitas] = await Promise.allSettled([
             apiService.obtenerOrdenesTrabajo(),
-            apiService.obtenerRecordatorios()
+            apiService.obtenerRecordatorios(),
+            apiService.obtenerVisitas()
           ]);
 
           stats.ordenes = ordenes.status === 'fulfilled' ? (ordenes.value?.documents || ordenes.value || []).length : 0;
           stats.recordatorios = recordatorios.status === 'fulfilled' ? (recordatorios.value?.documents || recordatorios.value || []).length : 0;
+          stats.visitas = visitas.status === 'fulfilled' ? (visitas.value?.documents || visitas.value || []).length : 0;
 
         } catch (error) {
           console.error('Error cargando datos de técnico:', error);
@@ -161,7 +168,8 @@ export default function PanelControl() {
       purple: 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200',
       orange: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
       red: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
-      yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200'
+      yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
+      indigo: 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200'
     };
     return colores[color] || colores.blue;
   };
@@ -173,7 +181,8 @@ export default function PanelControl() {
       purple: 'bg-white border-2 border-purple-200 text-purple-800 hover:border-purple-400 hover:bg-purple-50',
       orange: 'bg-white border-2 border-orange-200 text-orange-800 hover:border-orange-400 hover:bg-orange-50',
       red: 'bg-white border-2 border-red-200 text-red-800 hover:border-red-400 hover:bg-red-50',
-      yellow: 'bg-white border-2 border-yellow-200 text-yellow-800 hover:border-yellow-400 hover:bg-yellow-50'
+      yellow: 'bg-white border-2 border-yellow-200 text-yellow-800 hover:border-yellow-400 hover:bg-yellow-50',
+      indigo: 'bg-white border-2 border-indigo-200 text-indigo-800 hover:border-indigo-400 hover:bg-indigo-50'
     };
     return colores[color] || colores.blue;
   };
@@ -185,7 +194,8 @@ export default function PanelControl() {
       purple: 'bg-purple-100',
       orange: 'bg-orange-100',
       red: 'bg-red-100',
-      yellow: 'bg-yellow-100'
+      yellow: 'bg-yellow-100',
+      indigo: 'bg-indigo-100'
     };
     return colores[color] || colores.blue;
   };
@@ -197,7 +207,8 @@ export default function PanelControl() {
       purple: 'text-purple-600',
       orange: 'text-orange-600',
       red: 'text-red-600',
-      yellow: 'text-yellow-600'
+      yellow: 'text-yellow-600',
+      indigo: 'text-indigo-600'
     };
     return colores[color] || colores.blue;
   };
@@ -260,26 +271,27 @@ export default function PanelControl() {
           <p className="text-gray-600">
             {perfil?.rol === 'admin' 
               ? 'Panel completo de administración del sistema IMSSE'
-              : 'Gestiona tus órdenes de trabajo y recordatorios'
+              : 'Gestiona tus órdenes de trabajo, recordatorios y calendario de visitas'
             }
           </p>
         </div>
 
         {/* Estadísticas de documentos */}
-        <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 mb-8 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {configuracion.documentos.map((modulo) => {
             const IconoComponente = modulo.icono;
             const cantidad = estadisticas[modulo.key] || 0;
+            const url = modulo.key === 'visitas' ? '/admin/calendario-visitas' : `/admin/${modulo.key}`;
 
             return (
               <Link
                 key={modulo.key}
-                href={`/admin/${modulo.key}`}
+                href={url}
                 className={`p-4 md:p-6 rounded-lg shadow transition-colors border ${getColorClasses(modulo.color)}`}
               >
                 <div className="flex flex-col items-center text-center md:flex-row md:text-left">
                   <div className="flex-shrink-0 p-2 mb-3 bg-white rounded-lg shadow-sm md:p-3 md:mb-0">
-                    <IconoComponente size={20} className={`md:size-6 text-${modulo.color}-600`} />
+                    <IconoComponente size={20} className={`md:size-6 ${getIconColorClasses(modulo.color)}`} />
                   </div>
                   <div className="md:ml-4">
                     <p className="text-xs font-medium md:text-sm">
@@ -351,13 +363,13 @@ export default function PanelControl() {
         <div className="p-6 text-center bg-white border border-blue-200 rounded-lg shadow-md">
           <div className="text-sm text-gray-600">
             <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-            <p>Sistema de gestión de documentos - Protección contra incendios</p>
+            <p>Sistema de gestión completo - Protección contra incendios</p>
             <p className="mt-2">
               <span className="font-medium">
                 {perfil?.rol === 'admin' ? 'Panel de Administración' : 'Panel Técnico'}
               </span>
               {perfil?.rol === 'tecnico' && (
-                <span> - Órdenes de trabajo y recordatorios</span>
+                <span> - Órdenes, recordatorios y calendario de visitas</span>
               )}
             </p>
           </div>

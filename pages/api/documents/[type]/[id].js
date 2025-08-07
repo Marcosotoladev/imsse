@@ -1,4 +1,4 @@
-// pages/api/documents/[type]/[id].js
+// pages/api/documents/[type]/[id].js - MODIFICADO
 import { withAuth, ROLES } from '../../../../lib/auth-middleware';
 import { firestore } from '../../../../lib/firebase-admin';
 import admin from '../../../../lib/firebase-admin';
@@ -9,7 +9,8 @@ const COLLECTIONS = {
   remitos: 'remitos',
   estados: 'estados_cuenta',
   ordenes: 'ordenes_trabajo',
-  recordatorios: 'recordatorios'
+  recordatorios: 'recordatorios',
+  visitas: 'visitas'
 };
 
 async function handler(req, res) {
@@ -50,8 +51,8 @@ async function getDocument(req, res, type, id, user) {
     }
 
     if (user.role === ROLES.TECNICO) {
-      // ✅ CAMBIO: Técnicos pueden acceder a TODAS las órdenes y recordatorios
-      if (!['ordenes', 'recordatorios'].includes(type)) {
+      // ✅ CAMBIO: Técnicos pueden acceder a órdenes, recordatorios Y VISITAS
+      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       // ✅ Removemos las verificaciones de asignación específica
@@ -95,8 +96,8 @@ async function updateDocument(req, res, type, id, user) {
     }
 
     if (user.role === ROLES.TECNICO) {
-      // ✅ CAMBIO: Técnicos pueden editar TODAS las órdenes y recordatorios
-      if (!['ordenes', 'recordatorios'].includes(type)) {
+      // ✅ CAMBIO: Técnicos pueden editar órdenes, recordatorios Y VISITAS
+      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
@@ -109,11 +110,13 @@ async function updateDocument(req, res, type, id, user) {
       //   return res.status(403).json({ error: 'Access denied' });
       // }
       
-      // ✅ CAMBIO: Técnicos pueden actualizar más campos
+      // ✅ CAMBIO: Técnicos pueden actualizar más campos incluyendo campos de visitas
       const allowedFields = [
         'estado', 'notas', 'fechaCompletado', 'descripcionTrabajo', 'fotos',
         'titulo', 'descripcion', 'fechaRecordatorio', 'prioridad', 'completado',
-        'cliente', 'direccion', 'telefono', 'email', 'observaciones'
+        'cliente', 'direccion', 'telefono', 'email', 'observaciones',
+        // Campos específicos para visitas:
+        'fecha', 'hora', 'empresa', 'detalle'
       ];
       updateData = {};
       
@@ -125,6 +128,11 @@ async function updateDocument(req, res, type, id, user) {
       
       updateData.fechaModificacion = admin.firestore.FieldValue.serverTimestamp();
       updateData.modificadoPor = user.uid;
+      
+      // Para visitas, agregar campos de auditoría específicos
+      if (type === 'visitas') {
+        updateData.usuarioModificador = user.displayName || user.email || 'Usuario IMSSE';
+      }
     } else {
       // Admin puede actualizar todo
       updateData = {
@@ -132,6 +140,11 @@ async function updateDocument(req, res, type, id, user) {
         fechaModificacion: admin.firestore.FieldValue.serverTimestamp(),
         modificadoPor: user.uid
       };
+      
+      // Para visitas, agregar campos de auditoría específicos
+      if (type === 'visitas') {
+        updateData.usuarioModificador = user.displayName || user.email || 'Usuario IMSSE';
+      }
     }
 
     await docRef.update(updateData);
@@ -149,12 +162,12 @@ async function updateDocument(req, res, type, id, user) {
 
 async function deleteDocument(req, res, type, id, user) {
   try {
-    // ✅ CAMBIO: Técnicos también pueden eliminar órdenes y recordatorios
+    // ✅ CAMBIO: Técnicos también pueden eliminar órdenes, recordatorios Y VISITAS
     if (user.role === ROLES.CLIENTE) {
       return res.status(403).json({ error: 'Clients cannot delete documents' });
     }
 
-    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios'].includes(type)) {
+    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios', 'visitas'].includes(type)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
