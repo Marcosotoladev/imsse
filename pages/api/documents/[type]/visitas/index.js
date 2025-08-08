@@ -1,5 +1,5 @@
 // pages/api/documents/visitas/index.js - API para gestión de visitas IMSSE
-import { db } from '../../../../lib/firebase';
+import { db } from '../../../../../lib/firebase';
 import { 
   collection, 
   addDoc, 

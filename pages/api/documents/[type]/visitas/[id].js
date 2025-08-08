@@ -1,5 +1,5 @@
 // pages/api/documents/visitas/[id].js - API para operaciones CRUD de visita individual
-import { db } from '../../../../lib/firebase';
+import { db } from '../../../../../lib/firebase';
 import { 
   doc, 
   getDoc, 
