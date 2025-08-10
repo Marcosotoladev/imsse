@@ -2,6 +2,7 @@ import './globals.css';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import WhatsAppBadge from './components/ui/WhatsAppBadge';
+import PWARegister from './components/PWARegister';
 
 export const metadata = {
   title: 'IMSSE',
@@ -13,8 +14,7 @@ export const metadata = {
   'og:description': 'Protegemos vidas y patrimonio con sistemas de seguridad contra incendios de última generación',
   'og:type': 'website',
   'og:site_name': 'IMSSE Ingeniería SAS',
-  // ✅ PWA Configuration
-  manifest: '/manifest.json',
+  // ✅ PWA Configuration CORREGIDO
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -25,7 +25,6 @@ export const metadata = {
   },
 }
 
-// ✅ VIEWPORT SEPARADO (requerido en Next.js 14+)
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -37,12 +36,13 @@ export default function RootLayout({ children }) {
     <html lang="es">
       <head>
         <link rel="icon" href="/favicon.ico" />
+        <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        {/* ✅ PWA Icons */}
         <link rel="apple-touch-icon" sizes="192x192" href="/icon-192x192.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icon-512x512.png" />
       </head>
       <body className="flex flex-col min-h-screen">
+        <PWARegister />
         <Header/>
 
         <main className="flex-grow">
