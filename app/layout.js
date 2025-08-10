@@ -49,7 +49,7 @@ export default function RootLayout({ children }) {
           {children}
         </main>
         <Footer />
-        <WhatsAppBadge phoneNumber="+5493516810777" />
+        <WhatsAppBadge phoneNumber="+5493515484437" />
       </body>
     </html>
   );
