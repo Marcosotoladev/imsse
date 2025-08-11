@@ -42,14 +42,15 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" sizes="512x512" href="/icon-512x512.png" />
       </head>
       <body className="flex flex-col min-h-screen">
-        <PWARegister />
-        <Header/>
+        <Header />
 
         <main className="flex-grow">
           {children}
         </main>
         <Footer />
         <WhatsAppBadge phoneNumber="+5493515484437" />
+        <PWARegister />
+
       </body>
     </html>
   );
