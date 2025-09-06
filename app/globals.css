@@ -44,6 +44,86 @@ body {
   font-family: 'Open Sans', Arial, Helvetica, sans-serif;
 }
 
+/* ==========================================
+   SOLUCIÓN PARA INPUTS - AGREGADO
+   ========================================== */
+
+/* Estilos base para todos los inputs */
+input, textarea, select {
+  color: #374151 !important; /* text-gray-700 */
+  background-color: #ffffff !important;
+  border: 1px solid #d1d5db; /* border-gray-300 */
+}
+
+/* Placeholder más visible */
+input::placeholder, 
+textarea::placeholder {
+  color: #9ca3af !important; /* text-gray-400 */
+  opacity: 1 !important;
+}
+
+/* Estados de focus */
+input:focus, 
+textarea:focus, 
+select:focus {
+  color: #111827 !important; /* text-gray-900 */
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Para modo oscuro */
+@media (prefers-color-scheme: dark) {
+  input, textarea, select {
+    color: #f9fafb !important; /* text-gray-50 */
+    background-color: #374151 !important; /* bg-gray-700 */
+    border-color: #6b7280; /* border-gray-500 */
+  }
+  
+  input::placeholder, 
+  textarea::placeholder {
+    color: #9ca3af !important; /* text-gray-400 */
+  }
+  
+  input:focus, 
+  textarea:focus, 
+  select:focus {
+    color: #ffffff !important;
+    background-color: #4b5563 !important; /* bg-gray-600 */
+    border-color: var(--secondary);
+    box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
+  }
+}
+
+/* Estilos específicos para diferentes tipos de input */
+input[type="email"], 
+input[type="password"], 
+input[type="text"], 
+input[type="number"], 
+input[type="tel"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Autocompletado de navegadores */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: #374151 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #374151 inset !important;
+    -webkit-text-fill-color: #f9fafb !important;
+  }
+}
+
 .font-montserrat {
   font-family: 'Montserrat', Arial, Helvetica, sans-serif;
 }
@@ -260,7 +340,3 @@ body {
   right: 0;
   background: linear-gradient(to left, rgba(255,255,255,1), rgba(255,255,255,0));
 }
-
-/* ==========================================
-   FIN SOLUCIÓN PARA TABLAS MÓVILES
-   ========================================== */

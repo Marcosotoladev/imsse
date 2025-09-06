@@ -1,4 +1,4 @@
-// components/admin/AdminLayout.jsx - Layout con filtros por rol + Calendario de Visitas
+// components/admin/AdminLayout.jsx - Layout con sidebar scrolleable
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -35,43 +35,40 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
 
-// En tu components/admin/AdminLayout.jsx
-// Reemplaza SOLO la parte del useEffect donde se verifica el usuario:
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          // Obtener perfil del usuario para conocer su rol
+          const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
+          
+          // Verificar que tenga acceso al panel admin
+          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+            router.push('/cliente/dashboard');
+            return;
+          }
 
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-    if (currentUser) {
-      try {
-        // Obtener perfil del usuario para conocer su rol
-        const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
-        
-        // Verificar que tenga acceso al panel admin
-        if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
-          router.push('/cliente/dashboard');
-          return;
+          // NUEVO: Redirigir técnicos a su dashboard específico
+          // Solo si están intentando acceder al panel-control
+          if (perfilUsuario.rol === 'tecnico' && pathname === '/admin/panel-control') {
+            router.push('/admin/dashboard-tecnico');
+            return;
+          }
+
+          setUser(currentUser);
+          setPerfil(perfilUsuario);
+          setLoading(false);
+        } catch (error) {
+          console.error('Error al obtener perfil:', error);
+          router.push('/admin');
         }
-
-        // NUEVO: Redirigir técnicos a su dashboard específico
-        // Solo si están intentando acceder al panel-control
-        if (perfilUsuario.rol === 'tecnico' && pathname === '/admin/panel-control') {
-          router.push('/admin/dashboard-tecnico');
-          return;
-        }
-
-        setUser(currentUser);
-        setPerfil(perfilUsuario);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error al obtener perfil:', error);
+      } else {
         router.push('/admin');
       }
-    } else {
-      router.push('/admin');
-    }
-  });
+    });
 
-  return () => unsubscribe();
-}, [router, pathname]); // Agregar pathname como dependencia
+    return () => unsubscribe();
+  }, [router, pathname]);
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -259,11 +256,34 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-gray-50"> {/* Agregamos pt-20 para el navbar principal */}      
-      <div className="flex">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header principal fijo */}
+      <header className="fixed top-0 left-0 right-0 z-50 text-white shadow-lg bg-primary">
+        <div className="container flex items-center justify-between px-4 py-4 mx-auto">
+          <div className="flex items-center">
+            <img 
+              src="/logo/imsse-logo.png" 
+              alt="IMSSE Logo" 
+              className="w-8 h-8 mr-3"
+            />
+            <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="hidden md:inline">{user?.email}</span>
+            <button
+              onClick={handleLogout}
+              className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
+            >
+              <LogOut size={18} className="mr-2" /> Salir
+            </button>
+          </div>
+        </div>
+      </header>
+      
+      <div className="flex pt-20"> {/* pt-20 para el header fijo */}
         {/* Dropdown de navegación móvil */}
         <div className="lg:hidden" ref={dropdownRef}>
-          <div className="fixed z-40 w-full px-4 py-2 bg-white shadow-md top-20"> {/* top-20 para estar debajo del navbar */}
+          <div className="fixed z-40 w-full px-4 py-2 bg-white shadow-md top-20">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
               className="flex items-center justify-between w-full px-4 py-3 text-left bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -323,32 +343,36 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Sidebar para desktop */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-white shadow-lg lg:block top-20"> {/* top-20 para estar debajo del navbar */}
-          <nav className="p-4 space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
-              
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-primary text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon size={20} className="mr-3" />
-                  {item.name}
-                </Link>
-              );
-            })}
+        {/* SIDEBAR CORREGIDO - CON SCROLL */}
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-white shadow-lg lg:block top-20">
+          {/* Contenedor principal del sidebar con scroll */}
+          <div className="flex flex-col h-full">
+            {/* Navegación scrolleable */}
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
+                
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
+                      isActive
+                        ? 'bg-primary text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon size={20} className="mr-3" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
             
-            {/* Información del usuario en sidebar */}
-            <div className="pt-6 mt-6 border-t border-gray-200">
-              <div className="px-4 py-3 rounded-lg bg-gray-50">
+            {/* Información del usuario fija en la parte inferior */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <div className="px-4 py-3 bg-white rounded-lg">
                 <p className="text-sm font-medium text-gray-900">{perfil?.nombreCompleto}</p>
                 <p className="text-xs text-gray-500 capitalize">{perfil?.rol}</p>
                 <div className="mt-2">
@@ -362,7 +386,7 @@ useEffect(() => {
                 </div>
               </div>
             </div>
-          </nav>
+          </div>
         </aside>
 
         {/* Contenido principal */}

@@ -1,11 +1,11 @@
-// app/admin/page.jsx - Login mejorado con redirección por rol
+// app/admin/page.jsx - Login mejorado con redirección por rol + recuperación de contraseña
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle, UserPlus } from 'lucide-react';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import apiService from '../../lib/services/apiService';
 
@@ -19,6 +19,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verificandoSesion, setVerificandoSesion] = useState(true);
+
+  // Estados para recuperación de contraseña
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+  const [resetError, setResetError] = useState('');
 
   // Verificar si ya hay una sesión activa
   useEffect(() => {
@@ -157,6 +164,51 @@ export default function Login() {
     }
   };
 
+  // FUNCIÓN NUEVA: Recuperación de contraseña
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    
+    if (!resetEmail) {
+      setResetError('Por favor ingresa tu email');
+      return;
+    }
+
+    setResetLoading(true);
+    setResetError('');
+    setResetMessage('');
+
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setResetMessage('¡Email enviado! Revisa tu bandeja de entrada y spam.');
+      
+      // Cerrar modal después de 3 segundos
+      setTimeout(() => {
+        setShowResetModal(false);
+        setResetEmail('');
+        setResetMessage('');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error al enviar email de recuperación:', error);
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          setResetError('No existe una cuenta con este email');
+          break;
+        case 'auth/invalid-email':
+          setResetError('Email no válido');
+          break;
+        case 'auth/too-many-requests':
+          setResetError('Demasiados intentos. Espera un momento');
+          break;
+        default:
+          setResetError('Error al enviar el email. Inténtalo de nuevo');
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   // Mostrar loading mientras verifica la sesión
   if (verificandoSesion) {
     return (
@@ -255,6 +307,17 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* ENLACE DE RECUPERACIÓN DE CONTRASEÑA - NUEVO */}
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(true)}
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+
               {/* Botón de Google */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -344,6 +407,98 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE RECUPERACIÓN DE CONTRASEÑA - NUEVO */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Recuperar Contraseña
+              </h3>
+              <button
+                onClick={() => {
+                  setShowResetModal(false);
+                  setResetEmail('');
+                  setResetError('');
+                  setResetMessage('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mb-4 text-sm text-gray-600">
+              Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
+            </p>
+
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              {/* Error del reset */}
+              {resetError && (
+                <div className="flex items-center p-3 border border-red-200 rounded-lg bg-red-50">
+                  <AlertCircle className="flex-shrink-0 w-4 h-4 mr-2 text-red-600" />
+                  <p className="text-sm text-red-700">{resetError}</p>
+                </div>
+              )}
+
+              {/* Mensaje de éxito */}
+              {resetMessage && (
+                <div className="flex items-center p-3 border border-green-200 rounded-lg bg-green-50">
+                  <CheckCircle className="flex-shrink-0 w-4 h-4 mr-2 text-green-600" />
+                  <p className="text-sm text-green-700">{resetMessage}</p>
+                </div>
+              )}
+
+              {/* Email para reset */}
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => {
+                      setResetEmail(e.target.value);
+                      setResetError('');
+                    }}
+                    className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="tu@empresa.com"
+                    disabled={resetLoading}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Botones */}
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetModal(false);
+                    setResetEmail('');
+                    setResetError('');
+                    setResetMessage('');
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 transition-colors border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={resetLoading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="flex-1 px-4 py-2 text-white transition-colors rounded-md bg-primary hover:bg-red-700 disabled:opacity-50"
+                >
+                  {resetLoading ? 'Enviando...' : 'Enviar Email'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

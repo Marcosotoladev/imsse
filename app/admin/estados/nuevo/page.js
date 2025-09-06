@@ -1,4 +1,4 @@
-// app/admin/estados/nuevo/page.jsx - CON SCROLL HORIZONTAL MÓVIL
+// app/admin/estados/nuevo/page.jsx - CON NÚMEROS CORREGIDOS
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -50,16 +50,29 @@ export default function CrearEstadoCuenta() {
     observaciones: ''
   });
 
-  // FUNCIÓN SEGURA PARA PARSEAR NÚMEROS
-  const parseSecureFloat = (value) => {
-    if (value === '' || value === null || value === undefined) return 0;
+  // FUNCIÓN MEJORADA PARA PARSEAR NÚMEROS COMO STRINGS
+  const parseSecureNumber = (value) => {
+    if (value === '' || value === null || value === undefined) return '';
     
-    const cleanValue = String(value).replace(/[^\d.-]/g, '');
-    const parsed = parseFloat(cleanValue);
+    // Convertir a string y limpiar
+    const stringValue = String(value).trim();
     
-    if (isNaN(parsed)) return 0;
+    // Si está vacío después del trim, devolver vacío
+    if (stringValue === '') return '';
     
-    return Math.round(parsed * 100) / 100;
+    // Remover caracteres no numéricos excepto . y -
+    const cleanValue = stringValue.replace(/[^\d.-]/g, '');
+    
+    // Validar que sea un número válido
+    if (!/^-?\d*\.?\d*$/.test(cleanValue)) return '';
+    
+    return cleanValue; // Devolver como string, no como número
+  };
+
+  // FUNCIÓN PARA CONVERTIR A NÚMERO SOLO PARA CÁLCULOS
+  const toNumber = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
   };
 
   useEffect(() => {
@@ -178,7 +191,6 @@ export default function CrearEstadoCuenta() {
     setCliente({ ...cliente, [name]: value });
   };
 
-  // MANEJO MEJORADO DE CAMBIOS EN ESTADO
   const handleEstadoChange = (e) => {
     const { name, value } = e.target;
     if (name.includes('.')) {
@@ -195,10 +207,20 @@ export default function CrearEstadoCuenta() {
     }
   };
 
+  // MANEJO MEJORADO DE SALDO ANTERIOR
+  const handleSaldoAnteriorChange = (e) => {
+    const cleanValue = parseSecureNumber(e.target.value);
+    setEstadoCuenta(prev => ({ ...prev, saldoAnterior: cleanValue }));
+  };
+
   // FUNCIÓN MEJORADA PARA MOVIMIENTOS
   const handleMovimientoChange = (id, field, value) => {
     const updatedMovimientos = estadoCuenta.movimientos.map(mov => {
       if (mov.id === id) {
+        if (field === 'monto') {
+          const cleanValue = parseSecureNumber(value);
+          return { ...mov, [field]: cleanValue };
+        }
         return { ...mov, [field]: value };
       }
       return mov;
@@ -238,21 +260,21 @@ export default function CrearEstadoCuenta() {
 
   // CÁLCULOS MEJORADOS
   const calcularSaldoActual = () => {
-    const saldoAnterior = parseSecureFloat(estadoCuenta.saldoAnterior);
+    const saldoAnterior = toNumber(estadoCuenta.saldoAnterior);
     const totalMovimientos = estadoCuenta.movimientos.reduce((sum, mov) => {
-      return sum + parseSecureFloat(mov.monto);
+      return sum + toNumber(mov.monto);
     }, 0);
     return Math.round((saldoAnterior + totalMovimientos) * 100) / 100;
   };
 
   const calcularTotales = () => {
     const totalCargos = estadoCuenta.movimientos.reduce((sum, mov) => {
-      const monto = parseSecureFloat(mov.monto);
+      const monto = toNumber(mov.monto);
       return monto > 0 ? sum + monto : sum;
     }, 0);
 
     const totalAbonos = estadoCuenta.movimientos.reduce((sum, mov) => {
-      const monto = parseSecureFloat(mov.monto);
+      const monto = toNumber(mov.monto);
       return monto < 0 ? sum + Math.abs(monto) : sum;
     }, 0);
 
@@ -271,7 +293,7 @@ export default function CrearEstadoCuenta() {
   };
 
   const getTipoMovimiento = (monto) => {
-    const valor = parseSecureFloat(monto);
+    const valor = toNumber(monto);
     if (valor > 0) return { 
       tipo: 'Cargo', 
       color: 'text-red-600 bg-red-50 border-red-200', 
@@ -324,10 +346,10 @@ export default function CrearEstadoCuenta() {
         clienteId: estadoCuenta.clienteId || null,
         tipoCliente: tipoCliente,
         periodo: estadoCuenta.periodo,
-        saldoAnterior: parseSecureFloat(estadoCuenta.saldoAnterior),
+        saldoAnterior: toNumber(estadoCuenta.saldoAnterior),
         movimientos: estadoCuenta.movimientos.map(mov => ({
           ...mov,
-          monto: parseSecureFloat(mov.monto)
+          monto: toNumber(mov.monto)
         })),
         saldoActual: calcularSaldoActual(),
         observaciones: estadoCuenta.observaciones,
@@ -476,17 +498,14 @@ export default function CrearEstadoCuenta() {
               <div className="mt-4">
                 <label className="block mb-1 text-sm font-medium text-gray-700">Saldo Anterior</label>
                 <input
-                  type="number"
+                  type="text"
                   name="saldoAnterior"
                   value={estadoCuenta.saldoAnterior}
-                  onChange={handleEstadoChange}
-                  step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent md:w-1/3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  onChange={handleSaldoAnteriorChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent md:w-1/3"
                   placeholder="0.00"
-                  onBlur={(e) => {
-                    const value = parseSecureFloat(e.target.value);
-                    setEstadoCuenta(prev => ({ ...prev, saldoAnterior: value }));
-                  }}
+                  inputMode="decimal"
+                  pattern="[0-9]*\.?[0-9]*"
                 />
               </div>
             </div>
@@ -678,7 +697,7 @@ export default function CrearEstadoCuenta() {
               )}
             </div>
 
-            {/* TABLA DE MOVIMIENTOS CON SCROLL HORIZONTAL MEJORADO */}
+            {/* TABLA DE MOVIMIENTOS CON NÚMEROS CORREGIDOS */}
             <div className="bg-white rounded-lg shadow-md">
               <div className="p-4 border-b border-gray-200 sm:p-6">
                 <h3 className="flex items-center text-lg font-medium text-gray-900">
@@ -742,16 +761,13 @@ export default function CrearEstadoCuenta() {
                             </td>
                             <td className="px-3 py-4 whitespace-nowrap sm:px-6">
                               <input
-                                type="number"
+                                type="text"
                                 value={movimiento.monto}
                                 onChange={(e) => handleMovimientoChange(movimiento.id, 'monto', e.target.value)}
-                                step="0.01"
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                 placeholder="0.00"
-                                onBlur={(e) => {
-                                  const value = parseSecureFloat(e.target.value);
-                                  handleMovimientoChange(movimiento.id, 'monto', value);
-                                }}
+                                inputMode="decimal"
+                                pattern="-?[0-9]*\.?[0-9]*"
                               />
                               <div className="mt-1 text-xs text-gray-500">
                                 + suma | - resta
@@ -763,7 +779,7 @@ export default function CrearEstadoCuenta() {
                                 {tipoInfo.tipo}
                               </div>
                               <div className={`text-xs mt-1 font-medium ${tipoInfo.textColor}`}>
-                                {formatCurrency(Math.abs(parseSecureFloat(movimiento.monto)))}
+                                {formatCurrency(Math.abs(toNumber(movimiento.monto)))}
                               </div>
                             </td>
                             <td className="px-3 py-4 text-center whitespace-nowrap sm:px-6">
@@ -824,7 +840,7 @@ export default function CrearEstadoCuenta() {
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                   <div className="p-3 bg-white border border-gray-200 rounded">
                     <span className="block text-xs text-gray-600">Saldo Anterior:</span>
-                    <span className="text-sm font-bold text-gray-800">{formatCurrency(parseSecureFloat(estadoCuenta.saldoAnterior))}</span>
+                    <span className="text-sm font-bold text-gray-800">{formatCurrency(toNumber(estadoCuenta.saldoAnterior))}</span>
                   </div>
                   <div className="p-3 bg-white border border-red-200 rounded">
                     <span className="block text-xs text-gray-600">Total Cargos:</span>
