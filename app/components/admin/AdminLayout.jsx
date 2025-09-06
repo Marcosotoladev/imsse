@@ -20,7 +20,8 @@ import {
   BarChart3,
   ChevronRight,
   Users,
-  CalendarDays
+  CalendarDays,
+  Clock
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -143,6 +144,9 @@ export default function AdminLayout({ children }) {
         case 'calendario-visitas':
           displayName = 'Calendario de Visitas';
           break;
+        case 'control-asistencia':
+          displayName = 'Control de Asistencia';
+          break;
         case 'usuarios':
           displayName = 'Gestión de Usuarios';
           break;
@@ -225,6 +229,12 @@ export default function AdminLayout({ children }) {
       path: '/admin/calendario-visitas',
       icon: CalendarDays,
       roles: ['admin', 'tecnico'] // Ambos roles - NUEVO
+    },
+    {
+      name: 'Control de Asistencia',
+      path: '/admin/control-asistencia/admin',
+      icon: Clock,
+      roles: ['admin'] // Solo admin
     },
     {
       name: 'Gestión de Usuarios',

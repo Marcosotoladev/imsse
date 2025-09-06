@@ -1,4 +1,4 @@
-// app/admin/panel-control/page.jsx - Panel Final con Calendario de Visitas
+// app/admin/panel-control/page.jsx - Panel Final con Calendario de Visitas y Control de Asistencia
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,7 +15,8 @@ import {
   Wrench,
   Bell,
   CalendarDays,
-  MapPin
+  MapPin,
+  Clock
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -38,7 +39,8 @@ export default function PanelControl() {
         { key: 'estados', nombre: 'Estados de Cuenta', icono: CreditCard, color: 'orange' },
         { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red' },
         { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow' },
-        { key: 'visitas', nombre: 'Calendario Visitas', icono: CalendarDays, color: 'indigo' }
+        { key: 'visitas', nombre: 'Calendario Visitas', icono: CalendarDays, color: 'indigo' },
+        { key: 'asistencia', nombre: 'Control Asistencia', icono: Clock, color: 'teal' }
       ],
       accionesRapidas: [
         { key: 'presupuestos', nombre: 'Nuevo Presupuesto', icono: FileText, url: '/admin/presupuestos/nuevo', color: 'blue' },
@@ -47,7 +49,8 @@ export default function PanelControl() {
         { key: 'remitos', nombre: 'Nuevo Remito', icono: Truck, url: '/admin/remitos/nuevo', color: 'purple' },
         { key: 'ordenes', nombre: 'Nueva Orden de Trabajo', icono: Wrench, url: '/admin/ordenes/nuevo', color: 'red' },
         { key: 'recordatorios', nombre: 'Nuevo Recordatorio', icono: Bell, url: '/admin/recordatorios/nuevo', color: 'yellow' },
-        { key: 'visitas', nombre: 'Nueva Visita', icono: MapPin, url: '/admin/calendario-visitas/nueva', color: 'indigo' }
+        { key: 'visitas', nombre: 'Nueva Visita', icono: MapPin, url: '/admin/calendario-visitas/nueva', color: 'indigo' },
+        { key: 'asistencia', nombre: 'Ver Asistencia', icono: Clock, url: '/admin/control-asistencia/admin', color: 'teal' }
       ]
     },
     tecnico: {
@@ -101,9 +104,9 @@ export default function PanelControl() {
       const stats = {};
 
       if (perfilUsuario.rol === 'admin') {
-        // Admin ve todo incluyendo visitas
+        // Admin ve todo incluyendo visitas y asistencia
         try {
-          const [presupuestos, recibos, remitos, estados, ordenes, recordatorios, visitas, usuarios] = await Promise.allSettled([
+          const [presupuestos, recibos, remitos, estados, ordenes, recordatorios, visitas, usuarios, asistencia] = await Promise.allSettled([
             apiService.obtenerPresupuestos(),
             apiService.obtenerRecibos(),
             apiService.obtenerRemitos(),
@@ -111,7 +114,9 @@ export default function PanelControl() {
             apiService.obtenerOrdenesTrabajo(),
             apiService.obtenerRecordatorios(),
             apiService.obtenerVisitas(),
-            apiService.obtenerUsuarios()
+            apiService.obtenerUsuarios(),
+            // Cargar marcaciones de asistencia
+            apiService.obtenerMarcaciones({})
           ]);
 
           stats.presupuestos = presupuestos.status === 'fulfilled' ? (presupuestos.value?.documents || presupuestos.value || []).length : 0;
@@ -122,6 +127,7 @@ export default function PanelControl() {
           stats.recordatorios = recordatorios.status === 'fulfilled' ? (recordatorios.value?.documents || recordatorios.value || []).length : 0;
           stats.visitas = visitas.status === 'fulfilled' ? (visitas.value?.documents || visitas.value || []).length : 0;
           stats.usuarios = usuarios.status === 'fulfilled' ? (usuarios.value?.users || usuarios.value || []).length : 0;
+          stats.asistencia = asistencia.status === 'fulfilled' ? (asistencia.value?.documents || asistencia.value || []).length : 0;
 
         } catch (error) {
           console.error('Error cargando datos de admin:', error);
@@ -169,7 +175,8 @@ export default function PanelControl() {
       orange: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
       red: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
       yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
-      indigo: 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200'
+      indigo: 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200',
+      teal: 'bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200'
     };
     return colores[color] || colores.blue;
   };
@@ -182,7 +189,8 @@ export default function PanelControl() {
       orange: 'bg-white border-2 border-orange-200 text-orange-800 hover:border-orange-400 hover:bg-orange-50',
       red: 'bg-white border-2 border-red-200 text-red-800 hover:border-red-400 hover:bg-red-50',
       yellow: 'bg-white border-2 border-yellow-200 text-yellow-800 hover:border-yellow-400 hover:bg-yellow-50',
-      indigo: 'bg-white border-2 border-indigo-200 text-indigo-800 hover:border-indigo-400 hover:bg-indigo-50'
+      indigo: 'bg-white border-2 border-indigo-200 text-indigo-800 hover:border-indigo-400 hover:bg-indigo-50',
+      teal: 'bg-white border-2 border-teal-200 text-teal-800 hover:border-teal-400 hover:bg-teal-50'
     };
     return colores[color] || colores.blue;
   };
@@ -195,7 +203,8 @@ export default function PanelControl() {
       orange: 'bg-orange-100',
       red: 'bg-red-100',
       yellow: 'bg-yellow-100',
-      indigo: 'bg-indigo-100'
+      indigo: 'bg-indigo-100',
+      teal: 'bg-teal-100'
     };
     return colores[color] || colores.blue;
   };
@@ -208,7 +217,8 @@ export default function PanelControl() {
       orange: 'text-orange-600',
       red: 'text-red-600',
       yellow: 'text-yellow-600',
-      indigo: 'text-indigo-600'
+      indigo: 'text-indigo-600',
+      teal: 'text-teal-600'
     };
     return colores[color] || colores.blue;
   };
@@ -281,7 +291,16 @@ export default function PanelControl() {
           {configuracion.documentos.map((modulo) => {
             const IconoComponente = modulo.icono;
             const cantidad = estadisticas[modulo.key] || 0;
-            const url = modulo.key === 'visitas' ? '/admin/calendario-visitas' : `/admin/${modulo.key}`;
+            let url;
+            
+            // Configurar URL específica para cada módulo
+            if (modulo.key === 'visitas') {
+              url = '/admin/calendario-visitas';
+            } else if (modulo.key === 'asistencia') {
+              url = '/admin/control-asistencia/admin';
+            } else {
+              url = `/admin/${modulo.key}`;
+            }
 
             return (
               <Link
@@ -349,7 +368,10 @@ export default function PanelControl() {
                     <div className="ml-4">
                       <h4 className="text-sm font-medium">{accion.nombre}</h4>
                       <p className="text-xs opacity-75">
-                        Crear {accion.nombre.toLowerCase().replace('nuevo ', '').replace('nueva ', '')}
+                        {accion.key === 'asistencia' 
+                          ? 'Ver registros de asistencia'
+                          : `Crear ${accion.nombre.toLowerCase().replace('nuevo ', '').replace('nueva ', '')}`
+                        }
                       </p>
                     </div>
                   </div>

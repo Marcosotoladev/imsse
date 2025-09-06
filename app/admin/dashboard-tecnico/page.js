@@ -1,4 +1,4 @@
-// app/admin/dashboard-tecnico/page.jsx - Dashboard final para técnicos con calendario
+// app/admin/dashboard-tecnico/page.jsx - Dashboard con Control de Asistencia
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +14,9 @@ import {
   Building,
   Calendar,
   CalendarDays,
-  MapPin
+  MapPin,
+  Clock,
+  Navigation
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -28,7 +30,8 @@ export default function DashboardTecnico() {
   const [estadisticas, setEstadisticas] = useState({
     ordenes: 0,
     recordatorios: 0,
-    visitas: 0
+    visitas: 0,
+    marcaciones: 0 // Nueva estadística
   });
 
   useEffect(() => {
@@ -72,16 +75,18 @@ export default function DashboardTecnico() {
     try {
       setLoading(true);
       
-      // Cargar estadísticas incluyendo visitas
-      const [ordenesResponse, recordatoriosResponse, visitasResponse] = await Promise.allSettled([
+      // Cargar estadísticas incluyendo marcaciones
+      const [ordenesResponse, recordatoriosResponse, visitasResponse, marcacionesResponse] = await Promise.allSettled([
         apiService.obtenerOrdenesTrabajo(),
         apiService.obtenerRecordatorios(),
-        apiService.obtenerVisitas()
+        apiService.obtenerVisitas(),
+        apiService.obtenerMarcacionesTecnico(auth.currentUser?.uid)
       ]);
 
       let totalOrdenes = 0;
       let totalRecordatorios = 0;
       let totalVisitas = 0;
+      let totalMarcaciones = 0;
 
       // Procesar órdenes
       if (ordenesResponse.status === 'fulfilled') {
@@ -101,10 +106,17 @@ export default function DashboardTecnico() {
         totalVisitas = Array.isArray(visitas) ? visitas.length : 0;
       }
 
+      // Procesar marcaciones
+      if (marcacionesResponse.status === 'fulfilled') {
+        const marcaciones = marcacionesResponse.value?.documents || marcacionesResponse.value || [];
+        totalMarcaciones = Array.isArray(marcaciones) ? marcaciones.length : 0;
+      }
+
       setEstadisticas({
         ordenes: totalOrdenes,
         recordatorios: totalRecordatorios,
-        visitas: totalVisitas
+        visitas: totalVisitas,
+        marcaciones: totalMarcaciones
       });
 
     } catch (error) {
@@ -211,8 +223,8 @@ export default function DashboardTecnico() {
           </div>
         </div>
 
-        {/* Cards de estadísticas - 3 cards */}
-        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
+        {/* Cards de estadísticas - AHORA 4 cards */}
+        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4">
           {/* Card Órdenes de Trabajo */}
           <Link
             href="/admin/ordenes"
@@ -281,12 +293,35 @@ export default function DashboardTecnico() {
               </div>
             </div>
           </Link>
+
+          {/* NUEVA Card Control de Asistencia */}
+          <Link
+            href="/admin/control-asistencia"
+            className="p-6 transition-all bg-white border-l-4 rounded-lg shadow border-l-green-500 hover:shadow-lg hover:bg-green-50"
+          >
+            <div className="flex items-center">
+              <div className="flex-shrink-0 p-3 bg-green-100 rounded-lg">
+                <Clock size={24} className="text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-900">
+                  Control Asistencia
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {estadisticas.marcaciones}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Click para marcar
+                </p>
+              </div>
+            </div>
+          </Link>
         </div>
 
-        {/* Acciones Rápidas - 3 botones */}
+        {/* Acciones Rápidas - AHORA 4 botones */}
         <div className="mb-8">
           <h3 className="mb-4 text-xl font-semibold text-gray-900">Acciones Rápidas</h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Link
               href="/admin/ordenes/nuevo"
               className="flex items-center p-6 transition-all bg-white border-2 border-red-200 rounded-lg shadow hover:border-red-400 hover:bg-red-50"
@@ -313,7 +348,6 @@ export default function DashboardTecnico() {
               </div>
             </Link>
 
-            {/* Botón Nueva Visita */}
             <Link
               href="/admin/calendario-visitas/nueva"
               className="flex items-center p-6 transition-all bg-white border-2 border-blue-200 rounded-lg shadow hover:border-blue-400 hover:bg-blue-50"
@@ -324,6 +358,20 @@ export default function DashboardTecnico() {
               <div className="ml-4">
                 <h4 className="text-lg font-medium text-blue-800">Nueva Visita</h4>
                 <p className="text-sm text-blue-600">Programar visita</p>
+              </div>
+            </Link>
+
+            {/* NUEVO Botón Marcar Asistencia */}
+            <Link
+              href="/admin/control-asistencia/marcar"
+              className="flex items-center p-6 transition-all bg-white border-2 border-green-200 rounded-lg shadow hover:border-green-400 hover:bg-green-50"
+            >
+              <div className="flex-shrink-0 p-3 bg-green-100 rounded-lg">
+                <Navigation size={24} className="text-green-600" />
+              </div>
+              <div className="ml-4">
+                <h4 className="text-lg font-medium text-green-800">Marcar Asistencia</h4>
+                <p className="text-sm text-green-600">Registrar entrada/salida</p>
               </div>
             </Link>
           </div>
