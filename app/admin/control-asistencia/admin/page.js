@@ -1,4 +1,4 @@
-// app/admin/control-asistencia/admin/page.jsx - Panel administrador offline con eliminar marcaciones
+// app/admin/control-asistencia/admin/page.jsx - Panel administrador offline con eliminar marcaciones - MOBILE FIXED
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -256,24 +256,24 @@ export default function PanelAdminMarcaciones() {
       <header className="text-white shadow bg-primary">
         <div className="px-4 py-3 mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            <div className="flex items-center min-w-0">
               <Link
                 href="/admin/control-asistencia"
-                className="flex items-center p-2 mr-4 text-white rounded-md hover:bg-red-700"
+                className="flex items-center flex-shrink-0 p-2 mr-4 text-white rounded-md hover:bg-red-700"
               >
                 <ArrowLeft size={20} />
               </Link>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-lg font-bold md:text-xl font-montserrat">Panel Administrador</h1>
                 <p className="text-xs text-red-100 md:text-sm">Control de Asistencia</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* Indicador de conexión */}
               <OfflineIndicator className="text-white" />
               
-              <div className="text-right">
-                <p className="text-sm font-medium">{perfil?.nombreCompleto}</p>
+              <div className="text-right min-w-0">
+                <p className="text-sm font-medium truncate">{perfil?.nombreCompleto}</p>
                 <p className="text-xs text-red-100">Administrador</p>
               </div>
             </div>
@@ -285,9 +285,9 @@ export default function PanelAdminMarcaciones() {
         {/* Alerta de modo offline */}
         {isOffline && (
           <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">
-            <div className="flex items-center gap-2">
-              <WifiOff size={20} className="text-orange-600" />
-              <div>
+            <div className="flex items-start gap-2">
+              <WifiOff size={20} className="flex-shrink-0 text-orange-600 mt-0.5" />
+              <div className="min-w-0">
                 <p className="font-medium text-orange-800">Sin Conexión</p>
                 <p className="text-sm text-orange-600">
                   Mostrando datos almacenados. Algunas funciones pueden estar limitadas.
@@ -298,15 +298,15 @@ export default function PanelAdminMarcaciones() {
         )}
 
         {/* Estadísticas */}
-        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
-          <div className="p-6 bg-white border border-blue-200 rounded-lg shadow">
+        <div className="grid grid-cols-1 gap-4 mb-8 md:grid-cols-3 sm:gap-6">
+          <div className="p-4 bg-white border border-blue-200 rounded-lg shadow sm:p-6">
             <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <User size={24} className="text-blue-600" />
+              <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg sm:p-3">
+                <User size={20} className="text-blue-600 sm:w-6 sm:h-6" />
               </div>
-              <div className="ml-4">
+              <div className="ml-3 sm:ml-4 min-w-0">
                 <p className="text-sm font-medium text-gray-900">Total Marcaciones</p>
-                <p className="text-3xl font-bold text-blue-800">{estadisticas.total}</p>
+                <p className="text-2xl font-bold text-blue-800 sm:text-3xl">{estadisticas.total}</p>
                 {isOffline && (
                   <p className="text-xs text-orange-600">Datos locales</p>
                 )}
@@ -314,40 +314,40 @@ export default function PanelAdminMarcaciones() {
             </div>
           </div>
 
-          <div className="p-6 bg-white border border-green-200 rounded-lg shadow">
+          <div className="p-4 bg-white border border-green-200 rounded-lg shadow sm:p-6">
             <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <LogIn size={24} className="text-green-600" />
+              <div className="flex-shrink-0 p-2 bg-green-100 rounded-lg sm:p-3">
+                <LogIn size={20} className="text-green-600 sm:w-6 sm:h-6" />
               </div>
-              <div className="ml-4">
+              <div className="ml-3 sm:ml-4 min-w-0">
                 <p className="text-sm font-medium text-gray-900">Técnicos en Obra</p>
-                <p className="text-3xl font-bold text-green-800">{estadisticas.enObra}</p>
+                <p className="text-2xl font-bold text-green-800 sm:text-3xl">{estadisticas.enObra}</p>
               </div>
             </div>
           </div>
 
-          <div className="p-6 bg-white border border-red-200 rounded-lg shadow">
+          <div className="p-4 bg-white border border-red-200 rounded-lg shadow sm:p-6">
             <div className="flex items-center">
-              <div className="p-3 bg-red-100 rounded-lg">
-                <LogOut size={24} className="text-red-600" />
+              <div className="flex-shrink-0 p-2 bg-red-100 rounded-lg sm:p-3">
+                <LogOut size={20} className="text-red-600 sm:w-6 sm:h-6" />
               </div>
-              <div className="ml-4">
+              <div className="ml-3 sm:ml-4 min-w-0">
                 <p className="text-sm font-medium text-gray-900">Técnicos Fuera</p>
-                <p className="text-3xl font-bold text-red-800">{estadisticas.fueraObra}</p>
+                <p className="text-2xl font-bold text-red-800 sm:text-3xl">{estadisticas.fueraObra}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Controles */}
-        <div className="p-6 mb-8 bg-white rounded-lg shadow">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Filtros */}
-            <div className="flex flex-wrap gap-4">
+        <div className="p-4 mb-8 bg-white rounded-lg shadow sm:p-6">
+          <div className="space-y-4">
+            {/* Filtros - Stack en móvil */}
+            <div className="space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:gap-4">
               <select
                 value={filtros.tecnico}
                 onChange={(e) => setFiltros({...filtros, tecnico: e.target.value})}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary sm:w-auto"
                 disabled={isOffline}
               >
                 <option value="">Todos los técnicos</option>
@@ -362,14 +362,14 @@ export default function PanelAdminMarcaciones() {
                 type="date"
                 value={filtros.fecha}
                 onChange={(e) => setFiltros({...filtros, fecha: e.target.value})}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary sm:w-auto"
                 disabled={isOffline}
               />
 
               <select
                 value={filtros.tipo}
                 onChange={(e) => setFiltros({...filtros, tipo: e.target.value})}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary sm:w-auto"
                 disabled={isOffline}
               >
                 <option value="">Todos los tipos</option>
@@ -380,19 +380,19 @@ export default function PanelAdminMarcaciones() {
               <button
                 onClick={aplicarFiltros}
                 disabled={isOffline}
-                className="flex items-center px-4 py-2 text-white rounded-md bg-primary hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto flex items-center justify-center px-4 py-2 text-white rounded-md bg-primary hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Filter size={16} className="mr-2" />
                 Filtrar
               </button>
             </div>
 
-            {/* Controles de vista */}
-            <div className="flex gap-2">
+            {/* Controles de vista - Stack en móvil */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
               <div className="flex border border-gray-300 rounded-md">
                 <button
                   onClick={() => setVista('mapa')}
-                  className={`flex items-center px-3 py-2 text-sm ${
+                  className={`flex-1 sm:flex-none flex items-center justify-center px-3 py-2 text-sm ${
                     vista === 'mapa' 
                       ? 'bg-primary text-white' 
                       : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -403,7 +403,7 @@ export default function PanelAdminMarcaciones() {
                 </button>
                 <button
                   onClick={() => setVista('lista')}
-                  className={`flex items-center px-3 py-2 text-sm ${
+                  className={`flex-1 sm:flex-none flex items-center justify-center px-3 py-2 text-sm ${
                     vista === 'lista' 
                       ? 'bg-primary text-white' 
                       : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -414,22 +414,28 @@ export default function PanelAdminMarcaciones() {
                 </button>
               </div>
 
-              <button
-                onClick={exportarDatos}
-                className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                <Download size={16} className="mr-2" />
-                Exportar
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={exportarDatos}
+                  className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <Download size={16} className="mr-2" />
+                  <span className="hidden sm:inline">Exportar</span>
+                  <span className="sm:hidden">CSV</span>
+                </button>
 
-              <button
-                onClick={isOffline ? cargarMarcaciones : sincronizarDatos}
-                disabled={sincronizando}
-                className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-              >
-                <RefreshCw size={16} className={`mr-2 ${sincronizando ? 'animate-spin' : ''}`} />
-                {sincronizando ? 'Sincronizando...' : isOffline ? 'Actualizar' : 'Sincronizar'}
-              </button>
+                <button
+                  onClick={isOffline ? cargarMarcaciones : sincronizarDatos}
+                  disabled={sincronizando}
+                  className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <RefreshCw size={16} className={`mr-2 ${sincronizando ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">
+                    {sincronizando ? 'Sincronizando...' : isOffline ? 'Actualizar' : 'Sincronizar'}
+                  </span>
+                  <span className="sm:hidden">Sync</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -444,7 +450,7 @@ export default function PanelAdminMarcaciones() {
                 {isOffline && <span className="text-orange-600"> (Datos locales)</span>}
               </p>
             </div>
-            <div className="p-4">
+            <div className="p-2 sm:p-4">
               <MapaMarcaciones marcaciones={marcaciones} />
             </div>
           </div>
@@ -456,99 +462,110 @@ export default function PanelAdminMarcaciones() {
                 <p className="text-sm text-orange-600">Mostrando datos almacenados localmente</p>
               )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Técnico
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Tipo
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Fecha y Hora
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Ubicación
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {marcaciones.map((marcacion) => (
-                    <tr key={marcacion.id} className={`hover:bg-gray-50 ${marcacion.isPending ? 'bg-orange-50' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <User size={16} className="mr-2 text-gray-400" />
-                          <span className="text-sm font-medium text-gray-900">
-                            {marcacion.tecnicoNombre}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          marcacion.tipo === 'ingreso'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {marcacion.tipo === 'ingreso' ? (
-                            <LogIn size={12} className="mr-1" />
-                          ) : (
-                            <LogOut size={12} className="mr-1" />
-                          )}
-                          {marcacion.tipo}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Clock size={16} className="mr-2 text-gray-400" />
-                          {formatearFecha(marcacion.timestamp)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-500">
-                          <MapPin size={16} className="mr-2 text-gray-400" />
-                          {marcacion.coordenadas?.latitud?.toFixed(4) || 'N/A'}, {marcacion.coordenadas?.longitud?.toFixed(4) || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {marcacion.isPending ? (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-orange-800 bg-orange-100 rounded-full">
-                            <AlertCircle size={12} className="mr-1" />
-                            Pendiente
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full">
-                            Sincronizado
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => setMarcacionAEliminar(marcacion)}
-                          className="p-2 text-red-600 transition-colors rounded-lg hover:bg-red-100"
-                          title="Eliminar marcación"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
+            
+            {/* Tabla con scroll horizontal completo */}
+            <div className="w-full overflow-x-auto">
+              <div className="inline-block min-w-full align-middle">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase whitespace-nowrap sm:px-6">
+                        Técnico
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase whitespace-nowrap sm:px-6">
+                        Tipo
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase whitespace-nowrap sm:px-6">
+                        Fecha y Hora
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase whitespace-nowrap sm:px-6">
+                        Ubicación
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase whitespace-nowrap sm:px-6">
+                        Estado
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase whitespace-nowrap sm:px-6">
+                        Acciones
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              {marcaciones.length === 0 && (
-                <div className="py-12 text-center">
-                  <MapPin size={48} className="mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500">No hay marcaciones que mostrar</p>
-                </div>
-              )}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {marcaciones.map((marcacion) => (
+                      <tr key={marcacion.id} className={`hover:bg-gray-50 ${marcacion.isPending ? 'bg-orange-50' : ''}`}>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="flex items-center">
+                            <User size={16} className="mr-2 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm font-medium text-gray-900 truncate max-w-24 sm:max-w-none" title={marcacion.tecnicoNombre}>
+                              {marcacion.tecnicoNombre}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                            marcacion.tipo === 'ingreso'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {marcacion.tipo === 'ingreso' ? (
+                              <LogIn size={10} className="mr-1 flex-shrink-0 sm:w-3 sm:h-3" />
+                            ) : (
+                              <LogOut size={10} className="mr-1 flex-shrink-0 sm:w-3 sm:h-3" />
+                            )}
+                            <span className="hidden sm:inline">{marcacion.tipo}</span>
+                            <span className="sm:hidden">{marcacion.tipo === 'ingreso' ? 'In' : 'Out'}</span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Clock size={14} className="mr-2 text-gray-400 flex-shrink-0 sm:w-4 sm:h-4" />
+                            <span className="whitespace-nowrap text-xs sm:text-sm">
+                              {formatearFecha(marcacion.timestamp)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <div className="flex items-center text-sm text-gray-500">
+                            <MapPin size={14} className="mr-2 text-gray-400 flex-shrink-0 sm:w-4 sm:h-4" />
+                            <span className="whitespace-nowrap text-xs sm:text-sm">
+                              {marcacion.coordenadas?.latitud?.toFixed(2) || 'N/A'}, {marcacion.coordenadas?.longitud?.toFixed(2) || 'N/A'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          {marcacion.isPending ? (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-orange-800 bg-orange-100 rounded-full whitespace-nowrap">
+                              <AlertCircle size={10} className="mr-1 flex-shrink-0 sm:w-3 sm:h-3" />
+                              <span className="hidden sm:inline">Pendiente</span>
+                              <span className="sm:hidden">Pend</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full whitespace-nowrap">
+                              <span className="hidden sm:inline">Sincronizado</span>
+                              <span className="sm:hidden">OK</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                          <button
+                            onClick={() => setMarcacionAEliminar(marcacion)}
+                            className="p-1.5 sm:p-2 text-red-600 transition-colors rounded-lg hover:bg-red-100"
+                            title="Eliminar marcación"
+                          >
+                            <Trash2 size={14} className="sm:w-4 sm:h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {marcaciones.length === 0 && (
+                  <div className="py-12 text-center">
+                    <MapPin size={48} className="mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-500">No hay marcaciones que mostrar</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -556,13 +573,13 @@ export default function PanelAdminMarcaciones() {
 
       {/* Modal de confirmación para eliminar */}
       {marcacionAEliminar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-md p-4 sm:p-6 bg-white rounded-lg shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
               <button
                 onClick={() => setMarcacionAEliminar(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600"
               >
                 <X size={20} />
               </button>

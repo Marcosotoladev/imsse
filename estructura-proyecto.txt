@@ -86,6 +86,7 @@ find . -type d -not -path "./node_modules*" -not -path "./.next*" -not -path "./
 |   |   |   └── edit
 |   |   └── new
 └── lib
+|   └── db
 |   └── hooks
 |   └── services
 └── pages

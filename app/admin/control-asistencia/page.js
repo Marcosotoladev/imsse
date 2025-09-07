@@ -1,4 +1,4 @@
-// app/admin/control-asistencia/page.jsx - Página principal del control de asistencia (versión offline)
+// app/admin/control-asistencia/page.jsx - Página principal del control de asistencia (versión offline) - MOBILE FIXED
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -204,24 +204,24 @@ export default function ControlAsistencia() {
       <header className="text-white shadow bg-primary">
         <div className="px-4 py-3 mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            <div className="flex items-center min-w-0">
               <Link
                 href="/admin/dashboard-tecnico"
-                className="flex items-center p-2 mr-4 text-white rounded-md hover:bg-red-700"
+                className="flex items-center flex-shrink-0 p-2 mr-4 text-white rounded-md hover:bg-red-700"
               >
                 <ArrowLeft size={20} />
               </Link>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-lg font-bold md:text-xl font-montserrat">Control de Asistencia</h1>
                 <p className="text-xs text-red-100 md:text-sm">Gestión de marcaciones</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* Indicador de conexión */}
               <OfflineIndicator className="text-white" />
               
-              <div className="text-right">
-                <p className="text-sm font-medium">{perfil?.nombreCompleto}</p>
+              <div className="min-w-0 text-right">
+                <p className="text-sm font-medium truncate">{perfil?.nombreCompleto}</p>
                 <p className="text-xs text-red-100">Técnico</p>
               </div>
             </div>
@@ -233,9 +233,9 @@ export default function ControlAsistencia() {
         {/* Alerta de modo offline */}
         {isOffline && (
           <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">
-            <div className="flex items-center gap-2">
-              <WifiOff size={20} className="text-orange-600" />
-              <div>
+            <div className="flex items-start gap-2">
+              <WifiOff size={20} className="flex-shrink-0 text-orange-600 mt-0.5" />
+              <div className="min-w-0">
                 <p className="font-medium text-orange-800">Modo Offline Activo</p>
                 <p className="text-sm text-orange-600">
                   Los datos se guardan localmente y se sincronizarán cuando recuperes la conexión.
@@ -246,15 +246,15 @@ export default function ControlAsistencia() {
         )}
 
         {/* Estado actual y estadísticas */}
-        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 mb-8 md:grid-cols-3 sm:gap-6">
           {/* Estado actual */}
-          <div className={`p-6 rounded-lg shadow ${
+          <div className={`p-4 sm:p-6 rounded-lg shadow ${
             estadoActual === 'en_obra' 
               ? 'bg-green-50 border border-green-200' 
               : 'bg-gray-50 border border-gray-200'
           }`}>
             <div className="flex items-center">
-              <div className={`p-3 rounded-lg ${
+              <div className={`p-2 sm:p-3 rounded-lg flex-shrink-0 ${
                 estadoActual === 'en_obra' ? 'bg-green-100' : 'bg-gray-100'
               }`}>
                 {estadoActual === 'en_obra' ? (
@@ -263,9 +263,9 @@ export default function ControlAsistencia() {
                   <AlertTriangle size={24} className="text-gray-600" />
                 )}
               </div>
-              <div className="ml-4">
+              <div className="min-w-0 ml-3 sm:ml-4">
                 <p className="text-sm font-medium text-gray-900">Estado Actual</p>
-                <p className={`text-lg font-bold ${
+                <p className={`text-lg font-bold truncate ${
                   estadoActual === 'en_obra' ? 'text-green-800' : 'text-gray-800'
                 }`}>
                   {estadoActual === 'en_obra' ? 'En Obra' : 'Fuera de Obra'}
@@ -275,12 +275,12 @@ export default function ControlAsistencia() {
           </div>
 
           {/* Tiempo trabajado hoy */}
-          <div className="p-6 bg-white border border-blue-200 rounded-lg shadow">
+          <div className="p-4 bg-white border border-blue-200 rounded-lg shadow sm:p-6">
             <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
+              <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg sm:p-3">
                 <Clock size={24} className="text-blue-600" />
               </div>
-              <div className="ml-4">
+              <div className="min-w-0 ml-3 sm:ml-4">
                 <p className="text-sm font-medium text-gray-900">Tiempo Hoy</p>
                 <p className="text-lg font-bold text-blue-800">
                   {calcularTiempoTrabajado()}
@@ -290,12 +290,12 @@ export default function ControlAsistencia() {
           </div>
 
           {/* Total marcaciones */}
-          <div className="p-6 bg-white border border-purple-200 rounded-lg shadow">
+          <div className="p-4 bg-white border border-purple-200 rounded-lg shadow sm:p-6">
             <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
+              <div className="flex-shrink-0 p-2 bg-purple-100 rounded-lg sm:p-3">
                 <User size={24} className="text-purple-600" />
               </div>
-              <div className="ml-4">
+              <div className="min-w-0 ml-3 sm:ml-4">
                 <p className="text-sm font-medium text-gray-900">Total Marcaciones</p>
                 <p className="text-lg font-bold text-purple-800">
                   {marcaciones.length}
@@ -309,11 +309,11 @@ export default function ControlAsistencia() {
         <div className="mb-8">
           <Link
             href="/admin/control-asistencia/marcar"
-            className="block p-8 transition-all bg-white border-2 border-green-200 rounded-lg shadow hover:border-green-400 hover:bg-green-50"
+            className="block p-6 transition-all bg-white border-2 border-green-200 rounded-lg shadow sm:p-8 hover:border-green-400 hover:bg-green-50"
           >
             <div className="text-center">
               <Navigation size={48} className="mx-auto mb-4 text-green-600" />
-              <h3 className="mb-2 text-2xl font-bold text-green-800">Marcar Asistencia</h3>
+              <h3 className="mb-2 text-xl font-bold text-green-800 sm:text-2xl">Marcar Asistencia</h3>
               <p className="text-green-600">
                 {estadoActual === 'en_obra' 
                   ? 'Registrar salida de obra' 
@@ -330,8 +330,8 @@ export default function ControlAsistencia() {
         </div>
 
         {/* Historial de marcaciones */}
-        <div className="p-6 bg-white rounded-lg shadow">
-          <h3 className="mb-6 text-xl font-semibold text-gray-900">Últimas Marcaciones</h3>
+        <div className="p-4 bg-white rounded-lg shadow sm:p-6">
+          <h3 className="mb-4 text-xl font-semibold text-gray-900 sm:mb-6">Últimas Marcaciones</h3>
           
           {marcaciones.length === 0 ? (
             <div className="py-12 text-center">
@@ -340,33 +340,33 @@ export default function ControlAsistencia() {
               <p className="text-sm text-gray-400">Presiona "Marcar Asistencia" para comenzar</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {marcaciones.map((marcacion, index) => (
                 <div
                   key={marcacion.id || index}
-                  className={`flex items-center p-4 rounded-lg border ${
+                  className={`flex items-center p-3 sm:p-4 rounded-lg border ${
                     marcacion.tipo === 'ingreso'
                       ? 'bg-green-50 border-green-200'
                       : 'bg-red-50 border-red-200'
                   } ${marcacion.isPending ? 'border-dashed border-orange-300 bg-orange-50' : ''}`}
                 >
-                  <div className={`p-2 rounded-lg ${
+                  <div className={`flex-shrink-0 p-2 rounded-lg ${
                     marcacion.tipo === 'ingreso'
                       ? 'bg-green-100'
                       : 'bg-red-100'
                   }`}>
                     {marcacion.tipo === 'ingreso' ? (
-                      <LogIn size={20} className="text-green-600" />
+                      <LogIn size={18} className="text-green-600 sm:w-5 sm:h-5" />
                     ) : (
-                      <LogOut size={20} className="text-red-600" />
+                      <LogOut size={18} className="text-red-600 sm:w-5 sm:h-5" />
                     )}
                   </div>
                   
-                  <div className="flex-1 ml-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className={`font-medium ${
+                  <div className="flex-1 min-w-0 ml-3 sm:ml-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <p className={`font-medium text-sm sm:text-base ${
                             marcacion.tipo === 'ingreso' ? 'text-green-800' : 'text-red-800'
                           }`}>
                             {marcacion.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
@@ -377,21 +377,21 @@ export default function ControlAsistencia() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs text-gray-600 truncate sm:text-sm">
                           {formatearFecha(marcacion.timestamp)}
                         </p>
                       </div>
                       
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-between gap-3 sm:gap-4 sm:justify-end">
                         <div className="text-right">
-                          <div className="flex items-center text-sm text-gray-500">
-                            <MapPin size={14} className="mr-1" />
-                            GPS
+                          <div className="flex items-center text-xs text-gray-500 sm:text-sm">
+                            <MapPin size={12} className="mr-1 flex-shrink-0 sm:w-3.5 sm:h-3.5" />
+                            <span className="hidden sm:inline">GPS</span>
                             {marcacion.isPending && (
-                              <AlertCircle size={12} className="ml-1 text-orange-500" />
+                              <AlertCircle size={10} className="ml-1 text-orange-500 sm:w-3 sm:h-3" />
                             )}
                           </div>
-                          <p className="text-lg font-bold text-gray-800">
+                          <p className="text-base font-bold text-gray-800 sm:text-lg">
                             {formatearSoloHora(marcacion.timestamp)}
                           </p>
                         </div>
@@ -399,10 +399,10 @@ export default function ControlAsistencia() {
                         {/* Botón eliminar */}
                         <button
                           onClick={() => setMarcacionAEliminar(marcacion)}
-                          className="p-2 text-red-600 transition-colors rounded-lg hover:bg-red-100"
+                          className="flex-shrink-0 p-1.5 sm:p-2 text-red-600 transition-colors rounded-lg hover:bg-red-100"
                           title="Eliminar marcación"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} className="sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     </div>
@@ -414,7 +414,7 @@ export default function ControlAsistencia() {
         </div>
 
         {/* Footer */}
-        <div className="p-6 mt-8 text-center bg-white rounded-lg shadow">
+        <div className="p-4 mt-8 text-center bg-white rounded-lg shadow sm:p-6">
           <div className="text-sm text-gray-600">
             <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
             <p>Sistema de Control de Asistencia - v1.0</p>
@@ -424,13 +424,13 @@ export default function ControlAsistencia() {
 
       {/* Modal de confirmación para eliminar */}
       {marcacionAEliminar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-4 bg-white rounded-lg shadow-xl sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
               <button
                 onClick={() => setMarcacionAEliminar(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600"
               >
                 <X size={20} />
               </button>

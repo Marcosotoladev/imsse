@@ -1,0 +1,240 @@
+find . -not -path "./node_modules*" -not -path "./.next*" -not -path "./.git*" -not -path "./public/images*" | sort | sed 's/[^/]*\//|   /g; s/|   \([^|]\)/└── \1/' > estructura-completa.txt
+
+.
+└── .env.local
+└── app
+|   └── admin
+|   |   └── calendario-visitas
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   |   |   └── page.js
+|   |   |   └── nueva
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── control-asistencia
+|   |   |   └── admin
+|   |   |   |   └── page.js
+|   |   |   └── marcar
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── dashboard
+|   |   └── dashboard-tecnico
+|   |   |   └── page.js
+|   |   └── estados
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   |   |   └── page.js
+|   |   |   └── nuevo
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── layout.jsx
+|   |   └── notas
+|   |   |   └── nueva
+|   |   └── ordenes
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   |   |   └── page.js
+|   |   |   └── nuevo
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── page.js
+|   |   └── panel-control
+|   |   |   └── page.js
+|   |   └── presupuestos
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   |   |   └── page.js
+|   |   |   └── nuevo
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── recibos
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   |   |   └── page.js
+|   |   |   └── nuevo
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── recordatorios
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   |   |   └── page.js
+|   |   |   └── nuevo
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── remitos
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   |   |   └── page.js
+|   |   |   └── nuevo
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── usuarios
+|   |   |   └── page.js
+|   |   └── visitas
+|   |   |   └── nueva
+|   └── api
+|   |   └── documents
+|   |   |   └── marcaciones
+|   |   |   |   └── [id]
+|   |   |   |   |   └── route.js
+|   |   |   |   └── route.js
+|   └── cliente
+|   |   └── dashboard
+|   |   |   └── page.js
+|   |   └── estados
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── layout.jsx
+|   |   └── ordenes
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── presupuestos
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── recibos
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   |   └── remitos
+|   |   |   └── [id]
+|   |   |   |   └── page.js
+|   |   |   └── page.js
+|   └── components
+|   |   └── admin
+|   |   |   └── AdminLayout.jsx
+|   |   └── cliente
+|   |   |   └── ClienteLayout.jsx
+|   |   └── layout
+|   |   |   └── Footer.jsx
+|   |   |   └── Header.jsx
+|   |   └── MapaMarcaciones.jsx
+|   |   └── OfflineIndicator.jsx
+|   |   └── pdf
+|   |   |   └── EstadoCuentaPDF.jsx
+|   |   |   └── OrdenTrabajoPDF.jsx
+|   |   |   └── PresupuestoPDF.jsx
+|   |   |   └── ReciboPDF.jsx
+|   |   |   └── RemitoPDF.jsx
+|   |   └── PWARegister.js
+|   |   └── ui
+|   |   |   └── WhatsAppBadge.jsx
+|   └── contacto
+|   |   └── page.js
+|   └── favicon.ico
+|   └── globals.css
+|   └── layout.js
+|   └── login
+|   |   └── page.js
+|   └── nosotros
+|   |   └── page.js
+|   └── page.js
+|   └── registro
+|   |   └── page.js
+|   └── servicios
+|   |   └── deteccion-incendios
+|   |   |   └── page.js
+|   |   └── mantenimiento
+|   |   |   └── page.js
+|   |   └── page.js
+|   |   └── rociadores
+|   |   |   └── page.js
+|   |   └── sistemas-alarma
+|   |   |   └── page.js
+|   |   └── supresion-incendios
+|   |   |   └── page.js
+|   └── visits
+|   |   └── [id]
+|   |   |   └── edit
+|   |   └── new
+└── estructura-completa.txt
+└── estructura-proyecto.txt
+└── jsconfig.json
+└── lib
+|   └── auth-middleware.js
+|   └── db
+|   |   └── localDB.js
+|   └── firebase.js
+|   └── firebase-admin.js
+|   └── firestore.js
+|   └── hooks
+|   |   └── useApi.js
+|   └── services
+|   |   └── apiService.js
+|   |   └── ClienteService.js
+|   |   └── offlineApiService.js
+|   |   └── tecnicoService.js
+└── next.config.mjs
+└── package.json
+└── package-lock.json
+└── pages
+|   └── _document.js
+|   └── api
+|   |   └── auth
+|   |   |   └── profile.js
+|   |   |   └── verify.js
+|   |   └── clients
+|   |   |   └── by-email.js
+|   |   |   └── index.js
+|   |   └── dashboard
+|   |   |   └── index.js
+|   |   └── documents
+|   |   |   └── [type]
+|   |   |   |   └── [id].js
+|   |   |   |   └── count.js
+|   |   |   |   └── index.js
+|   |   |   |   └── pdf
+|   |   |   |   |   └── [id].js
+|   |   |   |   └── visitas
+|   |   |   |   |   └── [id].js
+|   |   |   |   |   └── index.js
+|   |   └── notes
+|   |   |   └── personal
+|   |   └── statistics
+|   |   |   └── index.js
+|   |   |   └── usuarios.js
+|   |   └── tecnico
+|   |   |   └── clientes.js
+|   |   |   └── estadisticas.js
+|   |   |   └── ordenes
+|   |   |   |   └── todas.js
+|   |   |   └── recordatorios
+|   |   |   |   └── todos.js
+|   |   └── test.js
+|   |   └── users
+|   |   |   └── [id].js
+|   |   |   └── create-profile.js
+|   |   |   └── index.js
+|   |   |   └── permissions
+|   |   |   |   └── [id].js
+|   |   └── visits
+└── postcss.config.mjs
+└── public
+|   └── icon-192x192.png
+|   └── icon-512x512.png
+|   └── logo
+|   |   └── imsse-logo.png
+|   └── manifest.json
+|   └── offline.html
+|   └── screenshots
+|   |   └── screen1.png
+|   └── sw.js
+|   └── workbox-4754cb34.js
+└── README.md
+└── tailwind.config.js
+└── types
+|   └── index.js

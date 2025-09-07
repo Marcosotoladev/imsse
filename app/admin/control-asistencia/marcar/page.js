@@ -1,4 +1,4 @@
-// app/admin/control-asistencia/marcar/page.jsx - Versión offline con eliminar marcaciones
+// app/admin/control-asistencia/marcar/page.jsx - Versión offline con eliminar marcaciones - MOBILE FIXED
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -267,24 +267,24 @@ export default function MarcarAsistencia() {
       <header className="text-white shadow bg-primary">
         <div className="px-4 py-3 mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            <div className="flex items-center min-w-0">
               <Link
                 href="/admin/control-asistencia"
-                className="flex items-center p-2 mr-4 text-white rounded-md hover:bg-red-700"
+                className="flex items-center flex-shrink-0 p-2 mr-4 text-white rounded-md hover:bg-red-700"
               >
                 <ArrowLeft size={20} />
               </Link>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-lg font-bold md:text-xl font-montserrat">Control de Asistencia</h1>
                 <p className="text-xs text-red-100 md:text-sm">Marcar Ingreso/Salida</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* Indicador de conexión */}
               <OfflineIndicator className="text-white" />
               
-              <div className="text-right">
-                <p className="text-sm font-medium">{perfil?.nombreCompleto || user?.email}</p>
+              <div className="min-w-0 text-right">
+                <p className="text-sm font-medium truncate">{perfil?.nombreCompleto || user?.email}</p>
                 <p className="text-xs text-red-100">Técnico</p>
               </div>
             </div>
@@ -296,9 +296,9 @@ export default function MarcarAsistencia() {
         {/* Alerta de modo offline */}
         {isOffline && (
           <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">
-            <div className="flex items-center gap-2">
-              <WifiOff size={20} className="text-orange-600" />
-              <div>
+            <div className="flex items-start gap-2">
+              <WifiOff size={20} className="flex-shrink-0 text-orange-600 mt-0.5" />
+              <div className="min-w-0">
                 <p className="font-medium text-orange-800">Modo Offline Activo</p>
                 <p className="text-sm text-orange-600">
                   Las marcaciones se guardan localmente y se sincronizarán cuando vuelva la conexión.
@@ -310,32 +310,36 @@ export default function MarcarAsistencia() {
 
         {/* Mensaje de estado */}
         {mensaje.texto && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center ${
+          <div className={`mb-6 p-4 rounded-lg flex items-start ${
             mensaje.tipo === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
             mensaje.tipo === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
             'bg-blue-50 text-blue-800 border border-blue-200'
           }`}>
-            {mensaje.tipo === 'success' && <CheckCircle size={20} className="mr-2" />}
-            {mensaje.tipo === 'error' && <AlertCircle size={20} className="mr-2" />}
-            {mensaje.tipo === 'info' && <Loader size={20} className="mr-2 animate-spin" />}
-            {mensaje.texto}
+            <div className="flex-shrink-0">
+              {mensaje.tipo === 'success' && <CheckCircle size={20} className="mr-2" />}
+              {mensaje.tipo === 'error' && <AlertCircle size={20} className="mr-2" />}
+              {mensaje.tipo === 'info' && <Loader size={20} className="mr-2 animate-spin" />}
+            </div>
+            <div className="min-w-0">
+              {mensaje.texto}
+            </div>
           </div>
         )}
 
         {/* Estado actual */}
-        <div className="p-6 mb-8 bg-white rounded-lg shadow">
+        <div className="p-4 mb-8 bg-white rounded-lg shadow sm:p-6">
           <h2 className="mb-4 text-xl font-semibold text-gray-900">Estado Actual</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex items-center p-4 rounded-lg bg-gray-50">
-              <User size={24} className="mr-3 text-blue-600" />
-              <div>
+            <div className="flex items-center p-3 rounded-lg bg-gray-50 sm:p-4">
+              <User size={20} className="flex-shrink-0 mr-3 text-blue-600 sm:w-6 sm:h-6" />
+              <div className="min-w-0">
                 <p className="text-sm text-gray-600">Técnico</p>
-                <p className="font-medium">{perfil?.nombreCompleto || user?.email}</p>
+                <p className="font-medium truncate">{perfil?.nombreCompleto || user?.email}</p>
               </div>
             </div>
-            <div className="flex items-center p-4 rounded-lg bg-gray-50">
-              <Clock size={24} className="mr-3 text-green-600" />
-              <div>
+            <div className="flex items-center p-3 rounded-lg bg-gray-50 sm:p-4">
+              <Clock size={20} className="flex-shrink-0 mr-3 text-green-600 sm:w-6 sm:h-6" />
+              <div className="min-w-0">
                 <p className="text-sm text-gray-600">Última marcación</p>
                 <p className="font-medium">
                   {ultimaMarcacion ? 
@@ -352,11 +356,11 @@ export default function MarcarAsistencia() {
         </div>
 
         {/* Información de ubicación */}
-        <div className="p-6 mb-8 bg-white rounded-lg shadow">
+        <div className="p-4 mb-8 bg-white rounded-lg shadow sm:p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-900">Información de Ubicación</h3>
-          <div className="flex items-center p-4 rounded-lg bg-gray-50">
-            <MapPin size={24} className="mr-3 text-red-600" />
-            <div>
+          <div className="flex items-center p-3 rounded-lg bg-gray-50 sm:p-4">
+            <MapPin size={20} className="flex-shrink-0 mr-3 text-red-600 sm:w-6 sm:h-6" />
+            <div className="min-w-0">
               <p className="text-sm text-gray-600">Estado de GPS</p>
               <p className="font-medium">
                 {ubicacion ? 
@@ -372,12 +376,12 @@ export default function MarcarAsistencia() {
         </div>
 
         {/* Botones de marcación */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 sm:gap-6">
           {/* Botón Marcar Ingreso */}
           <button
             onClick={() => marcarAsistencia('ingreso')}
             disabled={!puedeMarcarIngreso || !ubicacion || loadingAction}
-            className={`p-8 rounded-lg border-2 transition-all ${
+            className={`p-6 sm:p-8 rounded-lg border-2 transition-all ${
               puedeMarcarIngreso && ubicacion && !loadingAction
                 ? 'bg-green-50 border-green-200 hover:bg-green-100 hover:border-green-400 text-green-800'
                 : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
@@ -385,11 +389,11 @@ export default function MarcarAsistencia() {
           >
             <div className="text-center">
               {loadingAction && !puedeMarcarSalida ? (
-                <Loader size={48} className="mx-auto mb-4 animate-spin" />
+                <Loader size={40} className="mx-auto mb-4 animate-spin sm:w-12 sm:h-12" />
               ) : (
-                <LogIn size={48} className="mx-auto mb-4" />
+                <LogIn size={40} className="mx-auto mb-4 sm:w-12 sm:h-12" />
               )}
-              <h3 className="mb-2 text-2xl font-bold">Marcar Ingreso</h3>
+              <h3 className="mb-2 text-xl font-bold sm:text-2xl">Marcar Ingreso</h3>
               <p className="text-sm">
                 {loadingAction && !puedeMarcarSalida ? 'Registrando...' :
                  !puedeMarcarIngreso ? 'Ya marcaste ingreso' : 'Registrar llegada a la obra'}
@@ -404,7 +408,7 @@ export default function MarcarAsistencia() {
           <button
             onClick={() => marcarAsistencia('salida')}
             disabled={!puedeMarcarSalida || !ubicacion || loadingAction}
-            className={`p-8 rounded-lg border-2 transition-all ${
+            className={`p-6 sm:p-8 rounded-lg border-2 transition-all ${
               puedeMarcarSalida && ubicacion && !loadingAction
                 ? 'bg-red-50 border-red-200 hover:bg-red-100 hover:border-red-400 text-red-800'
                 : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
@@ -412,11 +416,11 @@ export default function MarcarAsistencia() {
           >
             <div className="text-center">
               {loadingAction && puedeMarcarSalida ? (
-                <Loader size={48} className="mx-auto mb-4 animate-spin" />
+                <Loader size={40} className="mx-auto mb-4 animate-spin sm:w-12 sm:h-12" />
               ) : (
-                <LogOut size={48} className="mx-auto mb-4" />
+                <LogOut size={40} className="mx-auto mb-4 sm:w-12 sm:h-12" />
               )}
-              <h3 className="mb-2 text-2xl font-bold">Marcar Salida</h3>
+              <h3 className="mb-2 text-xl font-bold sm:text-2xl">Marcar Salida</h3>
               <p className="text-sm">
                 {loadingAction && puedeMarcarSalida ? 'Registrando...' :
                  !puedeMarcarSalida ? 'Primero marca ingreso' : 'Registrar salida de la obra'}
@@ -430,26 +434,28 @@ export default function MarcarAsistencia() {
 
         {/* Historial de marcaciones */}
         {marcaciones.length > 0 && (
-          <div className="p-6 mt-8 bg-white rounded-lg shadow">
+          <div className="p-4 mt-8 bg-white rounded-lg shadow sm:p-6">
             <h3 className="mb-4 text-lg font-semibold text-gray-900">Últimas Marcaciones</h3>
-            <div className="space-y-2">
+            
+            {/* Vista móvil - Cards */}
+            <div className="block space-y-3 sm:hidden">
               {marcaciones.map((marcacion) => (
                 <div
                   key={marcacion.id}
-                  className={`flex items-center justify-between p-3 rounded border ${
+                  className={`p-3 rounded-lg border ${
                     marcacion.tipo === 'ingreso'
                       ? 'bg-green-50 border-green-200'
                       : 'bg-red-50 border-red-200'
                   } ${marcacion.isPending ? 'border-dashed border-orange-300 bg-orange-50' : ''}`}
                 >
-                  <div className="flex items-center">
-                    {marcacion.tipo === 'ingreso' ? (
-                      <LogIn size={16} className="mr-2 text-green-600" />
-                    ) : (
-                      <LogOut size={16} className="mr-2 text-red-600" />
-                    )}
-                    <div>
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center min-w-0">
+                      {marcacion.tipo === 'ingreso' ? (
+                        <LogIn size={16} className="flex-shrink-0 mr-2 text-green-600" />
+                      ) : (
+                        <LogOut size={16} className="flex-shrink-0 mr-2 text-red-600" />
+                      )}
+                      <div className="flex flex-wrap items-center min-w-0 gap-2">
                         <span className="font-medium">
                           {marcacion.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
                         </span>
@@ -459,26 +465,72 @@ export default function MarcarAsistencia() {
                           </span>
                         )}
                       </div>
-                      <span className="text-sm text-gray-600">
-                        {new Date(marcacion.timestamp).toLocaleString('es-AR')}
-                      </span>
                     </div>
+                    <button
+                      onClick={() => setMarcacionAEliminar(marcacion)}
+                      className="flex-shrink-0 p-1 text-red-600 transition-colors rounded hover:bg-red-100"
+                      title="Eliminar marcación"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setMarcacionAEliminar(marcacion)}
-                    className="p-1 text-red-600 transition-colors rounded hover:bg-red-100"
-                    title="Eliminar marcación"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <p className="text-sm text-gray-600">
+                    {new Date(marcacion.timestamp).toLocaleString('es-AR')}
+                  </p>
                 </div>
               ))}
+            </div>
+
+            {/* Vista desktop - Lista mejorada */}
+            <div className="hidden sm:block">
+              <div className="space-y-2">
+                {marcaciones.map((marcacion) => (
+                  <div
+                    key={marcacion.id}
+                    className={`flex items-center justify-between p-3 rounded border ${
+                      marcacion.tipo === 'ingreso'
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
+                    } ${marcacion.isPending ? 'border-dashed border-orange-300 bg-orange-50' : ''}`}
+                  >
+                    <div className="flex items-center min-w-0">
+                      {marcacion.tipo === 'ingreso' ? (
+                        <LogIn size={16} className="flex-shrink-0 mr-2 text-green-600" />
+                      ) : (
+                        <LogOut size={16} className="flex-shrink-0 mr-2 text-red-600" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium whitespace-nowrap">
+                            {marcacion.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
+                          </span>
+                          {marcacion.isPending && (
+                            <span className="px-1 py-0.5 text-xs font-medium text-orange-800 bg-orange-200 rounded whitespace-nowrap">
+                              Pendiente
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-sm text-gray-600 whitespace-nowrap">
+                          {new Date(marcacion.timestamp).toLocaleString('es-AR')}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setMarcacionAEliminar(marcacion)}
+                      className="flex-shrink-0 p-1 ml-4 text-red-600 transition-colors rounded hover:bg-red-100"
+                      title="Eliminar marcación"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {/* Footer */}
-        <div className="p-6 mt-8 text-center bg-white rounded-lg shadow">
+        <div className="p-4 mt-8 text-center bg-white rounded-lg shadow sm:p-6">
           <div className="text-sm text-gray-600">
             <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
             <p>Sistema de Control de Asistencia</p>
@@ -488,13 +540,13 @@ export default function MarcarAsistencia() {
 
       {/* Modal de confirmación para eliminar */}
       {marcacionAEliminar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-4 bg-white rounded-lg shadow-xl sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
               <button
                 onClick={() => setMarcacionAEliminar(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600"
               >
                 <X size={20} />
               </button>
