@@ -1,4 +1,4 @@
-// app/admin/control-asistencia/marcar/page.jsx - Versión final sin debug
+// app/admin/control-asistencia/marcar/page.jsx - Versión offline con eliminar marcaciones
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,11 +13,17 @@ import {
   User,
   CheckCircle,
   AlertCircle,
-  Loader
+  Loader,
+  Trash2,
+  X,
+  WifiOff,
+  Wifi
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import offlineApiService from '../../../../lib/services/offLineApiService';
+import OfflineIndicator from '../../../components/OfflineIndicator';
 
 export default function MarcarAsistencia() {
   const router = useRouter();
@@ -28,6 +34,9 @@ export default function MarcarAsistencia() {
   const [ubicacion, setUbicacion] = useState(null);
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [marcaciones, setMarcaciones] = useState([]);
+  const [marcacionAEliminar, setMarcacionAEliminar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -56,21 +65,40 @@ export default function MarcarAsistencia() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Escuchar cambios de conexión
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    if (typeof window !== 'undefined') {
+      setIsOffline(!navigator.onLine);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
+
+    return () => {
+      unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
+    };
   }, [router]);
 
   const cargarMarcaciones = async (tecnicoId) => {
     try {
-      const response = await apiService.obtenerMarcacionesTecnico(tecnicoId, { limit: 10 });
+      // Usar servicio offline que maneja online/offline automáticamente
+      const response = await offlineApiService.obtenerMarcacionesTecnico(tecnicoId, { limit: 10 });
       
       if (response?.documents) {
         setMarcaciones(response.documents);
+        setIsOffline(response.offline || false);
       } else {
         setMarcaciones([]);
       }
       
     } catch (error) {
       console.error('Error al cargar marcaciones:', error);
+      setIsOffline(true);
       if (!error.message.includes('404') && !error.message.includes('No documents found')) {
         setMensaje({
           tipo: 'error',
@@ -156,12 +184,21 @@ export default function MarcarAsistencia() {
         fechaCreacion: new Date().toISOString()
       };
 
-      await apiService.crearMarcacion(marcacionData);
+      // Usar servicio offline para crear marcación
+      const result = await offlineApiService.crearMarcacion(marcacionData);
 
-      setMensaje({
-        tipo: 'success',
-        texto: `${tipo === 'ingreso' ? 'Ingreso' : 'Salida'} registrado correctamente`
-      });
+      if (result.offline) {
+        setMensaje({
+          tipo: 'success',
+          texto: `${tipo === 'ingreso' ? 'Ingreso' : 'Salida'} guardado offline. Se sincronizará cuando haya conexión.`
+        });
+        setIsOffline(true);
+      } else {
+        setMensaje({
+          tipo: 'success',
+          texto: `${tipo === 'ingreso' ? 'Ingreso' : 'Salida'} registrado correctamente`
+        });
+      }
 
       await cargarMarcaciones(user.uid);
 
@@ -173,6 +210,39 @@ export default function MarcarAsistencia() {
       });
     } finally {
       setLoadingAction(false);
+    }
+  };
+
+  const eliminarMarcacion = async (marcacionId) => {
+    try {
+      setEliminando(true);
+      
+      // Usar servicio offline para eliminar
+      const result = await offlineApiService.eliminarMarcacion(marcacionId);
+      
+      if (result.offline) {
+        setMensaje({
+          tipo: 'success',
+          texto: result.message || 'Marcación marcada para eliminar. Se eliminará del servidor cuando haya conexión.'
+        });
+      } else {
+        setMensaje({
+          tipo: 'success',
+          texto: 'Marcación eliminada correctamente'
+        });
+      }
+      
+      await cargarMarcaciones(user.uid);
+      setMarcacionAEliminar(null);
+      
+    } catch (error) {
+      console.error('Error al eliminar marcación:', error);
+      setMensaje({
+        tipo: 'error',
+        texto: 'Error al eliminar la marcación. Inténtalo nuevamente.'
+      });
+    } finally {
+      setEliminando(false);
     }
   };
 
@@ -209,15 +279,35 @@ export default function MarcarAsistencia() {
                 <p className="text-xs text-red-100 md:text-sm">Marcar Ingreso/Salida</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-medium">{perfil?.nombreCompleto || user?.email}</p>
-              <p className="text-xs text-red-100">Técnico</p>
+            <div className="flex items-center gap-4">
+              {/* Indicador de conexión */}
+              <OfflineIndicator className="text-white" />
+              
+              <div className="text-right">
+                <p className="text-sm font-medium">{perfil?.nombreCompleto || user?.email}</p>
+                <p className="text-xs text-red-100">Técnico</p>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-4xl px-4 py-6 mx-auto">
+        {/* Alerta de modo offline */}
+        {isOffline && (
+          <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">
+            <div className="flex items-center gap-2">
+              <WifiOff size={20} className="text-orange-600" />
+              <div>
+                <p className="font-medium text-orange-800">Modo Offline Activo</p>
+                <p className="text-sm text-orange-600">
+                  Las marcaciones se guardan localmente y se sincronizarán cuando vuelva la conexión.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mensaje de estado */}
         {mensaje.texto && (
           <div className={`mb-6 p-4 rounded-lg flex items-center ${
@@ -253,6 +343,9 @@ export default function MarcarAsistencia() {
                     'Sin marcaciones'
                   }
                 </p>
+                {ultimaMarcacion?.isPending && (
+                  <span className="text-xs text-orange-600">(Pendiente de sincronizar)</span>
+                )}
               </div>
             </div>
           </div>
@@ -271,6 +364,9 @@ export default function MarcarAsistencia() {
                   'Obteniendo ubicación...'
                 }
               </p>
+              {isOffline && ubicacion && (
+                <p className="text-xs text-orange-600">Funciona sin conexión</p>
+              )}
             </div>
           </div>
         </div>
@@ -298,6 +394,9 @@ export default function MarcarAsistencia() {
                 {loadingAction && !puedeMarcarSalida ? 'Registrando...' :
                  !puedeMarcarIngreso ? 'Ya marcaste ingreso' : 'Registrar llegada a la obra'}
               </p>
+              {isOffline && puedeMarcarIngreso && ubicacion && (
+                <p className="mt-2 text-xs text-orange-600">Funciona offline</p>
+              )}
             </div>
           </button>
 
@@ -322,6 +421,9 @@ export default function MarcarAsistencia() {
                 {loadingAction && puedeMarcarSalida ? 'Registrando...' :
                  !puedeMarcarSalida ? 'Primero marca ingreso' : 'Registrar salida de la obra'}
               </p>
+              {isOffline && puedeMarcarSalida && ubicacion && (
+                <p className="mt-2 text-xs text-orange-600">Funciona offline</p>
+              )}
             </div>
           </button>
         </div>
@@ -338,7 +440,7 @@ export default function MarcarAsistencia() {
                     marcacion.tipo === 'ingreso'
                       ? 'bg-green-50 border-green-200'
                       : 'bg-red-50 border-red-200'
-                  }`}
+                  } ${marcacion.isPending ? 'border-dashed border-orange-300 bg-orange-50' : ''}`}
                 >
                   <div className="flex items-center">
                     {marcacion.tipo === 'ingreso' ? (
@@ -346,13 +448,29 @@ export default function MarcarAsistencia() {
                     ) : (
                       <LogOut size={16} className="mr-2 text-red-600" />
                     )}
-                    <span className="font-medium">
-                      {marcacion.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
-                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {marcacion.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
+                        </span>
+                        {marcacion.isPending && (
+                          <span className="px-1 py-0.5 text-xs font-medium text-orange-800 bg-orange-200 rounded">
+                            Pendiente
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {new Date(marcacion.timestamp).toLocaleString('es-AR')}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-sm text-gray-600">
-                    {new Date(marcacion.timestamp).toLocaleString('es-AR')}
-                  </span>
+                  <button
+                    onClick={() => setMarcacionAEliminar(marcacion)}
+                    className="p-1 text-red-600 transition-colors rounded hover:bg-red-100"
+                    title="Eliminar marcación"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -367,6 +485,65 @@ export default function MarcarAsistencia() {
           </div>
         </div>
       </div>
+
+      {/* Modal de confirmación para eliminar */}
+      {marcacionAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
+              <button
+                onClick={() => setMarcacionAEliminar(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-600">
+                ¿Estás seguro de que deseas eliminar esta marcación?
+              </p>
+              <div className="p-3 mt-4 rounded-lg bg-gray-50">
+                <p className="font-medium">
+                  {marcacionAEliminar.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
+                  {marcacionAEliminar.isPending && (
+                    <span className="ml-2 text-sm text-orange-600">(Pendiente)</span>
+                  )}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {new Date(marcacionAEliminar.timestamp).toLocaleString('es-AR')}
+                </p>
+              </div>
+
+              {isOffline && !marcacionAEliminar.isPending && (
+                <div className="p-3 mt-3 border border-orange-200 rounded-lg bg-orange-50">
+                  <p className="text-sm text-orange-700">
+                    Sin conexión: Se marcará para eliminar y se eliminará del servidor cuando vuelva la conexión.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMarcacionAEliminar(null)}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                disabled={eliminando}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => eliminarMarcacion(marcacionAEliminar.id)}
+                className="flex-1 px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                disabled={eliminando}
+              >
+                {eliminando ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};

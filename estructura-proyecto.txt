@@ -1,0 +1,113 @@
+find . -type d -not -path "./node_modules*" -not -path "./.next*" -not -path "./.git*" | sort | sed 's/[^/]*\//|   /g; s/|   \([^|]\)/└── \1/' > estructura-proyecto.txt
+
+
+.
+└── app
+|   └── admin
+|   |   └── calendario-visitas
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   └── nueva
+|   |   └── control-asistencia
+|   |   |   └── admin
+|   |   |   └── marcar
+|   |   └── dashboard
+|   |   └── dashboard-tecnico
+|   |   └── estados
+|   |   |   └── [id]
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   └── nuevo
+|   |   └── notas
+|   |   |   └── nueva
+|   |   └── ordenes
+|   |   |   └── [id]
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   └── nuevo
+|   |   └── panel-control
+|   |   └── presupuestos
+|   |   |   └── [id]
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   └── nuevo
+|   |   └── recibos
+|   |   |   └── [id]
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   └── nuevo
+|   |   └── recordatorios
+|   |   |   └── [id]
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   └── nuevo
+|   |   └── remitos
+|   |   |   └── [id]
+|   |   |   └── editar
+|   |   |   |   └── [id]
+|   |   |   └── nuevo
+|   |   └── usuarios
+|   |   └── visitas
+|   |   |   └── nueva
+|   └── api
+|   |   └── documents
+|   |   |   └── marcaciones
+|   |   |   |   └── [id]
+|   └── cliente
+|   |   └── dashboard
+|   |   └── estados
+|   |   |   └── [id]
+|   |   └── ordenes
+|   |   |   └── [id]
+|   |   └── presupuestos
+|   |   |   └── [id]
+|   |   └── recibos
+|   |   |   └── [id]
+|   |   └── remitos
+|   |   |   └── [id]
+|   └── components
+|   |   └── admin
+|   |   └── cliente
+|   |   └── layout
+|   |   └── pdf
+|   |   └── ui
+|   └── contacto
+|   └── login
+|   └── nosotros
+|   └── registro
+|   └── servicios
+|   |   └── deteccion-incendios
+|   |   └── mantenimiento
+|   |   └── rociadores
+|   |   └── sistemas-alarma
+|   |   └── supresion-incendios
+|   └── visits
+|   |   └── [id]
+|   |   |   └── edit
+|   |   └── new
+└── lib
+|   └── hooks
+|   └── services
+└── pages
+|   └── api
+|   |   └── auth
+|   |   └── clients
+|   |   └── dashboard
+|   |   └── documents
+|   |   |   └── [type]
+|   |   |   |   └── pdf
+|   |   |   |   └── visitas
+|   |   └── notes
+|   |   |   └── personal
+|   |   └── statistics
+|   |   └── tecnico
+|   |   |   └── ordenes
+|   |   |   └── recordatorios
+|   |   └── users
+|   |   |   └── permissions
+|   |   └── visits
+└── public
+|   └── images
+|   └── logo
+|   └── screenshots
+└── types

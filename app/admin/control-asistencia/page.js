@@ -1,4 +1,4 @@
-// app/admin/control-asistencia/page.jsx - Página principal del control de asistencia
+// app/admin/control-asistencia/page.jsx - Página principal del control de asistencia (versión offline)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,11 +14,18 @@ import {
   LogIn,
   LogOut,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Trash2,
+  X,
+  Wifi,
+  WifiOff,
+  AlertCircle
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import offlineApiService from '../../../lib/services/offLineApiService';
+import OfflineIndicator from '../../components/OfflineIndicator';
 
 export default function ControlAsistencia() {
   const router = useRouter();
@@ -28,6 +35,9 @@ export default function ControlAsistencia() {
   const [marcaciones, setMarcaciones] = useState([]);
   const [ultimaMarcacion, setUltimaMarcacion] = useState(null);
   const [estadoActual, setEstadoActual] = useState('fuera'); // 'en_obra' | 'fuera'
+  const [marcacionAEliminar, setMarcacionAEliminar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -52,15 +62,31 @@ export default function ControlAsistencia() {
       }
     });
 
-    return () => unsubscribe();
+    // Escuchar cambios de conexión
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    if (typeof window !== 'undefined') {
+      setIsOffline(!navigator.onLine);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
+
+    return () => {
+      unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
+    };
   }, [router]);
 
   const cargarMarcaciones = async () => {
     try {
       setLoading(true);
       
-      // Cargar marcaciones del técnico (últimas 10)
-      const response = await apiService.obtenerMarcacionesTecnico(auth.currentUser?.uid);
+      // Usar servicio offline que maneja online/offline automáticamente
+      const response = await offlineApiService.obtenerMarcacionesTecnico(auth.currentUser?.uid);
       
       if (response?.documents) {
         const marcacionesOrdenadas = response.documents
@@ -68,6 +94,7 @@ export default function ControlAsistencia() {
           .slice(0, 10);
         
         setMarcaciones(marcacionesOrdenadas);
+        setIsOffline(response.offline || false);
         
         if (marcacionesOrdenadas.length > 0) {
           const ultima = marcacionesOrdenadas[0];
@@ -78,12 +105,33 @@ export default function ControlAsistencia() {
       
     } catch (error) {
       console.error('Error al cargar marcaciones:', error);
-      // No mostrar error si es 404 (colección no existe aún)
-      if (!error.message.includes('404')) {
-        console.error('Error inesperado:', error);
-      }
+      // En caso de error, intentar cargar solo datos locales
+      setIsOffline(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const eliminarMarcacion = async (marcacionId) => {
+    try {
+      setEliminando(true);
+      
+      // Usar servicio offline para eliminar
+      const result = await offlineApiService.eliminarMarcacion(marcacionId);
+      
+      if (result.offline) {
+        // Mostrar mensaje de que se eliminará cuando haya conexión
+        alert(result.message || 'Marcación marcada para eliminar. Se eliminará del servidor cuando haya conexión.');
+      }
+      
+      await cargarMarcaciones(); // Recargar la lista
+      setMarcacionAEliminar(null);
+      
+    } catch (error) {
+      console.error('Error al eliminar marcación:', error);
+      alert('Error al eliminar la marcación. Inténtalo nuevamente.');
+    } finally {
+      setEliminando(false);
     }
   };
 
@@ -168,15 +216,35 @@ export default function ControlAsistencia() {
                 <p className="text-xs text-red-100 md:text-sm">Gestión de marcaciones</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-medium">{perfil?.nombreCompleto}</p>
-              <p className="text-xs text-red-100">Técnico</p>
+            <div className="flex items-center gap-4">
+              {/* Indicador de conexión */}
+              <OfflineIndicator className="text-white" />
+              
+              <div className="text-right">
+                <p className="text-sm font-medium">{perfil?.nombreCompleto}</p>
+                <p className="text-xs text-red-100">Técnico</p>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-6xl px-4 py-6 mx-auto">
+        {/* Alerta de modo offline */}
+        {isOffline && (
+          <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">
+            <div className="flex items-center gap-2">
+              <WifiOff size={20} className="text-orange-600" />
+              <div>
+                <p className="font-medium text-orange-800">Modo Offline Activo</p>
+                <p className="text-sm text-orange-600">
+                  Los datos se guardan localmente y se sincronizarán cuando recuperes la conexión.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Estado actual y estadísticas */}
         <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
           {/* Estado actual */}
@@ -252,6 +320,11 @@ export default function ControlAsistencia() {
                   : 'Registrar ingreso a obra'
                 }
               </p>
+              {isOffline && (
+                <p className="mt-2 text-sm text-orange-600">
+                  Funciona sin conexión
+                </p>
+              )}
             </div>
           </Link>
         </div>
@@ -275,7 +348,7 @@ export default function ControlAsistencia() {
                     marcacion.tipo === 'ingreso'
                       ? 'bg-green-50 border-green-200'
                       : 'bg-red-50 border-red-200'
-                  }`}
+                  } ${marcacion.isPending ? 'border-dashed border-orange-300 bg-orange-50' : ''}`}
                 >
                   <div className={`p-2 rounded-lg ${
                     marcacion.tipo === 'ingreso'
@@ -292,24 +365,45 @@ export default function ControlAsistencia() {
                   <div className="flex-1 ml-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className={`font-medium ${
-                          marcacion.tipo === 'ingreso' ? 'text-green-800' : 'text-red-800'
-                        }`}>
-                          {marcacion.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className={`font-medium ${
+                            marcacion.tipo === 'ingreso' ? 'text-green-800' : 'text-red-800'
+                          }`}>
+                            {marcacion.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
+                          </p>
+                          {marcacion.isPending && (
+                            <span className="px-2 py-1 text-xs font-medium text-orange-800 bg-orange-200 rounded-full">
+                              Pendiente
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-600">
                           {formatearFecha(marcacion.timestamp)}
                         </p>
                       </div>
                       
-                      <div className="text-right">
-                        <div className="flex items-center text-sm text-gray-500">
-                          <MapPin size={14} className="mr-1" />
-                          GPS
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="flex items-center text-sm text-gray-500">
+                            <MapPin size={14} className="mr-1" />
+                            GPS
+                            {marcacion.isPending && (
+                              <AlertCircle size={12} className="ml-1 text-orange-500" />
+                            )}
+                          </div>
+                          <p className="text-lg font-bold text-gray-800">
+                            {formatearSoloHora(marcacion.timestamp)}
+                          </p>
                         </div>
-                        <p className="text-lg font-bold text-gray-800">
-                          {formatearSoloHora(marcacion.timestamp)}
-                        </p>
+                        
+                        {/* Botón eliminar */}
+                        <button
+                          onClick={() => setMarcacionAEliminar(marcacion)}
+                          className="p-2 text-red-600 transition-colors rounded-lg hover:bg-red-100"
+                          title="Eliminar marcación"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -327,6 +421,65 @@ export default function ControlAsistencia() {
           </div>
         </div>
       </div>
+
+      {/* Modal de confirmación para eliminar */}
+      {marcacionAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 mx-4 bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
+              <button
+                onClick={() => setMarcacionAEliminar(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-600">
+                ¿Estás seguro de que deseas eliminar esta marcación?
+              </p>
+              <div className="p-3 mt-4 rounded-lg bg-gray-50">
+                <p className="font-medium">
+                  {marcacionAEliminar.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}
+                  {marcacionAEliminar.isPending && (
+                    <span className="ml-2 text-sm text-orange-600">(Pendiente)</span>
+                  )}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {formatearFecha(marcacionAEliminar.timestamp)}
+                </p>
+              </div>
+              
+              {isOffline && !marcacionAEliminar.isPending && (
+                <div className="p-3 mt-3 border border-orange-200 rounded-lg bg-orange-50">
+                  <p className="text-sm text-orange-700">
+                    Sin conexión: Se marcará para eliminar y se eliminará del servidor cuando vuelva la conexión.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMarcacionAEliminar(null)}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                disabled={eliminando}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => eliminarMarcacion(marcacionAEliminar.id)}
+                className="flex-1 px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                disabled={eliminando}
+              >
+                {eliminando ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

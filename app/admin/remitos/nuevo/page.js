@@ -339,7 +339,7 @@ export default function NuevoRemito() {
                                 Nuevo Remito IMSSE
                             </h1>
                             <p className="text-gray-600">
-                                Sistema de entregas - Equipos contra incendios
+                                Sistema de entregas - Equipos 
                             </p>
                         </div>
                     </div>
@@ -651,7 +651,7 @@ export default function NuevoRemito() {
 
                     {/* Items del remito */}
                     <div className="p-6 bg-white rounded-lg shadow-md">
-                        <h3 className="mb-4 text-lg font-semibold text-primary">Equipos Contra Incendios</h3>
+                        <h3 className="mb-4 text-lg font-semibold text-primary">Equipos</h3>
                         <div className="overflow-x-auto">
                             <table className="min-w-full">
                                 <thead>
@@ -923,7 +923,7 @@ Ejemplos:
             <div className="p-6 mt-8 text-center bg-white rounded-lg shadow-md">
                 <div className="text-sm text-gray-600">
                     <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-                    <p>Sistema de entrega de equipos contra incendios</p>
+                    <p>Sistema de entrega de equipos </p>
                     <p className="mt-2">
                         <span className="font-medium">Especialistas en:</span> Detección | Supresión | Rociadores | Alarmas
                     </p>

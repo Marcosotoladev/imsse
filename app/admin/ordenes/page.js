@@ -1,4 +1,4 @@
-// app/admin/ordenes/page.jsx - Lista de Órdenes de Trabajo IMSSE
+// app/admin/ordenes/page.jsx - Lista de Órdenes de Trabajo IMSSE (versión offline)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,11 +17,16 @@ import {
   User,
   Shield,
   Clock,
-  MapPin
+  MapPin,
+  WifiOff,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import offlineApiService from '../../../lib/services/offLineApiService';
+import OfflineIndicator from '../../components/OfflineIndicator';
 
 export default function ListaOrdenesTrabajo() {
   const router = useRouter();
@@ -31,6 +36,8 @@ export default function ListaOrdenesTrabajo() {
   const [ordenesFiltradas, setOrdenesFiltradas] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [descargando, setDescargando] = useState(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
   const [estadisticas, setEstadisticas] = useState({
     total: 0,
     esteMes: 0,
@@ -70,19 +77,64 @@ export default function ListaOrdenesTrabajo() {
       }
     });
 
-    return () => unsubscribe();
+    // Escuchar cambios de conexión
+    const handleOnline = () => {
+      setIsOffline(false);
+      sincronizarDatos();
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    if (typeof window !== 'undefined') {
+      setIsOffline(!navigator.onLine);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
+
+    return () => {
+      unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
+    };
   }, [router]);
 
   const cargarOrdenes = async () => {
     try {
-      const response = await apiService.obtenerOrdenesTrabajo();
-      const ordenesData = response.documents || response || [];
+      // Intentar cargar desde el servidor primero
+      let response;
+      try {
+        response = await apiService.obtenerOrdenesTrabajo();
+        setIsOffline(false);
+      } catch (error) {
+        // Si falla, intentar desde cache offline
+        console.log('Error online, cargando desde cache offline:', error);
+        response = await offlineApiService.obtenerOrdenesTecnico();
+        setIsOffline(true);
+      }
+
+      const ordenesData = response.documents || response.ordenes || response || [];
       setOrdenes(ordenesData);
       setOrdenesFiltradas(ordenesData);
       calcularEstadisticas(ordenesData);
     } catch (error) {
       console.error('Error al cargar órdenes de trabajo IMSSE:', error);
-      alert('Error al cargar las órdenes de trabajo');
+      setIsOffline(true);
+      // Mostrar mensaje pero no bloquear la interfaz
+    }
+  };
+
+  const sincronizarDatos = async () => {
+    if (isOffline) return;
+    
+    try {
+      setSincronizando(true);
+      await offlineApiService.forcSync();
+      await cargarOrdenes();
+    } catch (error) {
+      console.error('Error al sincronizar:', error);
+    } finally {
+      setSincronizando(false);
     }
   };
 
@@ -124,9 +176,15 @@ export default function ListaOrdenesTrabajo() {
   const handleEliminarOrden = async (id, numero) => {
     if (confirm(`¿Está seguro de que desea eliminar la orden de trabajo ${numero}?`)) {
       try {
-        await apiService.eliminarOrdenTrabajo(id);
+        if (isOffline) {
+          // En modo offline, marcar para eliminar después
+          await offlineApiService.eliminarOrden(id);
+          alert('Orden marcada para eliminar. Se eliminará del servidor cuando haya conexión.');
+        } else {
+          await apiService.eliminarOrdenTrabajo(id);
+          alert('Orden de trabajo eliminada exitosamente');
+        }
         await cargarOrdenes(); // Recargar la lista
-        alert('Orden de trabajo eliminada exitosamente');
       } catch (error) {
         console.error('Error al eliminar orden de trabajo:', error);
         alert('Error al eliminar la orden de trabajo');
@@ -208,6 +266,9 @@ export default function ListaOrdenesTrabajo() {
             <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
           </div>
           <div className="flex items-center space-x-4">
+            {/* Indicador de conexión */}
+            <OfflineIndicator className="text-white" />
+            
             <span className="hidden md:inline">{user?.email}</span>
             <button
               onClick={handleLogout}
@@ -236,6 +297,21 @@ export default function ListaOrdenesTrabajo() {
       </div>
 
       <div className="container px-4 py-8 mx-auto">
+        {/* Alerta de modo offline */}
+        {isOffline && (
+          <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">
+            <div className="flex items-center gap-2">
+              <WifiOff size={20} className="text-orange-600" />
+              <div>
+                <p className="font-medium text-orange-800">Modo Offline</p>
+                <p className="text-sm text-orange-600">
+                  Mostrando datos almacenados localmente. Algunas funciones pueden estar limitadas.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header de página */}
         <div className="flex flex-col items-start justify-between mb-8 md:flex-row md:items-center">
           <div className="mb-4 md:mb-0">
@@ -244,14 +320,29 @@ export default function ListaOrdenesTrabajo() {
             </h2>
             <p className="text-gray-600">
               Gestión de trabajos de sistemas contra incendios
+              {isOffline && <span className="text-orange-600"> (Datos locales)</span>}
             </p>
           </div>
-          <Link
-            href="/admin/ordenes/nuevo"
-            className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
-          >
-            <FilePlus size={18} className="mr-2" /> Nueva Orden
-          </Link>
+          <div className="flex gap-2">
+            {!isOffline && (
+              <button
+                onClick={sincronizarDatos}
+                disabled={sincronizando}
+                className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={`mr-2 ${sincronizando ? 'animate-spin' : ''}`} />
+                {sincronizando ? 'Sincronizando...' : 'Sincronizar'}
+              </button>
+            )}
+            <Link
+              href="/admin/ordenes/nuevo"
+              className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
+            >
+              <FilePlus size={18} className="mr-2" /> 
+              Nueva Orden
+              {isOffline && <span className="ml-2 text-xs">(Offline)</span>}
+            </Link>
+          </div>
         </div>
 
         {/* Estadísticas */}
@@ -262,6 +353,7 @@ export default function ListaOrdenesTrabajo() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Órdenes</p>
                 <p className="text-2xl font-bold text-gray-900">{estadisticas.total}</p>
+                {isOffline && <p className="text-xs text-orange-600">Datos locales</p>}
               </div>
             </div>
           </div>
@@ -316,6 +408,7 @@ export default function ListaOrdenesTrabajo() {
             </h3>
             <p className="mt-1 text-sm text-gray-500">
               Gestión de trabajos de sistemas contra incendios
+              {isOffline && <span className="text-orange-600"> - Datos almacenados localmente</span>}
             </p>
           </div>
 
@@ -328,7 +421,9 @@ export default function ListaOrdenesTrabajo() {
               <p className="text-gray-500">
                 {searchTerm
                   ? 'Intenta con otros términos de búsqueda'
-                  : 'Comienza creando tu primera orden de trabajo IMSSE'
+                  : isOffline 
+                    ? 'No hay órdenes almacenadas localmente'
+                    : 'Comienza creando tu primera orden de trabajo IMSSE'
                 }
               </p>
               {!searchTerm && (
@@ -336,7 +431,8 @@ export default function ListaOrdenesTrabajo() {
                   href="/admin/ordenes/nuevo"
                   className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
                 >
-                  <FilePlus size={18} className="mr-2" /> Crear Primera Orden
+                  <FilePlus size={18} className="mr-2" /> 
+                  Crear {isOffline ? 'Orden (Offline)' : 'Primera Orden'}
                 </Link>
               )}
             </div>
@@ -371,12 +467,22 @@ export default function ListaOrdenesTrabajo() {
                       {ordenesFiltradas.map((orden, index) => (
                         <tr
                           key={orden.id}
-                          className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                          className={`${index % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${orden.isPending ? 'border-l-4 border-orange-400' : ''}`}
                         >
                           <td className="px-3 py-4 whitespace-nowrap sm:px-6">
-                            <div className="text-sm font-medium text-gray-900">{orden.numero}</div>
-                            <div className="text-xs text-gray-500">
-                              Creada: {formatDate(orden.fechaCreacion)}
+                            <div className="flex items-center">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{orden.numero}</div>
+                                <div className="text-xs text-gray-500">
+                                  Creada: {formatDate(orden.fechaCreacion)}
+                                </div>
+                                {orden.isPending && (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-orange-800 bg-orange-100 rounded-full">
+                                    <AlertCircle size={10} className="mr-1" />
+                                    Pendiente
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap sm:px-6">
@@ -456,7 +562,7 @@ export default function ListaOrdenesTrabajo() {
                               <Link
                                 href={`/admin/ordenes/editar/${orden.id}`}
                                 className="p-2 text-orange-600 transition-colors rounded-md hover:bg-orange-100"
-                                title="Editar orden"
+                                title={`Editar orden${isOffline ? ' (offline)' : ''}`}
                               >
                                 <Edit size={16} />
                               </Link>
@@ -474,7 +580,7 @@ export default function ListaOrdenesTrabajo() {
                               <button
                                 onClick={() => handleEliminarOrden(orden.id, orden.numero)}
                                 className="p-2 text-red-600 transition-colors rounded-md hover:bg-red-100"
-                                title="Eliminar orden"
+                                title={`Eliminar orden${isOffline ? ' (marcará para eliminar)' : ''}`}
                               >
                                 <Trash2 size={16} />
                               </button>
