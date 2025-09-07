@@ -272,7 +272,7 @@ export default function PanelAdminMarcaciones() {
               {/* Indicador de conexión */}
               <OfflineIndicator className="text-white" />
               
-              <div className="text-right min-w-0">
+              <div className="min-w-0 text-right">
                 <p className="text-sm font-medium truncate">{perfil?.nombreCompleto}</p>
                 <p className="text-xs text-red-100">Administrador</p>
               </div>
@@ -304,7 +304,7 @@ export default function PanelAdminMarcaciones() {
               <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg sm:p-3">
                 <User size={20} className="text-blue-600 sm:w-6 sm:h-6" />
               </div>
-              <div className="ml-3 sm:ml-4 min-w-0">
+              <div className="min-w-0 ml-3 sm:ml-4">
                 <p className="text-sm font-medium text-gray-900">Total Marcaciones</p>
                 <p className="text-2xl font-bold text-blue-800 sm:text-3xl">{estadisticas.total}</p>
                 {isOffline && (
@@ -319,7 +319,7 @@ export default function PanelAdminMarcaciones() {
               <div className="flex-shrink-0 p-2 bg-green-100 rounded-lg sm:p-3">
                 <LogIn size={20} className="text-green-600 sm:w-6 sm:h-6" />
               </div>
-              <div className="ml-3 sm:ml-4 min-w-0">
+              <div className="min-w-0 ml-3 sm:ml-4">
                 <p className="text-sm font-medium text-gray-900">Técnicos en Obra</p>
                 <p className="text-2xl font-bold text-green-800 sm:text-3xl">{estadisticas.enObra}</p>
               </div>
@@ -331,7 +331,7 @@ export default function PanelAdminMarcaciones() {
               <div className="flex-shrink-0 p-2 bg-red-100 rounded-lg sm:p-3">
                 <LogOut size={20} className="text-red-600 sm:w-6 sm:h-6" />
               </div>
-              <div className="ml-3 sm:ml-4 min-w-0">
+              <div className="min-w-0 ml-3 sm:ml-4">
                 <p className="text-sm font-medium text-gray-900">Técnicos Fuera</p>
                 <p className="text-2xl font-bold text-red-800 sm:text-3xl">{estadisticas.fueraObra}</p>
               </div>
@@ -380,7 +380,7 @@ export default function PanelAdminMarcaciones() {
               <button
                 onClick={aplicarFiltros}
                 disabled={isOffline}
-                className="w-full sm:w-auto flex items-center justify-center px-4 py-2 text-white rounded-md bg-primary hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-full px-4 py-2 text-white rounded-md sm:w-auto bg-primary hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Filter size={16} className="mr-2" />
                 Filtrar
@@ -417,7 +417,7 @@ export default function PanelAdminMarcaciones() {
               <div className="flex gap-2">
                 <button
                   onClick={exportarDatos}
-                  className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="flex items-center justify-center flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md sm:flex-none hover:bg-gray-50"
                 >
                   <Download size={16} className="mr-2" />
                   <span className="hidden sm:inline">Exportar</span>
@@ -427,7 +427,7 @@ export default function PanelAdminMarcaciones() {
                 <button
                   onClick={isOffline ? cargarMarcaciones : sincronizarDatos}
                   disabled={sincronizando}
-                  className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                  className="flex items-center justify-center flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md sm:flex-none hover:bg-gray-50 disabled:opacity-50"
                 >
                   <RefreshCw size={16} className={`mr-2 ${sincronizando ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline">
@@ -494,7 +494,7 @@ export default function PanelAdminMarcaciones() {
                       <tr key={marcacion.id} className={`hover:bg-gray-50 ${marcacion.isPending ? 'bg-orange-50' : ''}`}>
                         <td className="px-3 py-4 whitespace-nowrap sm:px-6">
                           <div className="flex items-center">
-                            <User size={16} className="mr-2 text-gray-400 flex-shrink-0" />
+                            <User size={16} className="flex-shrink-0 mr-2 text-gray-400" />
                             <span className="text-sm font-medium text-gray-900 truncate max-w-24 sm:max-w-none" title={marcacion.tecnicoNombre}>
                               {marcacion.tecnicoNombre}
                             </span>
@@ -507,9 +507,9 @@ export default function PanelAdminMarcaciones() {
                               : 'bg-red-100 text-red-800'
                           }`}>
                             {marcacion.tipo === 'ingreso' ? (
-                              <LogIn size={10} className="mr-1 flex-shrink-0 sm:w-3 sm:h-3" />
+                              <LogIn size={10} className="flex-shrink-0 mr-1 sm:w-3 sm:h-3" />
                             ) : (
-                              <LogOut size={10} className="mr-1 flex-shrink-0 sm:w-3 sm:h-3" />
+                              <LogOut size={10} className="flex-shrink-0 mr-1 sm:w-3 sm:h-3" />
                             )}
                             <span className="hidden sm:inline">{marcacion.tipo}</span>
                             <span className="sm:hidden">{marcacion.tipo === 'ingreso' ? 'In' : 'Out'}</span>
@@ -517,16 +517,16 @@ export default function PanelAdminMarcaciones() {
                         </td>
                         <td className="px-3 py-4 whitespace-nowrap sm:px-6">
                           <div className="flex items-center text-sm text-gray-900">
-                            <Clock size={14} className="mr-2 text-gray-400 flex-shrink-0 sm:w-4 sm:h-4" />
-                            <span className="whitespace-nowrap text-xs sm:text-sm">
+                            <Clock size={14} className="flex-shrink-0 mr-2 text-gray-400 sm:w-4 sm:h-4" />
+                            <span className="text-xs whitespace-nowrap sm:text-sm">
                               {formatearFecha(marcacion.timestamp)}
                             </span>
                           </div>
                         </td>
                         <td className="px-3 py-4 whitespace-nowrap sm:px-6">
                           <div className="flex items-center text-sm text-gray-500">
-                            <MapPin size={14} className="mr-2 text-gray-400 flex-shrink-0 sm:w-4 sm:h-4" />
-                            <span className="whitespace-nowrap text-xs sm:text-sm">
+                            <MapPin size={14} className="flex-shrink-0 mr-2 text-gray-400 sm:w-4 sm:h-4" />
+                            <span className="text-xs whitespace-nowrap sm:text-sm">
                               {marcacion.coordenadas?.latitud?.toFixed(2) || 'N/A'}, {marcacion.coordenadas?.longitud?.toFixed(2) || 'N/A'}
                             </span>
                           </div>
@@ -534,7 +534,7 @@ export default function PanelAdminMarcaciones() {
                         <td className="px-3 py-4 whitespace-nowrap sm:px-6">
                           {marcacion.isPending ? (
                             <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-orange-800 bg-orange-100 rounded-full whitespace-nowrap">
-                              <AlertCircle size={10} className="mr-1 flex-shrink-0 sm:w-3 sm:h-3" />
+                              <AlertCircle size={10} className="flex-shrink-0 mr-1 sm:w-3 sm:h-3" />
                               <span className="hidden sm:inline">Pendiente</span>
                               <span className="sm:hidden">Pend</span>
                             </span>
@@ -573,8 +573,8 @@ export default function PanelAdminMarcaciones() {
 
       {/* Modal de confirmación para eliminar */}
       {marcacionAEliminar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-md p-4 sm:p-6 bg-white rounded-lg shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-4 bg-white rounded-lg shadow-xl sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
               <button
