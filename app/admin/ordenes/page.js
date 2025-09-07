@@ -25,7 +25,7 @@ import {
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
-import offlineApiService from '../../../lib/services/offLineApiService';
+import offlineApiService from '../../../lib/services/offlineApiService';
 import OfflineIndicator from '../../components/OfflineIndicator';
 
 export default function ListaOrdenesTrabajo() {

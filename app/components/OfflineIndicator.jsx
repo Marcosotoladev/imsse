@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw, Database, AlertCircle, CheckCircle } from 'lucide-react';
-import offlineApiService from '../../lib/services/offLineApiService';
+import offlineApiService from '../../lib/services/offlineApiService';
 
 export default function OfflineIndicator({ showDetails = false, className = '' }) {
   const [isOnline, setIsOnline] = useState(true);
