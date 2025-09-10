@@ -661,7 +661,7 @@ export default function CrearOrdenTrabajo() {
           </div>
 
           {/* NUEVA SECCIÓN: Selección de Cliente */}
-          <div className="p-4 bg-white border-l-4 border-green-500 rounded-lg shadow-md md:p-6">
+          <div className="p-4 text-gray-700 bg-white border-l-4 border-green-500 rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <User className="mr-2" size={20} />
               Selección de Cliente

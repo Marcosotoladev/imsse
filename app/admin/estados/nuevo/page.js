@@ -511,7 +511,7 @@ export default function CrearEstadoCuenta() {
             </div>
 
             {/* Selección de Cliente */}
-            <div className="p-6 bg-white border-l-4 border-orange-500 rounded-lg shadow-md">
+            <div className="p-6 text-gray-700 bg-white border-l-4 border-orange-500 rounded-lg shadow-md">
               <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
                 <User className="mr-2" size={20} />
                 Selección de Cliente

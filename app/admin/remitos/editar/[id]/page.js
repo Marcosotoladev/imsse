@@ -427,7 +427,7 @@ export default function EditarRemito() {
           </div>
 
           {/* Información del cliente */}
-          <div className="p-6 bg-white rounded-lg shadow-md">
+          <div className="p-6 text-gray-700 bg-white rounded-lg shadow-md">
             <h3 className="mb-4 text-lg font-semibold text-primary">Información del Cliente</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>

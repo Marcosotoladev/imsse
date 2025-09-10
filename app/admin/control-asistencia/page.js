@@ -397,13 +397,13 @@ export default function ControlAsistencia() {
                         </div>
                         
                         {/* Botón eliminar */}
-                        <button
+{/*                         <button
                           onClick={() => setMarcacionAEliminar(marcacion)}
                           className="flex-shrink-0 p-1.5 sm:p-2 text-red-600 transition-colors rounded-lg hover:bg-red-100"
                           title="Eliminar marcación"
                         >
                           <Trash2 size={14} className="sm:w-4 sm:h-4" />
-                        </button>
+                        </button> */}
                       </div>
                     </div>
                   </div>

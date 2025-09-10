@@ -506,7 +506,7 @@ export default function EditarOrdenTrabajo({ params }) {
           </div>
 
           {/* Cliente */}
-          <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
+          <div className="p-4 text-gray-700 rounded-lg shadow-md bg-w hite md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <User size={20} className="mr-2 text-primary" />
               Datos del Cliente
