@@ -105,7 +105,7 @@ async function updateUser(req, res, id, user) {
       }
       
       // Validar estado válido
-      if (updateData.estado && !['activo', 'inactivo', 'pendiente'].includes(updateData.estado)) {
+      if (updateData.estado && !['activo', 'inactivo'].includes(updateData.estado)) {
         return res.status(400).json({ error: 'Invalid status' });
       }
       
@@ -117,6 +117,31 @@ async function updateUser(req, res, id, user) {
       // Si cambia de cliente a otro rol, limpiar clienteId
       if (updateData.rol && updateData.rol !== ROLES.CLIENTE) {
         updateData.clienteId = null;
+      }
+    }
+
+    // Recalcular nombreCompleto si cambia nombre o apellido
+    const currentData = userDoc.data();
+    const finalNombre = updateData.nombre !== undefined ? updateData.nombre : currentData.nombre;
+    const finalApellido = updateData.apellido !== undefined ? updateData.apellido : currentData.apellido;
+    if (updateData.nombre !== undefined || updateData.apellido !== undefined) {
+      updateData.nombreCompleto = `${finalNombre || ''} ${finalApellido || ''}`.trim();
+    }
+
+    // Sincronizar con Firebase Auth si cambia email o nombre
+    const authUpdates = {};
+    if (updateData.email && updateData.email !== currentData.email) {
+      authUpdates.email = updateData.email.toLowerCase().trim();
+    }
+    if (updateData.nombreCompleto && updateData.nombreCompleto !== currentData.nombreCompleto) {
+      authUpdates.displayName = updateData.nombreCompleto;
+    }
+
+    if (Object.keys(authUpdates).length > 0) {
+      try {
+        await auth.updateUser(id, authUpdates);
+      } catch (authErr) {
+        console.warn(`No se pudo sincronizar usuario ${id} con Firebase Auth:`, authErr.message);
       }
     }
 

@@ -22,9 +22,11 @@ import {
   CheckCircle,
   FileText,
   Download,
-  RefreshCw
+  RefreshCw,
+  LogOut,
+  Home
 } from 'lucide-react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -124,6 +126,15 @@ export default function CrearOrdenTrabajo() {
 
     return () => unsubscribe();
   }, [router]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/admin');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
 
   // Reemplaza SOLO esta función en tu código existente:
   const cargarClientesDisponibles = async (perfilUsuario) => {

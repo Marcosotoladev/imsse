@@ -36,7 +36,7 @@ const configuracionModulos = {
     { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' },
     { key: 'visitas', nombre: 'Calendario de Visitas', icono: CalendarDays, color: 'indigo', listUrl: '/admin/calendario-visitas', nuevoUrl: '/admin/calendario-visitas/nueva' },
     { key: 'documentos', nombre: 'Documentos', icono: Folder, esDocumentos: true, sub: DOCUMENTOS_SUB },
-    { key: 'usuarios', nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios' }
+    { key: 'usuarios', nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios', nuevoUrl: '/admin/usuarios?crear=true' }
   ],
   tecnico: [
     { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },

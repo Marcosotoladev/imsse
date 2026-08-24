@@ -144,7 +144,7 @@ export default function RegistroPublico() {
         empresa: datosGoogleCompletos.empresa.trim(),
         telefono: datosGoogleCompletos.telefono.trim(),
         rol: 'cliente',
-        estado: 'pendiente',
+        estado: 'activo',
         metodoRegistro: 'google',
         photoURL: result.user.photoURL || null,
         permisos: {
@@ -206,7 +206,7 @@ export default function RegistroPublico() {
         empresa: formData.empresa.trim(),
         telefono: formData.telefono.trim(),
         rol: 'cliente', // Rol por defecto
-        estado: 'pendiente', // Necesita aprobación del admin
+        estado: 'activo', // Activo por defecto como cliente
         metodoRegistro: 'email',
         permisos: {
           presupuestos: false,
@@ -269,10 +269,10 @@ export default function RegistroPublico() {
                 Tu cuenta ha sido creada exitosamente para <strong>IMSSE Ingeniería</strong>.
               </p>
               <p>
-                Tu solicitud está <span className="px-2 py-1 text-sm font-medium text-yellow-800 bg-yellow-100 rounded-full">pendiente de aprobación</span>.
+                Tu cuenta ha sido activada de inmediato con el rol de <span className="px-2 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">Cliente</span>.
               </p>
               <p>
-                Un administrador revisará tu solicitud y te contactará por email cuando tu cuenta sea activada.
+                Ya puedes iniciar sesión en el portal para acceder a tus servicios.
               </p>
             </div>
 
@@ -293,7 +293,7 @@ export default function RegistroPublico() {
                 Ir al Login
               </Link>
               <p className="text-xs text-gray-500">
-                ¿Tienes una cuenta activa? Inicia sesión mientras esperas la aprobación.
+                Inicia sesión con tus credenciales para acceder al sistema.
               </p>
             </div>
           </div>
@@ -510,10 +510,9 @@ export default function RegistroPublico() {
               </div>
 
               {/* Información importante */}
-              <div className="p-4 border border-yellow-200 rounded-lg bg-yellow-50">
-                <p className="text-sm text-yellow-800">
-                  <strong>Nota importante:</strong> Tu cuenta será creada con estado "pendiente". 
-                  Un administrador de IMSSE revisará tu solicitud y te contactará cuando sea activada.
+              <div className="p-4 border border-green-200 rounded-lg bg-green-50">
+                <p className="text-sm text-green-800">
+                  <strong>Acceso Inmediato:</strong> Tu cuenta quedará activa al instante con rol de Cliente.
                 </p>
               </div>
 
@@ -691,9 +690,9 @@ export default function RegistroPublico() {
                 </div>
 
                 {/* Información */}
-                <div className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
-                  <p className="text-sm text-yellow-800">
-                    Tu cuenta será creada con estado "pendiente" y necesitará aprobación del administrador.
+                <div className="p-3 border border-green-200 rounded-lg bg-green-50">
+                  <p className="text-sm text-green-800">
+                    Tu cuenta quedará activa de inmediato con el rol de Cliente.
                   </p>
                 </div>
               </div>
