@@ -5,15 +5,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home,
-  LogOut,
   Users,
   Shield,
-  UserCheck,
-  UserX,
   Clock,
-  Building,
-  Calendar,
   Search,
   MoreVertical,
   UserPlus,
@@ -22,9 +16,11 @@ import {
   Truck,
   CreditCard,
   Wrench,
-  Bell
+  Bell,
+  List,
+  LayoutGrid
 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 
@@ -34,7 +30,6 @@ export default function GestionUsuarios() {
   const [loading, setLoading] = useState(true);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
-  const [estadisticas, setEstadisticas] = useState({});
   const [filtros, setFiltros] = useState({
     busqueda: '',
     rol: 'todos',
@@ -43,6 +38,7 @@ export default function GestionUsuarios() {
   });
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [procesando, setProcesando] = useState(false);
+  const [vista, setVista] = useState('tabla'); // 'tabla' | 'cards'
 
   // Estados para el modal
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -103,20 +99,8 @@ export default function GestionUsuarios() {
       // La estructura correcta es usuariosData.users
       const usuarios = usuariosData.users || [];
 
-      // Calcular estadísticas
-      const estadisticas = {
-        total: usuarios.length,
-        admins: usuarios.filter(u => u.rol === 'admin').length,
-        tecnicos: usuarios.filter(u => u.rol === 'tecnico').length,
-        clientes: usuarios.filter(u => u.rol === 'cliente').length,
-        activos: usuarios.filter(u => u.estado === 'activo').length,
-        pendientes: usuarios.filter(u => u.estado === 'pendiente').length,
-        inactivos: usuarios.filter(u => u.estado === 'inactivo').length
-      };
-
       setUsuarios(usuarios);
       setUsuariosFiltrados(usuarios);
-      setEstadisticas(estadisticas);
     } catch (error) {
       console.error('Error al cargar datos de usuarios:', error);
     } finally {
@@ -154,15 +138,6 @@ export default function GestionUsuarios() {
 
     setUsuariosFiltrados(resultado);
   }, [filtros, usuarios]);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
 
   // Funciones para el modal
   const abrirModal = (usuario) => {
@@ -352,6 +327,8 @@ export default function GestionUsuarios() {
     return colores[tipo]?.[valor] || 'bg-gray-100 text-gray-800';
   };
 
+  const usuariosPendientes = usuarios.filter(u => u.estado === 'pendiente').length;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -365,133 +342,28 @@ export default function GestionUsuarios() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="text-white shadow bg-primary">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <img
-                src="/logo/imsse-logo.png"
-                alt="IMSSE Logo"
-                className="w-6 h-6 mr-2 md:w-8 md:h-8 md:mr-3"
-              />
-              <h1 className="text-lg font-bold md:text-xl font-montserrat">IMSSE</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="hidden text-sm md:inline">{user?.email}</span>
-              <button
-                onClick={handleLogout}
-                className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
-              >
-                <LogOut size={16} className="md:mr-2" />
-                <span className="hidden md:inline">Salir</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navegación */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="px-4 py-3">
-          <div className="flex items-center text-sm">
-            <Link href="/admin/panel-control" className="text-primary hover:underline">
-              <Home size={14} className="inline mr-1" />
-              Panel
-            </Link>
-            <span className="mx-2 text-gray-500">/</span>
-            <span className="font-medium text-gray-700">Gestión de Usuarios</span>
-          </div>
-        </div>
-      </div>
-
       <div className="px-4 py-6 mx-auto max-w-7xl">
-        {/* Título y estadísticas */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-2xl font-bold font-montserrat text-primary">
-                Gestión de Usuarios
-              </h2>
-              <p className="text-gray-600">
-                Administre usuarios, roles y permisos del sistema IMSSE
-              </p>
-            </div>
-            <Link
-              href="/registro"
-              className="flex items-center px-4 py-2 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
-            >
-              <UserPlus size={18} className="mr-2" />
-              Nuevo Usuario
-            </Link>
+        {/* Título + acciones */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div>
+            <h2 className="text-2xl font-bold font-montserrat text-primary">
+              Gestión de Usuarios
+            </h2>
+            <p className="text-gray-600">
+              Administre usuarios, roles y permisos del sistema IMSSE
+            </p>
           </div>
-
-          {/* Estadísticas */}
-          <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-3 lg:grid-cols-6">
-            <div className="p-4 bg-white rounded-lg shadow">
-              <div className="flex items-center">
-                <Users className="w-8 h-8 text-blue-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total</p>
-                  <p className="text-2xl font-bold text-gray-900">{estadisticas.total || 0}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white rounded-lg shadow">
-              <div className="flex items-center">
-                <Shield className="w-8 h-8 text-red-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Admins</p>
-                  <p className="text-2xl font-bold text-gray-900">{estadisticas.admins || 0}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white rounded-lg shadow">
-              <div className="flex items-center">
-                <UserCheck className="w-8 h-8 text-blue-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Técnicos</p>
-                  <p className="text-2xl font-bold text-gray-900">{estadisticas.tecnicos || 0}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white rounded-lg shadow">
-              <div className="flex items-center">
-                <Building className="w-8 h-8 text-green-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Clientes</p>
-                  <p className="text-2xl font-bold text-gray-900">{estadisticas.clientes || 0}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white rounded-lg shadow">
-              <div className="flex items-center">
-                <Clock className="w-8 h-8 text-yellow-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Pendientes</p>
-                  <p className="text-2xl font-bold text-gray-900">{estadisticas.pendientes || 0}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white rounded-lg shadow">
-              <div className="flex items-center">
-                <UserCheck className="w-8 h-8 text-green-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Activos</p>
-                  <p className="text-2xl font-bold text-gray-900">{estadisticas.activos || 0}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <Link
+            href="/registro"
+            className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors rounded-xl bg-primary hover:bg-red-700"
+          >
+            <UserPlus size={18} className="mr-2" />
+            Nuevo Usuario
+          </Link>
         </div>
 
         {/* Filtros */}
-        <div className="p-4 mb-6 bg-white rounded-lg shadow">
+        <div className="p-4 mb-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div>
               <label className="block mb-1 text-sm font-medium text-gray-700">Buscar</label>
@@ -502,7 +374,7 @@ export default function GestionUsuarios() {
                   value={filtros.busqueda}
                   onChange={(e) => setFiltros(prev => ({ ...prev, busqueda: e.target.value }))}
                   placeholder="Nombre, email, empresa..."
-                  className="w-full py-2 pl-10 pr-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary"
+                  className="w-full py-2 pl-10 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -512,7 +384,7 @@ export default function GestionUsuarios() {
               <select
                 value={filtros.rol}
                 onChange={(e) => setFiltros(prev => ({ ...prev, rol: e.target.value }))}
-                className="w-full py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary"
+                className="w-full py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary"
               >
                 <option value="todos">Todos los roles</option>
                 <option value="admin">Administradores</option>
@@ -526,7 +398,7 @@ export default function GestionUsuarios() {
               <select
                 value={filtros.estado}
                 onChange={(e) => setFiltros(prev => ({ ...prev, estado: e.target.value }))}
-                className="w-full py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary"
+                className="w-full py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary"
               >
                 <option value="todos">Todos los estados</option>
                 <option value="activo">Activos</option>
@@ -540,7 +412,7 @@ export default function GestionUsuarios() {
               <select
                 value={filtros.metodo}
                 onChange={(e) => setFiltros(prev => ({ ...prev, metodo: e.target.value }))}
-                className="w-full py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary"
+                className="w-full py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary"
               >
                 <option value="todos">Todos</option>
                 <option value="google">Google</option>
@@ -548,21 +420,101 @@ export default function GestionUsuarios() {
               </select>
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
               <button
                 onClick={() => setFiltros({ busqueda: '', rol: 'todos', estado: 'todos', metodo: 'todos' })}
-                className="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50"
               >
                 Limpiar filtros
               </button>
+              <div className="flex overflow-hidden border border-gray-300 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setVista('tabla')}
+                  title="Vista de tabla"
+                  className={`p-2.5 ${vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVista('cards')}
+                  title="Vista de tarjetas"
+                  className={`p-2.5 border-l border-gray-300 ${vista === 'cards' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <LayoutGrid size={18} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Tabla de usuarios */}
-        {/* Tabla de usuarios - REEMPLAZAR COMPLETA */}
-        <div className="bg-white rounded-lg shadow-md">
-          <div className="p-4 border-b border-gray-200 sm:p-6">
+        {/* Lista de usuarios: tabla o tarjetas */}
+        {vista === 'cards' ? (
+          <div className="bg-transparent">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {usuariosFiltrados.map((usuario) => (
+                <div
+                  key={usuario.id}
+                  className="p-4 bg-white border border-gray-100 shadow-sm rounded-2xl"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center min-w-0">
+                      <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 bg-gray-300 rounded-full">
+                        <span className="text-sm font-medium text-gray-700">
+                          {usuario.nombreCompleto?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                      </div>
+                      <div className="min-w-0 ml-3">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {usuario.nombreCompleto || 'Sin nombre'}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{usuario.email}</p>
+                        {usuario.empresa && (
+                          <p className="text-xs text-gray-400 truncate">{usuario.empresa}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => abrirModal(usuario)}
+                      className="flex items-center justify-center flex-shrink-0 w-10 h-10 ml-2 text-gray-600 transition-colors bg-gray-100 rounded-xl hover:bg-gray-200"
+                      title="Gestionar usuario"
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.rol, 'rol')}`}>
+                      {usuario.rol}
+                    </span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.estado, 'estado')}`}>
+                      {usuario.estado}
+                    </span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBadgeColor(usuario.metodoRegistro === 'google' ? 'google' : 'email', 'metodo')}`}>
+                      {usuario.metodoRegistro === 'google' ? 'Google' : 'Email'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {usuariosFiltrados.length === 0 && (
+              <div className="p-12 text-center bg-white border border-gray-100 shadow-sm rounded-2xl">
+                <Users className="w-12 h-12 mx-auto text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No hay usuarios</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {filtros.busqueda || filtros.rol !== 'todos' || filtros.estado !== 'todos' || filtros.metodo !== 'todos'
+                    ? 'No se encontraron usuarios con los filtros aplicados.'
+                    : 'Aún no hay usuarios registrados en el sistema.'
+                  }
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+        <div className="bg-white border border-gray-100 shadow-sm rounded-2xl">
+          <div className="p-4 border-b border-gray-100 sm:p-6">
             <h3 className="text-lg font-medium text-gray-900">
               Lista de Usuarios ({usuariosFiltrados.length})
             </h3>
@@ -669,10 +621,10 @@ export default function GestionUsuarios() {
                       <td className="relative px-3 py-4 sm:px-6">
                         <button
                           onClick={() => abrirModal(usuario)}
-                          className="p-2 text-gray-600 transition-colors rounded-md hover:bg-gray-100 hover:text-gray-900"
+                          className="flex items-center justify-center w-10 h-10 text-gray-600 transition-colors bg-gray-100 rounded-xl hover:bg-gray-200"
                           title="Gestionar usuario"
                         >
-                          <MoreVertical size={16} />
+                          <MoreVertical size={18} />
                         </button>
                       </td>
                     </tr>
@@ -703,10 +655,11 @@ export default function GestionUsuarios() {
             </div>
           )}
         </div>
+        )}
 
         {/* Acciones rápidas para usuarios pendientes */}
-        {estadisticas.pendientes > 0 && (
-          <div className="p-4 mt-6 border border-yellow-200 rounded-lg bg-yellow-50">
+        {usuariosPendientes > 0 && (
+          <div className="p-4 mt-6 border border-yellow-200 rounded-2xl bg-yellow-50">
             <div className="flex items-center">
               <Clock className="w-6 h-6 text-yellow-600" />
               <div className="ml-3">
@@ -714,14 +667,14 @@ export default function GestionUsuarios() {
                   Usuarios pendientes de aprobación
                 </h3>
                 <p className="text-sm text-yellow-700">
-                  Hay {estadisticas.pendientes} usuario(s) esperando aprobación.
+                  Hay {usuariosPendientes} usuario(s) esperando aprobación.
                   Use los filtros para verlos y aprobarlos.
                 </p>
               </div>
               <div className="ml-auto">
                 <button
                   onClick={() => setFiltros(prev => ({ ...prev, estado: 'pendiente' }))}
-                  className="px-4 py-2 text-sm font-medium text-yellow-800 bg-yellow-100 border border-yellow-300 rounded-md hover:bg-yellow-200"
+                  className="px-4 py-2 text-sm font-medium text-yellow-800 bg-yellow-100 border border-yellow-300 rounded-xl hover:bg-yellow-200"
                 >
                   Ver pendientes
                 </button>
@@ -729,17 +682,6 @@ export default function GestionUsuarios() {
             </div>
           </div>
         )}
-
-        {/* Información adicional */}
-        <div className="p-6 mt-8 text-center bg-white border border-red-200 rounded-lg shadow-md">
-          <div className="text-sm text-gray-600">
-            <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-            <p>Gestión de usuarios del sistema - Panel de administración</p>
-            <p className="mt-2">
-              <span className="font-medium">Total de usuarios registrados:</span> {estadisticas.total || 0}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Modal de gestión de usuarios CON PERMISOS GRANULARES Y ELIMINACIÓN */}

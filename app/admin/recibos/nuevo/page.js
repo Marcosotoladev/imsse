@@ -4,8 +4,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, RefreshCw, User, Building2 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Save, Download, RefreshCw, User, Building2 } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -176,15 +176,6 @@ export default function NuevoRecibo() {
     });
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
-
   const handleMontoChange = (e) => {
     const valor = e.target.value;
     setRecibo({
@@ -270,59 +261,20 @@ export default function NuevoRecibo() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header IMSSE */}
-      <header className="text-white shadow bg-primary">
-        <div className="container flex items-center justify-between px-4 py-4 mx-auto">
-          <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
-              className="w-8 h-8 mr-3"
-            />
-            <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="hidden md:inline">{user?.email}</span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
-            >
-              <LogOut size={18} className="mr-2" /> Salir
-            </button>
-          </div>
-        </div>
-      </header>
-
       <div className="container px-4 py-8 mx-auto">
-        <div className="flex flex-wrap items-center justify-between mb-8">
-          <div className="flex items-center mb-4">
-            <Link
-              href="/admin/panel-control"
-              className="flex items-center mr-4 text-primary hover:underline"
-            >
-              <Home size={16} className="mr-1" /> Panel de Control
-            </Link>
-            <span className="mx-2 text-gray-500">/</span>
+        {/* Título + acciones */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 font-montserrat">Nuevo Recibo</h2>
+            <p className="text-sm text-gray-500">Completá los datos para generar un nuevo recibo IMSSE</p>
+          </div>
+          <div className="flex items-center gap-2">
             <Link
               href="/admin/recibos"
-              className="flex items-center mr-4 text-primary hover:underline"
+              className="px-4 py-2 text-gray-700 transition-colors border border-gray-300 rounded-md hover:bg-gray-100"
             >
-              Recibos
+              Cancelar
             </Link>
-            <span className="mx-2 text-gray-500">/</span>
-            <span className="text-gray-700">Nuevo Recibo</span>
-          </div>
-
-          <div className="flex mb-4 space-x-2">
-            <button
-              onClick={handleGuardarRecibo}
-              disabled={guardando}
-              className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
-            >
-              <Save size={18} className="mr-2" />
-              {guardando ? 'Guardando...' : 'Guardar'}
-            </button>
-            
             {recibo.recibiDe && recibo.monto && (
               <button
                 onClick={() => setMostrarPDF(true)}
@@ -331,7 +283,15 @@ export default function NuevoRecibo() {
                 <Download size={18} className="mr-2" /> Ver PDF
               </button>
             )}
-            
+            <button
+              onClick={handleGuardarRecibo}
+              disabled={guardando}
+              className="flex items-center px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+            >
+              <Save size={18} className="mr-2" />
+              {guardando ? 'Guardando...' : 'Guardar'}
+            </button>
+
             {/* PDF bajo demanda */}
             {mostrarPDF && (
               <div style={{position: 'absolute', left: '-9999px'}}>
@@ -354,10 +314,6 @@ export default function NuevoRecibo() {
             )}
           </div>
         </div>
-
-        <h2 className="mb-6 text-2xl font-bold font-montserrat text-primary">
-          Nuevo Recibo IMSSE
-        </h2>
 
         <div className="grid grid-cols-1 gap-6">
           {/* Información del recibo */}

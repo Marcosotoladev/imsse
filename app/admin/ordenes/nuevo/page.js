@@ -5,8 +5,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home,
-  LogOut,
   Save,
   ArrowLeft,
   Shield,
@@ -26,7 +24,7 @@ import {
   Download,
   RefreshCw
 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -250,15 +248,6 @@ export default function CrearOrdenTrabajo() {
       });
     };
   }, [loading]); // Ejecutar cuando loading cambie (después del montaje)
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

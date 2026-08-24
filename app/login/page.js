@@ -137,23 +137,24 @@ export default function Login() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      
+
       // Verificar si el usuario existe en nuestra base de datos
-      const perfil = await apiService.obtenerPerfilUsuario(result.user.uid);
-      
-      if (!perfil) {
+      let perfil;
+      try {
+        perfil = await apiService.obtenerPerfilUsuario(result.user.uid);
+      } catch (perfilError) {
         // Usuario no registrado en nuestro sistema
         await auth.signOut();
         setError('Esta cuenta de Google no está registrada en IMSSE. Regístrate primero.');
         return;
       }
-      
+
       // Redirigir según rol
       redirigirSegunRol(perfil);
 
     } catch (error) {
       console.error('Error con Google:', error);
-      
+
       if (error.code === 'auth/popup-cancelled-by-user') {
         setError(''); // No mostrar error si el usuario canceló
       } else {

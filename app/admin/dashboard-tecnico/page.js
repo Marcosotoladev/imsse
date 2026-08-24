@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  LogOut,
   Plus,
   Wrench,
   Bell,
@@ -14,11 +13,9 @@ import {
   Building,
   Calendar,
   CalendarDays,
-  MapPin,
-  Clock,
-  Navigation
+  Clock
 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 
@@ -27,19 +24,13 @@ export default function DashboardTecnico() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [estadisticas, setEstadisticas] = useState({
-    ordenes: 0,
-    recordatorios: 0,
-    visitas: 0,
-    marcaciones: 0 // Nueva estadística
-  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         try {
           const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
-          
+
           // Verificar que sea técnico
           if (perfilUsuario.rol !== 'tecnico') {
             if (perfilUsuario.rol === 'admin') {
@@ -58,10 +49,11 @@ export default function DashboardTecnico() {
 
           setUser(currentUser);
           setPerfil(perfilUsuario);
-          await cargarEstadisticas();
         } catch (error) {
           console.error('Error al verificar usuario:', error);
           router.push('/admin');
+        } finally {
+          setLoading(false);
         }
       } else {
         router.push('/admin');
@@ -70,70 +62,6 @@ export default function DashboardTecnico() {
 
     return () => unsubscribe();
   }, [router]);
-
-  const cargarEstadisticas = async () => {
-    try {
-      setLoading(true);
-      
-      // Cargar estadísticas incluyendo marcaciones
-      const [ordenesResponse, recordatoriosResponse, visitasResponse, marcacionesResponse] = await Promise.allSettled([
-        apiService.obtenerOrdenesTrabajo(),
-        apiService.obtenerRecordatorios(),
-        apiService.obtenerVisitas(),
-        apiService.obtenerMarcacionesTecnico(auth.currentUser?.uid)
-      ]);
-
-      let totalOrdenes = 0;
-      let totalRecordatorios = 0;
-      let totalVisitas = 0;
-      let totalMarcaciones = 0;
-
-      // Procesar órdenes
-      if (ordenesResponse.status === 'fulfilled') {
-        const ordenes = ordenesResponse.value?.documents || ordenesResponse.value || [];
-        totalOrdenes = Array.isArray(ordenes) ? ordenes.length : 0;
-      }
-
-      // Procesar recordatorios
-      if (recordatoriosResponse.status === 'fulfilled') {
-        const recordatorios = recordatoriosResponse.value?.documents || recordatoriosResponse.value || [];
-        totalRecordatorios = Array.isArray(recordatorios) ? recordatorios.length : 0;
-      }
-
-      // Procesar visitas
-      if (visitasResponse.status === 'fulfilled') {
-        const visitas = visitasResponse.value?.documents || visitasResponse.value || [];
-        totalVisitas = Array.isArray(visitas) ? visitas.length : 0;
-      }
-
-      // Procesar marcaciones
-      if (marcacionesResponse.status === 'fulfilled') {
-        const marcaciones = marcacionesResponse.value?.documents || marcacionesResponse.value || [];
-        totalMarcaciones = Array.isArray(marcaciones) ? marcaciones.length : 0;
-      }
-
-      setEstadisticas({
-        ordenes: totalOrdenes,
-        recordatorios: totalRecordatorios,
-        visitas: totalVisitas,
-        marcaciones: totalMarcaciones
-      });
-
-    } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
 
   const formatearFecha = (timestamp) => {
     if (!timestamp) return 'N/A';
@@ -160,228 +88,118 @@ export default function DashboardTecnico() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="text-white shadow bg-primary">
-        <div className="px-4 py-3 mx-auto max-w-7xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <img
-                src="/logo/imsse-logo.png"
-                alt="IMSSE Logo"
-                className="w-6 h-6 mr-2 md:w-8 md:h-8 md:mr-3"
-              />
-              <div>
-                <h1 className="text-lg font-bold md:text-xl font-montserrat">IMSSE</h1>
-                <p className="text-xs text-red-100 md:text-sm">Panel Técnico</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="hidden text-right md:block">
-                <p className="text-sm font-medium">{perfil?.nombreCompleto}</p>
-                <p className="text-xs text-red-100">Técnico</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
-              >
-                <LogOut size={16} className="md:mr-2" />
-                <span className="hidden md:inline">Salir</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <div className="px-4 py-6 mx-auto max-w-7xl">
+        {/* Bienvenida */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 font-montserrat">
+            ¡Bienvenido, {perfil?.nombre}!
+          </h2>
+          <p className="text-gray-600">Gestiona tus órdenes de trabajo, recordatorios y calendario de visitas</p>
+        </div>
+
         {/* Información del perfil */}
-        <div className="p-6 mb-8 bg-white border border-blue-200 rounded-lg shadow-md">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 w-16 h-16">
-              <div className="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full">
-                <User size={24} className="text-blue-600" />
+        <div className="flex items-center p-5 mb-8 bg-white border border-gray-100 shadow-sm rounded-2xl">
+          <div className="flex items-center justify-center flex-shrink-0 text-white bg-blue-600 rounded-full w-14 h-14">
+            <User size={22} />
+          </div>
+          <div className="ml-5">
+            <h3 className="text-lg font-semibold text-gray-900">{perfil?.nombreCompleto}</h3>
+            <div className="mt-1 space-y-1">
+              <div className="flex items-center text-sm text-gray-500">
+                <Building size={14} className="mr-2" />
+                Técnico IMSSE
+              </div>
+              <div className="flex items-center text-sm text-gray-500">
+                <Calendar size={14} className="mr-2" />
+                Acceso desde {formatearFecha(perfil?.fechaCreacion)}
               </div>
             </div>
-            <div className="ml-6">
-              <h3 className="text-lg font-medium text-gray-900">{perfil?.nombreCompleto}</h3>
-              <div className="mt-1 space-y-1">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Building size={14} className="mr-2" />
-                  Técnico IMSSE
-                </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Calendar size={14} className="mr-2" />
-                  Acceso desde {formatearFecha(perfil?.fechaCreacion)}
-                </div>
-              </div>
-            </div>
-            <div className="ml-auto">
-              <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
-                <CheckCircle size={16} className="mr-1" />
-                Activo
-              </span>
-            </div>
+          </div>
+          <div className="ml-auto">
+            <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-700 rounded-full bg-green-50">
+              <CheckCircle size={16} className="mr-1" />
+              Activo
+            </span>
           </div>
         </div>
 
-        {/* Cards de estadísticas - AHORA 4 cards */}
-        <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2 lg:grid-cols-4">
+        {/* Menú principal */}
+        <h3 className="mb-6 text-xl font-semibold text-gray-900">Menú</h3>
+        <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2">
           {/* Card Órdenes de Trabajo */}
-          <Link
-            href="/admin/ordenes"
-            className="p-6 transition-all bg-white border-l-4 rounded-lg shadow border-l-red-500 hover:shadow-lg hover:bg-red-50"
-          >
-            <div className="flex items-center">
-              <div className="flex-shrink-0 p-3 bg-red-100 rounded-lg">
-                <Wrench size={24} className="text-red-600" />
+          <div className="relative flex items-center gap-3 p-4 transition-all duration-200 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-0.5">
+            <Link href="/admin/ordenes" className="absolute inset-0 rounded-2xl" aria-label="Órdenes de Trabajo" />
+            <div className="flex items-center flex-1 min-w-0 gap-3 pointer-events-none">
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-red-600 w-11 h-11 rounded-xl shadow-sm transition-transform group-hover:scale-105">
+                <Wrench size={20} />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900">
-                  Órdenes de Trabajo
-                </p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {estadisticas.ordenes}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Click para gestionar
-                </p>
-              </div>
+              <p className="text-sm font-semibold text-gray-900 truncate">Órdenes de Trabajo</p>
             </div>
-          </Link>
-
-          {/* Card Recordatorios */}
-          <Link
-            href="/admin/recordatorios"
-            className="p-6 transition-all bg-white border-l-4 rounded-lg shadow border-l-yellow-500 hover:shadow-lg hover:bg-yellow-50"
-          >
-            <div className="flex items-center">
-              <div className="flex-shrink-0 p-3 bg-yellow-100 rounded-lg">
-                <Bell size={24} className="text-yellow-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900">
-                  Recordatorios
-                </p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {estadisticas.recordatorios}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Click para gestionar
-                </p>
-              </div>
-            </div>
-          </Link>
-
-          {/* Card Calendario de Visitas */}
-          <Link
-            href="/admin/calendario-visitas"
-            className="p-6 transition-all bg-white border-l-4 rounded-lg shadow border-l-blue-500 hover:shadow-lg hover:bg-blue-50"
-          >
-            <div className="flex items-center">
-              <div className="flex-shrink-0 p-3 bg-blue-100 rounded-lg">
-                <CalendarDays size={24} className="text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900">
-                  Calendario Visitas
-                </p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {estadisticas.visitas}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Click para ver calendario
-                </p>
-              </div>
-            </div>
-          </Link>
-
-          {/* NUEVA Card Control de Asistencia */}
-          <Link
-            href="/admin/control-asistencia"
-            className="p-6 transition-all bg-white border-l-4 rounded-lg shadow border-l-green-500 hover:shadow-lg hover:bg-green-50"
-          >
-            <div className="flex items-center">
-              <div className="flex-shrink-0 p-3 bg-green-100 rounded-lg">
-                <Clock size={24} className="text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900">
-                  Control Asistencia
-                </p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {estadisticas.marcaciones}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Click para marcar
-                </p>
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Acciones Rápidas - AHORA 4 botones */}
-        <div className="mb-8">
-          <h3 className="mb-4 text-xl font-semibold text-gray-900">Acciones Rápidas</h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Link
               href="/admin/ordenes/nuevo"
-              className="flex items-center p-6 transition-all bg-white border-2 border-red-200 rounded-lg shadow hover:border-red-400 hover:bg-red-50"
+              className="relative z-10 inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
             >
-              <div className="flex-shrink-0 p-3 bg-red-100 rounded-lg">
-                <Plus size={24} className="text-red-600" />
-              </div>
-              <div className="ml-4">
-                <h4 className="text-lg font-medium text-red-800">Nueva Orden</h4>
-                <p className="text-sm text-red-600">Crear orden de trabajo</p>
-              </div>
+              <Plus size={14} /> Nuevo
             </Link>
+          </div>
 
-            <Link
-              href="/admin/recordatorios/nuevo"
-              className="flex items-center p-6 transition-all bg-white border-2 border-yellow-200 rounded-lg shadow hover:border-yellow-400 hover:bg-yellow-50"
-            >
-              <div className="flex-shrink-0 p-3 bg-yellow-100 rounded-lg">
-                <Plus size={24} className="text-yellow-600" />
+          {/* Card Control de Asistencia */}
+          <div className="relative flex items-center gap-3 p-4 transition-all duration-200 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-0.5">
+            <Link href="/admin/control-asistencia" className="absolute inset-0 rounded-2xl" aria-label="Control de Asistencia" />
+            <div className="flex items-center flex-1 min-w-0 gap-3 pointer-events-none">
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-teal-600 w-11 h-11 rounded-xl shadow-sm transition-transform group-hover:scale-105">
+                <Clock size={20} />
               </div>
-              <div className="ml-4">
-                <h4 className="text-lg font-medium text-yellow-800">Nuevo Recordatorio</h4>
-                <p className="text-sm text-yellow-600">Crear recordatorio</p>
-              </div>
-            </Link>
-
-            <Link
-              href="/admin/calendario-visitas/nueva"
-              className="flex items-center p-6 transition-all bg-white border-2 border-blue-200 rounded-lg shadow hover:border-blue-400 hover:bg-blue-50"
-            >
-              <div className="flex-shrink-0 p-3 bg-blue-100 rounded-lg">
-                <MapPin size={24} className="text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <h4 className="text-lg font-medium text-blue-800">Nueva Visita</h4>
-                <p className="text-sm text-blue-600">Programar visita</p>
-              </div>
-            </Link>
-
-            {/* NUEVO Botón Marcar Asistencia */}
+              <p className="text-sm font-semibold text-gray-900 truncate">Control de Asistencia</p>
+            </div>
             <Link
               href="/admin/control-asistencia/marcar"
-              className="flex items-center p-6 transition-all bg-white border-2 border-green-200 rounded-lg shadow hover:border-green-400 hover:bg-green-50"
+              className="relative z-10 inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
             >
-              <div className="flex-shrink-0 p-3 bg-green-100 rounded-lg">
-                <Navigation size={24} className="text-green-600" />
+              <Plus size={14} /> Nuevo
+            </Link>
+          </div>
+
+          {/* Card Recordatorios */}
+          <div className="relative flex items-center gap-3 p-4 transition-all duration-200 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-0.5">
+            <Link href="/admin/recordatorios" className="absolute inset-0 rounded-2xl" aria-label="Recordatorios" />
+            <div className="flex items-center flex-1 min-w-0 gap-3 pointer-events-none">
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-amber-500 w-11 h-11 rounded-xl shadow-sm transition-transform group-hover:scale-105">
+                <Bell size={20} />
               </div>
-              <div className="ml-4">
-                <h4 className="text-lg font-medium text-green-800">Marcar Asistencia</h4>
-                <p className="text-sm text-green-600">Registrar entrada/salida</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">Recordatorios</p>
+            </div>
+            <Link
+              href="/admin/recordatorios/nuevo"
+              className="relative z-10 inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+            >
+              <Plus size={14} /> Nuevo
+            </Link>
+          </div>
+
+          {/* Card Calendario de Visitas */}
+          <div className="relative flex items-center gap-3 p-4 transition-all duration-200 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-0.5">
+            <Link href="/admin/calendario-visitas" className="absolute inset-0 rounded-2xl" aria-label="Calendario de Visitas" />
+            <div className="flex items-center flex-1 min-w-0 gap-3 pointer-events-none">
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-indigo-600 w-11 h-11 rounded-xl shadow-sm transition-transform group-hover:scale-105">
+                <CalendarDays size={20} />
               </div>
+              <p className="text-sm font-semibold text-gray-900 truncate">Calendario de Visitas</p>
+            </div>
+            <Link
+              href="/admin/calendario-visitas/nueva"
+              className="relative z-10 inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+            >
+              <Plus size={14} /> Nuevo
             </Link>
           </div>
         </div>
 
         {/* Footer simple */}
-        <div className="p-6 mt-8 text-center bg-white border border-blue-200 rounded-lg shadow-md">
-          <div className="text-sm text-gray-600">
-            <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-            <p>Panel Técnico - Gestión completa</p>
+        <div className="relative p-6 overflow-hidden text-center text-white shadow-md bg-gradient-imsse rounded-2xl">
+          <div className="relative z-10 text-sm">
+            <p className="font-semibold tracking-wide">IMSSE INGENIERÍA S.A.S</p>
+            <p className="text-white/80">Panel Técnico - Gestión completa</p>
             <p className="mt-2">
               <span className="font-medium">Técnico:</span> {perfil?.nombreCompleto}
             </p>

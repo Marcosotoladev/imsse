@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign, User, Building2, FileText } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Save, ArrowLeft, Plus, Trash2, Calendar, DollarSign, User, Building2, FileText } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 
@@ -174,15 +174,6 @@ export default function CrearEstadoCuenta() {
       console.error('Error al generar número:', error);
       const año = new Date().getFullYear();
       setEstadoCuenta(prev => ({ ...prev, numero: `EC-001-${año}` }));
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
     }
   };
 

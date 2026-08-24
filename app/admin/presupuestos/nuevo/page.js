@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, User, Building2, Percent, DollarSign } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Save, Download, PlusCircle, Trash2, User, Building2, Percent, DollarSign } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -196,15 +196,6 @@ export default function NuevoPresupuesto() {
             itemId: null,
             value: ''
         });
-    };
-
-    const handleLogout = async () => {
-        try {
-            await signOut(auth);
-            router.push('/admin');
-        } catch (error) {
-            console.error('Error al cerrar sesión:', error);
-        }
     };
 
     const handleClienteChange = (e) => {

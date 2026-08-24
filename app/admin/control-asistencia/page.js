@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   Navigation,
   Clock,
   MapPin,
@@ -200,36 +199,16 @@ export default function ControlAsistencia() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="text-white shadow bg-primary">
-        <div className="px-4 py-3 mx-auto max-w-7xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center min-w-0">
-              <Link
-                href="/admin/dashboard-tecnico"
-                className="flex items-center flex-shrink-0 p-2 mr-4 text-white rounded-md hover:bg-red-700"
-              >
-                <ArrowLeft size={20} />
-              </Link>
-              <div className="min-w-0">
-                <h1 className="text-lg font-bold md:text-xl font-montserrat">Control de Asistencia</h1>
-                <p className="text-xs text-red-100 md:text-sm">Gestión de marcaciones</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Indicador de conexión */}
-              <OfflineIndicator className="text-white" />
-              
-              <div className="min-w-0 text-right">
-                <p className="text-sm font-medium truncate">{perfil?.nombreCompleto}</p>
-                <p className="text-xs text-red-100">Técnico</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-6xl px-4 py-6 mx-auto">
+        {/* Título de página */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 font-montserrat">Control de Asistencia</h2>
+            <p className="text-sm text-gray-500">Gestión de marcaciones · {perfil?.nombreCompleto}</p>
+          </div>
+          <OfflineIndicator />
+        </div>
+
         {/* Alerta de modo offline */}
         {isOffline && (
           <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">

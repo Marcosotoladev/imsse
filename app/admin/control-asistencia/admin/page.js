@@ -252,36 +252,24 @@ export default function PanelAdminMarcaciones() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="text-white shadow bg-primary">
-        <div className="px-4 py-3 mx-auto max-w-7xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center min-w-0">
-              <Link
-                href="/admin/control-asistencia"
-                className="flex items-center flex-shrink-0 p-2 mr-4 text-white rounded-md hover:bg-red-700"
-              >
-                <ArrowLeft size={20} />
-              </Link>
-              <div className="min-w-0">
-                <h1 className="text-lg font-bold md:text-xl font-montserrat">Panel Administrador</h1>
-                <p className="text-xs text-red-100 md:text-sm">Control de Asistencia</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Indicador de conexión */}
-              <OfflineIndicator className="text-white" />
-              
-              <div className="min-w-0 text-right">
-                <p className="text-sm font-medium truncate">{perfil?.nombreCompleto}</p>
-                <p className="text-xs text-red-100">Administrador</p>
-              </div>
+      <div className="px-4 py-6 mx-auto max-w-7xl">
+        {/* Título de página */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="flex items-center min-w-0 gap-3">
+            <Link
+              href="/admin/control-asistencia"
+              className="flex-shrink-0 p-2 text-gray-500 transition-colors rounded-xl hover:bg-gray-100 hover:text-gray-700"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+            <div className="min-w-0">
+              <h2 className="text-2xl font-bold text-gray-900 font-montserrat">Control de Asistencia</h2>
+              <p className="text-sm text-gray-500">Panel administrador · {perfil?.nombreCompleto}</p>
             </div>
           </div>
+          <OfflineIndicator />
         </div>
-      </header>
 
-      <div className="px-4 py-6 mx-auto max-w-7xl">
         {/* Alerta de modo offline */}
         {isOffline && (
           <div className="p-4 mb-6 border border-orange-200 rounded-lg bg-orange-50">
@@ -299,14 +287,14 @@ export default function PanelAdminMarcaciones() {
 
         {/* Estadísticas */}
         <div className="grid grid-cols-1 gap-4 mb-8 md:grid-cols-3 sm:gap-6">
-          <div className="p-4 bg-white border border-blue-200 rounded-lg shadow sm:p-6">
+          <div className="p-5 bg-white border border-gray-100 shadow-sm rounded-2xl">
             <div className="flex items-center">
-              <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg sm:p-3">
-                <User size={20} className="text-blue-600 sm:w-6 sm:h-6" />
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-blue-600 w-11 h-11 rounded-xl">
+                <User size={20} />
               </div>
-              <div className="min-w-0 ml-3 sm:ml-4">
-                <p className="text-sm font-medium text-gray-900">Total Marcaciones</p>
-                <p className="text-2xl font-bold text-blue-800 sm:text-3xl">{estadisticas.total}</p>
+              <div className="min-w-0 ml-4">
+                <p className="text-2xl font-bold text-gray-900 sm:text-3xl">{estadisticas.total}</p>
+                <p className="text-xs font-medium text-gray-500 sm:text-sm">Total Marcaciones</p>
                 {isOffline && (
                   <p className="text-xs text-orange-600">Datos locales</p>
                 )}
@@ -314,26 +302,26 @@ export default function PanelAdminMarcaciones() {
             </div>
           </div>
 
-          <div className="p-4 bg-white border border-green-200 rounded-lg shadow sm:p-6">
+          <div className="p-5 bg-white border border-gray-100 shadow-sm rounded-2xl">
             <div className="flex items-center">
-              <div className="flex-shrink-0 p-2 bg-green-100 rounded-lg sm:p-3">
-                <LogIn size={20} className="text-green-600 sm:w-6 sm:h-6" />
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-emerald-600 w-11 h-11 rounded-xl">
+                <LogIn size={20} />
               </div>
-              <div className="min-w-0 ml-3 sm:ml-4">
-                <p className="text-sm font-medium text-gray-900">Técnicos en Obra</p>
-                <p className="text-2xl font-bold text-green-800 sm:text-3xl">{estadisticas.enObra}</p>
+              <div className="min-w-0 ml-4">
+                <p className="text-2xl font-bold text-gray-900 sm:text-3xl">{estadisticas.enObra}</p>
+                <p className="text-xs font-medium text-gray-500 sm:text-sm">Técnicos en Obra</p>
               </div>
             </div>
           </div>
 
-          <div className="p-4 bg-white border border-red-200 rounded-lg shadow sm:p-6">
+          <div className="p-5 bg-white border border-gray-100 shadow-sm rounded-2xl">
             <div className="flex items-center">
-              <div className="flex-shrink-0 p-2 bg-red-100 rounded-lg sm:p-3">
-                <LogOut size={20} className="text-red-600 sm:w-6 sm:h-6" />
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-red-600 w-11 h-11 rounded-xl">
+                <LogOut size={20} />
               </div>
-              <div className="min-w-0 ml-3 sm:ml-4">
-                <p className="text-sm font-medium text-gray-900">Técnicos Fuera</p>
-                <p className="text-2xl font-bold text-red-800 sm:text-3xl">{estadisticas.fueraObra}</p>
+              <div className="min-w-0 ml-4">
+                <p className="text-2xl font-bold text-gray-900 sm:text-3xl">{estadisticas.fueraObra}</p>
+                <p className="text-xs font-medium text-gray-500 sm:text-sm">Técnicos Fuera</p>
               </div>
             </div>
           </div>

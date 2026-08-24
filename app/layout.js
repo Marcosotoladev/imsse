@@ -1,6 +1,5 @@
 import './globals.css';
-import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
+import SiteChrome from './components/layout/SiteChrome';
 import WhatsAppBadge from './components/ui/WhatsAppBadge';
 import PWARegister from './components/PWARegister';
 
@@ -42,12 +41,7 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" sizes="512x512" href="/icon-512x512.png" />
       </head>
       <body className="flex flex-col min-h-screen">
-        <Header />
-
-        <main className="flex-grow">
-          {children}
-        </main>
-        <Footer />
+        <SiteChrome>{children}</SiteChrome>
         <WhatsAppBadge phoneNumber="+5493515484437" />
         <PWARegister />
 

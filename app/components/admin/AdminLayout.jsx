@@ -1,38 +1,200 @@
-// components/admin/AdminLayout.jsx - Layout con sidebar scrolleable
+// components/admin/AdminLayout.jsx - Layout con sidebar (desktop) y bottom nav (mobile)
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  LogOut, 
+import {
+  LogOut,
+  Menu,
   ChevronDown,
-  ChevronUp,
-  FileText,
-  FileChartColumn,
-  CreditCard,
-  Receipt,
-  FileCheck,
+  MoreHorizontal,
+  X,
   Wrench,
-  Shield,
+  Clock,
+  BellRing,
   Bell,
   BarChart3,
-  ChevronRight,
   Users,
   CalendarDays,
-  Clock
+  Folder,
+  FileText,
+  Receipt,
+  Truck,
+  CreditCard,
+  Crown
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 
+// Submenú de Documentos (compartido entre el panel "Más" y el sidebar desktop)
+const DOCUMENTOS_SUB = [
+  { name: 'Presupuestos', path: '/admin/presupuestos', icon: FileText },
+  { name: 'Recibos', path: '/admin/recibos', icon: Receipt },
+  { name: 'Remitos', path: '/admin/remitos', icon: Truck },
+  { name: 'Estados de Cuenta', path: '/admin/estados', icon: CreditCard },
+  { name: 'Facturas', disabled: true, icon: FileText }
+];
+
+// Los 4-5 accesos directos de la bottom nav en mobile. Lo que no entra queda en "Más" (solo admin).
+const BOTTOM_NAV = {
+  admin: [
+    { name: 'Inicio', path: '/admin/panel-control', icon: BarChart3 },
+    { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench },
+    { name: 'Asistencia', path: '/admin/control-asistencia/admin', icon: Clock },
+    { name: 'Notificaciones', icon: BellRing, disabled: true }
+  ],
+  tecnico: [
+    { name: 'Inicio', path: '/admin/dashboard-tecnico', icon: BarChart3 },
+    { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench },
+    { name: 'Asistencia', path: '/admin/control-asistencia', icon: Clock },
+    { name: 'Recordatorios', path: '/admin/recordatorios', icon: Bell },
+    { name: 'Calendario', path: '/admin/calendario-visitas', icon: CalendarDays }
+  ]
+};
+
+// Nombres del sidebar (menuItemsConfig) que ya están cubiertos por la bottom nav de admin:
+// el resto del menú (Recordatorios, Calendario, Documentos, Usuarios) cae dentro de "Más"
+const BOTTOM_NAV_ADMIN_NAMES = new Set(['Panel de Control', 'Órdenes de Trabajo', 'Control de Asistencia', 'Notificaciones']);
+
+function isPathActive(pathname, path) {
+  return !!path && (pathname === path || pathname.startsWith(`${path}/`));
+}
+
+function isGroupActive(pathname, children) {
+  return children.some((child) => isPathActive(pathname, child.path));
+}
+
+// Una fila de menú: link simple, grupo desplegable (Documentos) o item deshabilitado (Notificaciones/Facturas)
+function MenuEntry({ item, pathname, docsOpen, setDocsOpen, onNavigate }) {
+  if (item.disabled) {
+    return (
+      <div className="flex items-center px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 cursor-not-allowed">
+        <item.icon size={18} className="mr-3" />
+        <span className="flex-1">{item.name}</span>
+        <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-gray-100 rounded">Pronto</span>
+      </div>
+    );
+  }
+
+  if (item.children) {
+    const childActive = isGroupActive(pathname, item.children);
+    const open = docsOpen || childActive;
+
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setDocsOpen(!docsOpen)}
+          className={`flex items-center w-full px-4 py-2.5 rounded-xl transition-colors text-sm font-medium ${
+            childActive ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+          }`}
+        >
+          <item.icon size={18} className="mr-3" />
+          <span className="flex-1 text-left">{item.name}</span>
+          <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        {open && (
+          <div className="pl-3 mt-1 ml-4 space-y-0.5 border-l border-gray-200">
+            {item.children.map((child) =>
+              child.disabled ? (
+                <div
+                  key={child.name}
+                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-400 cursor-not-allowed"
+                >
+                  {child.name}
+                  <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-gray-100 rounded">Pronto</span>
+                </div>
+              ) : (
+                <Link
+                  key={child.path}
+                  href={child.path}
+                  onClick={onNavigate}
+                  className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isPathActive(pathname, child.path)
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {child.name}
+                </Link>
+              )
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const active = isPathActive(pathname, item.path);
+
+  return (
+    <Link
+      href={item.path}
+      onClick={onNavigate}
+      className={`flex items-center px-4 py-2.5 rounded-xl transition-colors text-sm font-medium ${
+        active ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+      }`}
+    >
+      <item.icon size={18} className="mr-3" />
+      {item.name}
+    </Link>
+  );
+}
+
+// Un ícono de la bottom nav (mobile)
+function BottomNavEntry({ item, pathname, isMoreOpen, onMoreClick }) {
+  if (item.isMore) {
+    const active = isMoreOpen;
+    return (
+      <button
+        type="button"
+        onClick={onMoreClick}
+        className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 ${
+          active ? 'text-primary' : 'text-gray-500'
+        }`}
+      >
+        {isMoreOpen ? <X size={20} /> : <MoreHorizontal size={20} />}
+        <span className="text-[11px] font-medium">Más</span>
+      </button>
+    );
+  }
+
+  if (item.disabled) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-gray-300">
+        <item.icon size={20} />
+        <span className="text-[11px] font-medium">{item.name}</span>
+      </div>
+    );
+  }
+
+  const active = isPathActive(pathname, item.path);
+
+  return (
+    <Link
+      href={item.path}
+      className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 ${
+        active ? 'text-primary' : 'text-gray-500'
+      }`}
+    >
+      <item.icon size={20} />
+      <span className="text-[11px] font-medium">{item.name}</span>
+    </Link>
+  );
+}
+
 export default function AdminLayout({ children }) {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const moreRef = useRef(null);
+  const menuRef = useRef(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -42,7 +204,7 @@ export default function AdminLayout({ children }) {
         try {
           // Obtener perfil del usuario para conocer su rol
           const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
-          
+
           // Verificar que tenga acceso al panel admin
           if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
             router.push('/cliente/dashboard');
@@ -71,17 +233,21 @@ export default function AdminLayout({ children }) {
     return () => unsubscribe();
   }, [router, pathname]);
 
-  // Cerrar dropdown al hacer click fuera
+  // Cerrar panel "Más" / menú hamburguesa al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
+      if (moreRef.current && !moreRef.current.contains(event.target)) {
+        setMoreOpen(false);
+      }
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
       }
     };
 
     const handleEscapeKey = (event) => {
       if (event.key === 'Escape') {
-        setDropdownOpen(false);
+        setMoreOpen(false);
+        setMenuOpen(false);
       }
     };
 
@@ -103,156 +269,85 @@ export default function AdminLayout({ children }) {
     }
   };
 
-  // Función para generar breadcrumb
-  const generateBreadcrumb = () => {
-    const segments = pathname.split('/').filter(segment => segment);
-    const breadcrumbs = [];
-    let currentPath = '';
-
-    segments.forEach((segment, index) => {
-      currentPath += `/${segment}`;
-      const isLast = index === segments.length - 1;
-      
-      let displayName = segment;
-      
-      // Personalizar nombres de rutas
-      switch (segment) {
-        case 'admin':
-          displayName = 'Admin';
-          break;
-        case 'panel-control':
-          displayName = 'Panel de Control';
-          break;
-        case 'presupuestos':
-          displayName = 'Presupuestos';
-          break;
-        case 'recibos':
-          displayName = 'Recibos';
-          break;
-        case 'remitos':
-          displayName = 'Remitos';
-          break;
-        case 'estados':
-          displayName = 'Estados de Cuenta';
-          break;
-        case 'ordenes':
-          displayName = 'Órdenes de Trabajo';
-          break;
-        case 'recordatorios':
-          displayName = 'Recordatorios';
-          break;
-        case 'calendario-visitas':
-          displayName = 'Calendario de Visitas';
-          break;
-        case 'control-asistencia':
-          displayName = 'Control de Asistencia';
-          break;
-        case 'usuarios':
-          displayName = 'Gestión de Usuarios';
-          break;
-        case 'nuevo':
-          displayName = 'Nuevo';
-          break;
-        case 'nueva':
-          displayName = 'Nueva';
-          break;
-        case 'editar':
-          displayName = 'Editar';
-          break;
-        default:
-          displayName = segment;
-      }
-
-      breadcrumbs.push({
-        name: displayName,
-        path: currentPath,
-        isLast
-      });
-    });
-
-    return breadcrumbs;
-  };
-
-  // Menú completo con configuración de acceso por rol
+  // Menú completo (sidebar desktop) con configuración de acceso por rol
   const menuItemsConfig = [
     {
       name: 'Panel de Control',
       path: '/admin/panel-control',
       icon: BarChart3,
-      roles: ['admin'], // Solo admin ve el panel-control normal
-      pathTecnico: '/admin/dashboard-tecnico' // Técnicos van a su dashboard específico
+      roles: ['admin']
     },
     {
       name: 'Panel de Control',
       path: '/admin/dashboard-tecnico',
       icon: BarChart3,
-      roles: ['tecnico'] // Solo técnicos ven su dashboard
-    },
-    {
-      name: 'Presupuestos',
-      path: '/admin/presupuestos',
-      icon: FileText,
-      roles: ['admin'] // Solo admin
-    },
-    {
-      name: 'Estados de Cuenta',
-      path: '/admin/estados',
-      icon: CreditCard,
-      roles: ['admin'] // Solo admin
-    },
-    {
-      name: 'Recibos',
-      path: '/admin/recibos',
-      icon: Receipt,
-      roles: ['admin'] // Solo admin
-    },
-    {
-      name: 'Remitos',
-      path: '/admin/remitos',
-      icon: FileCheck,
-      roles: ['admin'] // Solo admin
+      roles: ['tecnico']
     },
     {
       name: 'Órdenes de Trabajo',
       path: '/admin/ordenes',
       icon: Wrench,
-      roles: ['admin', 'tecnico'] // Ambos roles
-    },
-    {
-      name: 'Recordatorios',
-      path: '/admin/recordatorios',
-      icon: Bell,
-      roles: ['admin', 'tecnico'] // Ambos roles
-    },
-    {
-      name: 'Calendario de Visitas',
-      path: '/admin/calendario-visitas',
-      icon: CalendarDays,
-      roles: ['admin', 'tecnico'] // Ambos roles - NUEVO
+      roles: ['admin', 'tecnico']
     },
     {
       name: 'Control de Asistencia',
       path: '/admin/control-asistencia/admin',
       icon: Clock,
-      roles: ['admin'] // Solo admin
+      roles: ['admin']
     },
     {
-      name: 'Gestión de Usuarios',
+      name: 'Control de Asistencia',
+      path: '/admin/control-asistencia',
+      icon: Clock,
+      roles: ['tecnico']
+    },
+    {
+      name: 'Notificaciones',
+      icon: BellRing,
+      roles: ['admin', 'tecnico'],
+      disabled: true
+    },
+    {
+      name: 'Recordatorios',
+      path: '/admin/recordatorios',
+      icon: Bell,
+      roles: ['admin', 'tecnico']
+    },
+    {
+      name: 'Calendario de Visitas',
+      path: '/admin/calendario-visitas',
+      icon: CalendarDays,
+      roles: ['admin', 'tecnico']
+    },
+    {
+      name: 'Documentos',
+      icon: Folder,
+      roles: ['admin'],
+      children: DOCUMENTOS_SUB
+    },
+    {
+      name: 'Usuarios',
       path: '/admin/usuarios',
       icon: Users,
-      roles: ['admin'] // Solo admin
+      roles: ['admin']
+    },
+    {
+      name: 'Suscripción',
+      icon: Crown,
+      roles: ['admin'],
+      disabled: true
     }
   ];
 
   // Filtrar menú según el rol del usuario
-  const menuItems = menuItemsConfig.filter(item => 
+  const menuItems = menuItemsConfig.filter(item =>
     perfil && item.roles.includes(perfil.rol)
   );
 
-  // Encontrar el item activo para mostrar en el dropdown
-  const activeItem = menuItems.find(item => 
-    pathname === item.path || pathname.startsWith(`${item.path}/`)
-  );
+  const rol = perfil?.rol === 'tecnico' ? 'tecnico' : 'admin';
+  const bottomNavItems = BOTTOM_NAV[rol];
+  // Para admin: lo que no entra en la bottom nav queda en el panel "Más"
+  const moreItems = rol === 'admin' ? menuItems.filter((item) => !BOTTOM_NAV_ADMIN_NAMES.has(item.name)) : [];
 
   if (loading) {
     return (
@@ -267,131 +362,124 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header principal fijo */}
+      {/* Header principal fijo (único) */}
       <header className="fixed top-0 left-0 right-0 z-50 text-white shadow-lg bg-primary">
-        <div className="container flex items-center justify-between px-4 py-4 mx-auto">
-          <div className="flex items-center">
-            <img 
-              src="/logo/imsse-logo.png" 
-              alt="IMSSE Logo" 
-              className="w-8 h-8 mr-3"
+        <div className="flex items-center justify-between h-16 px-4 mx-auto max-w-7xl">
+          <div className="flex items-center min-w-0">
+            <img
+              src="/logo/imsse-logo.png"
+              alt="IMSSE Logo"
+              className="flex-shrink-0 w-8 h-8 mr-3"
             />
-            <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
+            <h1 className="text-base font-bold leading-tight truncate font-montserrat md:text-lg">IMSSE</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="hidden md:inline">{user?.email}</span>
+          <div className="flex items-center gap-1">
+            <span className="hidden mr-2 text-sm md:inline text-white/90">{user?.email}</span>
             <button
               onClick={handleLogout}
-              className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
+              className="flex items-center p-2 text-white transition-colors rounded-md hover:bg-white/10"
             >
-              <LogOut size={18} className="mr-2" /> Salir
+              <LogOut size={18} className="md:mr-2" />
+              <span className="hidden md:inline">Salir</span>
+            </button>
+            {/* Botón de menú completo, solo móvil/tablet */}
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-2 text-white transition-colors rounded-md lg:hidden hover:bg-white/10"
+              aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+            >
+              {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
       </header>
-      
-      <div className="flex pt-20"> {/* pt-20 para el header fijo */}
-        {/* Dropdown de navegación móvil */}
-        <div className="lg:hidden" ref={dropdownRef}>
-          <div className="fixed z-40 w-full px-4 py-2 bg-white shadow-md top-20">
-            <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center justify-between w-full px-4 py-3 text-left bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            >
-              <div className="flex items-center">
-                {activeItem ? (
-                  <>
-                    <activeItem.icon size={20} className="mr-3 text-primary" />
-                    <span className="font-medium text-gray-900">{activeItem.name}</span>
-                  </>
-                ) : (
-                  <>
-                    <BarChart3 size={20} className="mr-3 text-primary" />
-                    <span className="font-medium text-gray-900">Seleccionar Sección</span>
-                  </>
-                )}
-              </div>
-              {dropdownOpen ? (
-                <ChevronUp size={20} className="text-gray-500" />
-              ) : (
-                <ChevronDown size={20} className="text-gray-500" />
-              )}
-            </button>
 
-            {/* Dropdown menu */}
-            <div className={`absolute top-full left-4 right-4 mt-1 bg-white shadow-xl rounded-lg border border-gray-200 overflow-hidden transition-all duration-300 transform ${
-              dropdownOpen 
-                ? 'opacity-100 translate-y-0 scale-100' 
-                : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
-            }`}>
-              <div className="overflow-y-auto max-h-96">
-                {menuItems.map((item, index) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
-                  
-                  return (
-                    <Link
-                      key={item.path}
-                      href={item.path}
-                      className={`flex items-center px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 ${
-                        isActive
-                          ? 'bg-primary text-white'
-                          : 'text-gray-700 hover:bg-gray-50 hover:text-primary'
-                      }`}
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <Icon size={18} className="mr-3" />
-                      <span className="font-medium">{item.name}</span>
-                      {isActive && (
-                        <ChevronRight size={16} className="ml-auto" />
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
+      {/* Menú completo (dropdown desde el header, solo mobile) */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-gray-900/40" onClick={() => setMenuOpen(false)} />
+          <div
+            ref={menuRef}
+            className="absolute left-0 right-0 overflow-y-auto bg-white shadow-xl top-16 max-h-[calc(100vh-4rem)] animate-admin-menu"
+          >
+            <nav className="p-2">
+              {menuItems.map((item) => (
+                <MenuEntry
+                  key={item.name}
+                  item={item}
+                  pathname={pathname}
+                  docsOpen={docsOpen}
+                  setDocsOpen={setDocsOpen}
+                  onNavigate={() => setMenuOpen(false)}
+                />
+              ))}
+            </nav>
+
+            <div className="p-4 border-t border-gray-100 bg-gray-50">
+              <p className="text-sm font-medium text-gray-900">{perfil?.nombreCompleto}</p>
+              <p className="text-xs text-gray-500 capitalize">{perfil?.rol}</p>
+              <button
+                onClick={handleLogout}
+                className="flex items-center mt-3 text-sm font-medium text-primary"
+              >
+                <LogOut size={16} className="mr-2" /> Cerrar sesión
+              </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* SIDEBAR CORREGIDO - CON SCROLL */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-white shadow-lg lg:block top-20">
-          {/* Contenedor principal del sidebar con scroll */}
-          <div className="flex flex-col h-full">
-            {/* Navegación scrolleable */}
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
-                
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-                      isActive
-                        ? 'bg-primary text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon size={20} className="mr-3" />
-                    {item.name}
-                  </Link>
-                );
-              })}
+      {/* Panel "Más" (bottom sheet, solo admin/mobile) */}
+      {moreOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-gray-900/40" onClick={() => setMoreOpen(false)} />
+          <div
+            ref={moreRef}
+            className="absolute inset-x-0 bottom-16 bg-white rounded-t-2xl shadow-xl max-h-[70vh] overflow-y-auto animate-sheet-up"
+          >
+            <div className="w-10 h-1 mx-auto my-3 bg-gray-200 rounded-full" />
+            <nav className="p-2 pb-4">
+              {moreItems.map((item) => (
+                <MenuEntry
+                  key={item.name}
+                  item={item}
+                  pathname={pathname}
+                  docsOpen={docsOpen}
+                  setDocsOpen={setDocsOpen}
+                  onNavigate={() => setMoreOpen(false)}
+                />
+              ))}
             </nav>
-            
+          </div>
+        </div>
+      )}
+
+      <div className="flex pt-16">
+        {/* SIDEBAR - SOLO DESKTOP */}
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-white border-r border-gray-100 lg:block top-16">
+          <div className="flex flex-col h-full">
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+              {menuItems.map((item) => (
+                <MenuEntry
+                  key={item.name}
+                  item={item}
+                  pathname={pathname}
+                  docsOpen={docsOpen}
+                  setDocsOpen={setDocsOpen}
+                />
+              ))}
+            </nav>
+
             {/* Información del usuario fija en la parte inferior */}
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <div className="px-4 py-3 bg-white rounded-lg">
-                <p className="text-sm font-medium text-gray-900">{perfil?.nombreCompleto}</p>
-                <p className="text-xs text-gray-500 capitalize">{perfil?.rol}</p>
-                <div className="mt-2">
-                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                    perfil?.rol === 'admin' 
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-blue-100 text-blue-800'
+            <div className="p-4 border-t border-gray-100">
+              <div className="px-4 py-3 rounded-xl bg-gray-50">
+                <p className="text-sm font-medium text-gray-900 truncate">{perfil?.nombreCompleto}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-gray-500 capitalize">{perfil?.rol}</span>
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full text-white ${
+                    perfil?.rol === 'admin' ? 'bg-red-600' : 'bg-teal-600'
                   }`}>
-                    {perfil?.rol === 'admin' ? 'Administrador' : 'Técnico'}
+                    {perfil?.rol === 'admin' ? 'Admin' : 'Técnico'}
                   </span>
                 </div>
               </div>
@@ -400,14 +488,27 @@ export default function AdminLayout({ children }) {
         </aside>
 
         {/* Contenido principal */}
-        <main className="flex-1 lg:ml-64">
-          {/* Espaciado adicional en móvil para el dropdown */}
-          <div className="h-16 lg:hidden"></div>
+        <main className="flex-1 pb-16 lg:pb-0 lg:ml-64">
           <div className="min-h-screen">
             {children}
           </div>
         </main>
       </div>
+
+      {/* Bottom nav - SOLO MOBILE */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex bg-white border-t border-gray-100 shadow-lg h-16 lg:hidden">
+        {bottomNavItems.map((item) => (
+          <BottomNavEntry key={item.name} item={item} pathname={pathname} />
+        ))}
+        {rol === 'admin' && (
+          <BottomNavEntry
+            item={{ name: 'Más', isMore: true }}
+            pathname={pathname}
+            isMoreOpen={moreOpen}
+            onMoreClick={() => setMoreOpen(!moreOpen)}
+          />
+        )}
+      </nav>
     </div>
   );
 }

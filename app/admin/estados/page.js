@@ -1,12 +1,10 @@
 // app/admin/estados/page.jsx - Lista Estados de Cuenta IMSSE (MIGRADO A API)
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home,
-  LogOut,
   Plus,
   Search,
   Filter,
@@ -14,32 +12,79 @@ import {
   Edit,
   Trash2,
   Download,
-  Calendar,
-  DollarSign,
-  Building,
-  ChevronLeft,
-  ChevronRight,
-  BarChart3
+  BarChart3,
+  List,
+  LayoutGrid,
+  X
 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 
+const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todos' };
+
+// Botón de acción de fila/tarjeta: grande y bien separado para uso cómodo en mobile
+function AccionBoton({ href, onClick, disabled, title, colorClasses, children }) {
+  const className = `inline-flex items-center justify-center w-10 h-10 rounded-xl transition-colors ${
+    disabled ? 'text-gray-300 cursor-not-allowed' : colorClasses
+  }`;
+
+  if (href) {
+    return (
+      <Link href={href} title={title} className={className}>
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={title} className={className}>
+      {children}
+    </button>
+  );
+}
+
+function AccionesEstado({ estado, descargando, onDescargar, onEliminar }) {
+  return (
+    <div className="flex items-center gap-2">
+      <AccionBoton href={`/admin/estados/${estado.id}`} title="Ver estado" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
+        <Eye size={18} />
+      </AccionBoton>
+      <AccionBoton href={`/admin/estados/editar/${estado.id}`} title="Editar estado" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+        <Edit size={18} />
+      </AccionBoton>
+      <AccionBoton
+        onClick={() => onDescargar(estado)}
+        disabled={descargando === estado.id}
+        title={descargando === estado.id ? 'Descargando...' : 'Descargar PDF'}
+        colorClasses="text-green-600 bg-green-50 hover:bg-green-100"
+      >
+        <Download size={18} />
+      </AccionBoton>
+      <AccionBoton
+        onClick={() => onEliminar(estado.id, estado.numero)}
+        title="Eliminar estado"
+        colorClasses="text-red-600 bg-red-50 hover:bg-red-100"
+      >
+        <Trash2 size={18} />
+      </AccionBoton>
+    </div>
+  );
+}
+
 export default function EstadosCuenta() {
-  const [user, setUser] = useState(null);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [estados, setEstados] = useState([]);
-  const [filteredEstados, setFilteredEstados] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterPeriodo, setFilterPeriodo] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-  const router = useRouter();
+  const [filtros, setFiltros] = useState(FILTROS_INICIALES);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const [vista, setVista] = useState('tabla'); // 'tabla' | 'cards'
+  const [descargando, setDescargando] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
         await cargarEstados();
         setLoading(false);
       } else {
@@ -55,24 +100,12 @@ export default function EstadosCuenta() {
       // ✅ USAR apiService
       const response = await apiService.obtenerEstadosCuenta();
       const estadosData = response.documents || response || [];
-
       setEstados(estadosData);
-      setFilteredEstados(estadosData);
     } catch (error) {
       console.error('Error al cargar estados de cuenta:', error);
       alert('Error al cargar los estados de cuenta');
       // Fallback para evitar crashes
       setEstados([]);
-      setFilteredEstados([]);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
     }
   };
 
@@ -90,37 +123,29 @@ export default function EstadosCuenta() {
     }
   };
 
-  // Efectos para filtros y búsqueda
-  useEffect(() => {
-    let result = [...estados]; // ✅ Asegurar que es array
+  const handleDescargarPDF = async (estado) => {
+    if (descargando === estado.id) return;
+    setDescargando(estado.id);
+    try {
+      const { pdf } = await import('@react-pdf/renderer');
+      const { default: EstadoCuentaPDF } = await import('../../components/pdf/EstadoCuentaPDF');
 
-    // Filtro por búsqueda
-    if (searchTerm) {
-      result = result.filter(estado =>
-        estado.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        estado.cliente?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        estado.cliente?.empresa?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estado} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${estado.numero}.pdf`;
+      link.click();
+
+      URL.revokeObjectURL(url);
+      setDescargando(null);
+      alert(`✅ PDF ${estado.numero} descargado exitosamente`);
+    } catch (error) {
+      console.error('Error al descargar PDF:', error);
+      setDescargando(null);
+      alert('❌ Error al generar el PDF');
     }
-
-    // Filtro por período
-    if (filterPeriodo) {
-      result = result.filter(estado => {
-        const year = filterPeriodo;
-        const estadoYear = estado.periodo?.desde?.substring(0, 4);
-        return estadoYear === year;
-      });
-    }
-
-    setFilteredEstados(result);
-    setCurrentPage(1);
-  }, [searchTerm, filterPeriodo, estados]);
-
-  // Paginación - ✅ Con verificación de array
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = Array.isArray(filteredEstados) ? filteredEstados.slice(indexOfFirstItem, indexOfLastItem) : [];
-  const totalPages = Math.ceil((filteredEstados?.length || 0) / itemsPerPage);
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -147,37 +172,59 @@ export default function EstadosCuenta() {
   };
 
   const getSaldoText = (saldo) => {
-    if (saldo > 0) return 'Debe';
+    if (saldo > 0) return 'Pendiente';
     if (saldo < 0) return 'A favor';
-    return 'Sin saldo';
+    return 'Al día';
   };
 
-  // ✅ Funciones de estadísticas con validación
-  const calcularTotalSaldosPendientes = () => {
-    return Array.isArray(estados)
-      ? estados.reduce((sum, estado) => sum + (estado.saldoActual > 0 ? estado.saldoActual : 0), 0)
-      : 0;
+  const getFechaPeriodo = (estado) => {
+    if (!estado.periodo?.desde) return null;
+    const f = new Date(estado.periodo.desde);
+    return Number.isNaN(f.getTime()) ? null : f;
   };
 
-  const contarClientesUnicos = () => {
-    if (!Array.isArray(estados)) return 0;
-    return new Set(estados.map(e => e.cliente?.empresa).filter(Boolean)).size;
-  };
+  const hayFiltrosActivos = filtros.desde || filtros.hasta || filtros.estado !== 'todos';
 
-  const contarEstadosEsteMes = () => {
-    if (!Array.isArray(estados)) return 0;
-    const mesActual = new Date().getMonth() + 1;
-    const añoActual = new Date().getFullYear();
-    return estados.filter(e => {
-      if (!e.periodo?.desde) return false;
-      try {
-        const fechaEstado = new Date(e.periodo.desde);
-        return fechaEstado.getMonth() + 1 === mesActual && fechaEstado.getFullYear() === añoActual;
-      } catch {
-        return false;
-      }
-    }).length;
-  };
+  const estadosFiltrados = useMemo(() => {
+    let resultado = estados;
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      resultado = resultado.filter(estado =>
+        estado.numero?.toLowerCase().includes(term) ||
+        estado.cliente?.nombre?.toLowerCase().includes(term) ||
+        estado.cliente?.empresa?.toLowerCase().includes(term)
+      );
+    }
+
+    if (filtros.desde) {
+      const desde = new Date(filtros.desde);
+      resultado = resultado.filter(estado => {
+        const f = getFechaPeriodo(estado);
+        return f && f >= desde;
+      });
+    }
+
+    if (filtros.hasta) {
+      const hasta = new Date(`${filtros.hasta}T23:59:59`);
+      resultado = resultado.filter(estado => {
+        const f = getFechaPeriodo(estado);
+        return f && f <= hasta;
+      });
+    }
+
+    if (filtros.estado === 'pendiente') {
+      resultado = resultado.filter(estado => (estado.saldoActual || 0) > 0);
+    } else if (filtros.estado === 'al-dia') {
+      resultado = resultado.filter(estado => (estado.saldoActual || 0) === 0);
+    } else if (filtros.estado === 'a-favor') {
+      resultado = resultado.filter(estado => (estado.saldoActual || 0) < 0);
+    }
+
+    return resultado;
+  }, [estados, searchTerm, filtros]);
+
+  const limpiarFiltros = () => setFiltros(FILTROS_INICIALES);
 
   if (loading) {
     return (
@@ -192,218 +239,221 @@ export default function EstadosCuenta() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header IMSSE */}
-      <header className="text-white shadow bg-primary">
-        <div className="container flex items-center justify-between px-4 py-4 mx-auto">
-          <div className="flex items-center">
-            <img
-              src="/logo/imsse-logo.png"
-              alt="IMSSE Logo"
-              className="w-8 h-8 mr-3"
-            />
-            <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
+      <div className="px-4 py-6 mx-auto max-w-7xl">
+        {/* Título + acciones */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 font-montserrat">Estados de Cuenta</h2>
+            <p className="text-sm text-gray-500">
+              {estadosFiltrados.length} de {estados.length} {estados.length === 1 ? 'estado' : 'estados'}
+            </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="hidden md:inline">{user?.email}</span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
-            >
-              <LogOut size={18} className="mr-2" /> Salir
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Navegación */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="container px-4 py-4 mx-auto">
-          <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-            {/* Breadcrumb */}
-            <div className="flex items-center space-x-2 text-sm">
-              <Link href="/admin/panel-control" className="text-primary hover:underline">
-                <Home size={16} className="inline mr-1" />
-                Panel de Control
-              </Link>
-              <span className="text-gray-500">/</span>
-              <span className="font-medium text-gray-700">Estados de Cuenta</span>
-            </div>
-
-            {/* Botón crear nuevo */}
-            <Link
-              href="/admin/estados/nuevo"
-              className="flex items-center px-4 py-2 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
-            >
-              <Plus size={18} className="mr-2" />
-              Nuevo Estado de Cuenta
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="container px-4 py-8 mx-auto">
-        {/* Título y estadísticas */}
-        <div className="mb-8">
-          <h2 className="mb-2 text-2xl font-bold font-montserrat text-primary">
-            Estados de Cuenta
-          </h2>
-          <p className="text-gray-600">
-            Gestión de estados de cuenta para clientes IMSSE
-          </p>
-
-          <div className="grid grid-cols-1 gap-4 mt-6 md:grid-cols-4">
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="flex items-center">
-                <BarChart3 size={24} className="mr-3 text-blue-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Total Estados</p>
-                  <p className="text-xl font-bold text-gray-900">{estados?.length || 0}</p>
-                </div>
-              </div>
-            </div>
-            {/*             
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="flex items-center">
-                <DollarSign size={24} className="mr-3 text-green-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Saldos Pendientes</p>
-                  <p className="text-xl font-bold text-green-600">
-                    {formatCurrency(calcularTotalSaldosPendientes())}
-                  </p>
-                </div>
-              </div>
-            </div> */}
-
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="flex items-center">
-                <Building size={24} className="mr-3 text-purple-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Clientes</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {contarClientesUnicos()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="flex items-center">
-                <Calendar size={24} className="mr-3 text-orange-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Este Mes</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {contarEstadosEsteMes()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <Link
+            href="/admin/estados/nuevo"
+            className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
+          >
+            <Plus size={18} className="mr-2" />
+            Nuevo Estado de Cuenta
+          </Link>
         </div>
 
-        {/* Filtros y búsqueda */}
-        <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
-          <h3 className="mb-4 text-lg font-semibold text-gray-700">Filtros de Búsqueda</h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="relative">
-              <Search size={20} className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+        {/* Búsqueda + filtros + vista */}
+        <div className="p-4 mb-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search size={18} className="absolute -translate-y-1/2 left-3 top-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Buscar por número, cliente o empresa..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full py-2.5 pl-10 pr-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
 
-            <div className="relative">
-              <Filter size={20} className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
-              <select
-                value={filterPeriodo}
-                onChange={(e) => setFilterPeriodo(e.target.value)}
-                className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFiltrosAbiertos(!filtrosAbiertos)}
+                className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border rounded-xl transition-colors ${
+                  hayFiltrosActivos
+                    ? 'border-primary text-primary bg-primary/5'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
               >
-                <option value="">Todos los períodos</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-              </select>
-            </div>
+                <Filter size={16} />
+                Filtros
+                {hayFiltrosActivos && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+              </button>
 
-            <div className="flex items-center">
-              <span className="text-sm text-gray-600">
-                {filteredEstados?.length || 0} de {estados?.length || 0} estados
-              </span>
+              <div className="flex overflow-hidden border border-gray-300 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setVista('tabla')}
+                  title="Vista de tabla"
+                  className={`p-2.5 ${vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVista('cards')}
+                  title="Vista de tarjetas"
+                  className={`p-2.5 border-l border-gray-300 ${vista === 'cards' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <LayoutGrid size={18} />
+                </button>
+              </div>
             </div>
           </div>
+
+          {filtrosAbiertos && (
+            <div className="grid grid-cols-1 gap-3 pt-4 mt-4 border-t border-gray-100 sm:grid-cols-3">
+              <div>
+                <label className="block mb-1 text-xs font-medium text-gray-500">Desde</label>
+                <input
+                  type="date"
+                  value={filtros.desde}
+                  onChange={(e) => setFiltros({ ...filtros, desde: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-xs font-medium text-gray-500">Hasta</label>
+                <input
+                  type="date"
+                  value={filtros.hasta}
+                  onChange={(e) => setFiltros({ ...filtros, hasta: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-xs font-medium text-gray-500">Estado</label>
+                <select
+                  value={filtros.estado}
+                  onChange={(e) => setFiltros({ ...filtros, estado: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="al-dia">Al día</option>
+                  <option value="a-favor">A favor</option>
+                </select>
+              </div>
+
+              {hayFiltrosActivos && (
+                <button
+                  type="button"
+                  onClick={limpiarFiltros}
+                  className="inline-flex items-center gap-1 text-sm text-gray-500 sm:col-span-3 w-fit hover:text-gray-700"
+                >
+                  <X size={14} /> Limpiar filtros
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Tabla de estados de cuenta */}
-
-        <div className="bg-white rounded-lg shadow-md">
-          <div className="p-4 border-b border-gray-200 sm:p-6">
-            <h3 className="text-lg font-medium text-gray-900">Lista de Estados de Cuenta</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Mostrando {currentItems.length} de {filteredEstados?.length || 0} estados de cuenta
+        {/* Resultado: vacío / tabla / tarjetas */}
+        {estadosFiltrados.length === 0 ? (
+          <div className="p-12 text-center bg-white shadow-sm rounded-2xl">
+            <BarChart3 size={48} className="mx-auto mb-4 text-gray-400" />
+            <h3 className="mb-2 text-lg font-medium text-gray-900">
+              {searchTerm || hayFiltrosActivos ? 'No se encontraron estados de cuenta' : 'No hay estados de cuenta'}
+            </h3>
+            <p className="text-gray-500">
+              {searchTerm || hayFiltrosActivos
+                ? 'Probá con otros términos o ajustá los filtros'
+                : 'Comenzá creando tu primer estado de cuenta'
+              }
             </p>
+            {!searchTerm && !hayFiltrosActivos && (
+              <Link
+                href="/admin/estados/nuevo"
+                className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
+              >
+                <Plus size={18} className="mr-2" />
+                Crear Primer Estado de Cuenta
+              </Link>
+            )}
           </div>
+        ) : vista === 'cards' ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {estadosFiltrados.map((estado) => (
+              <div key={estado.id} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-semibold text-gray-900">{estado.numero}</p>
+                    <p className="text-xs text-gray-500">
+                      {formatDate(estado.periodo?.desde)} - {formatDate(estado.periodo?.hasta)}
+                    </p>
+                  </div>
+                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                    estado.saldoActual > 0
+                      ? 'bg-red-100 text-red-800'
+                      : estado.saldoActual < 0
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {getSaldoText(estado.saldoActual)}
+                  </span>
+                </div>
 
-          <div className="table-scroll-container">
-            <div className="table-wrapper">
-              <table className="w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
-                      Estado de Cuenta
-                    </th>
-                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
-                      Cliente
-                    </th>
-                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
-                      Período
-                    </th>
-                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
-                      Saldo Actual
-                    </th>
-                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
-                      Estado Financiero
-                    </th>
-                    <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase sm:px-6">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentItems.length > 0 ? (
-                    currentItems.map((estado) => (
-                      <tr key={estado.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{estado.numero}</div>
-                            <div className="text-sm text-gray-500">
-                              {estado.fechaCreacion && estado.fechaCreacion.toDate
-                                ? formatDate(estado.fechaCreacion.toDate())
-                                : estado.fechaCreacion
-                                  ? formatDate(estado.fechaCreacion)
-                                  : 'Fecha no disponible'}
-                            </div>
+                <div className="pb-3 mb-3 space-y-1 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">{estado.cliente?.empresa || 'Sin empresa'}</p>
+                  <p className="text-xs text-gray-500">{estado.cliente?.nombre || 'Sin nombre'}</p>
+                  <p className={`text-sm font-bold ${getSaldoColor(estado.saldoActual)}`}>
+                    {formatCurrency(Math.abs(estado.saldoActual || 0))}
+                  </p>
+                </div>
+
+                <AccionesEstado
+                  estado={estado}
+                  descargando={descargando}
+                  onDescargar={handleDescargarPDF}
+                  onEliminar={handleDelete}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white shadow-sm rounded-2xl">
+            <div className="table-scroll-container">
+              <div className="table-wrapper">
+                <table className="w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Estado de Cuenta</th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Cliente</th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Período</th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Saldo Actual</th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Estado Financiero</th>
+                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {estadosFiltrados.map((estado, index) => (
+                      <tr key={estado.id} className={index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{estado.numero}</div>
+                          <div className="text-xs text-gray-500">
+                            {estado.fechaCreacion && estado.fechaCreacion.toDate
+                              ? formatDate(estado.fechaCreacion.toDate())
+                              : estado.fechaCreacion
+                                ? formatDate(estado.fechaCreacion)
+                                : 'Fecha no disponible'}
                           </div>
                         </td>
-                        <td className="px-3 py-4 sm:px-6">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {estado.cliente?.nombre || 'Sin nombre'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {estado.cliente?.empresa || 'Sin empresa'}
-                            </div>
-                          </div>
+                        <td className="px-4 py-4">
+                          <div className="text-sm font-medium text-gray-900">{estado.cliente?.nombre || 'Sin nombre'}</div>
+                          <div className="text-xs text-gray-500">{estado.cliente?.empresa || 'Sin empresa'}</div>
                         </td>
-                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {formatDate(estado.periodo?.desde)} - {formatDate(estado.periodo?.hasta)}
                           </div>
                         </td>
-                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <div className={`text-sm font-bold ${getSaldoColor(estado.saldoActual)}`}>
                             {formatCurrency(Math.abs(estado.saldoActual || 0))}
                           </div>
@@ -411,127 +461,43 @@ export default function EstadosCuenta() {
                             {getSaldoText(estado.saldoActual)}
                           </div>
                         </td>
-                        <td className="px-3 py-4 whitespace-nowrap sm:px-6">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${estado.saldoActual > 0
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            estado.saldoActual > 0
                               ? 'bg-red-100 text-red-800'
                               : estado.saldoActual < 0
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-gray-100 text-gray-800'
-                            }`}>
-                            {estado.saldoActual > 0 ? 'Pendiente' : estado.saldoActual < 0 ? 'A favor' : 'Al día'}
+                          }`}>
+                            {getSaldoText(estado.saldoActual)}
                           </span>
                         </td>
-                        <td className="px-3 py-4 text-sm font-medium whitespace-nowrap sm:px-6">
-                          <div className="flex space-x-2">
-                            <Link
-                              href={`/admin/estados/${estado.id}`}
-                              className="text-blue-600 transition-colors hover:text-blue-900"
-                              title="Ver estado"
-                            >
-                              <Eye size={18} />
-                            </Link>
-                            <Link
-                              href={`/admin/estados/editar/${estado.id}`}
-                              className="text-green-600 transition-colors hover:text-green-900"
-                              title="Editar estado"
-                            >
-                              <Edit size={18} />
-                            </Link>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const { pdf } = await import('@react-pdf/renderer');
-                                  const { default: EstadoCuentaPDF } = await import('../../components/pdf/EstadoCuentaPDF');
-
-                                  const blob = await pdf(<EstadoCuentaPDF estadoCuenta={estado} />).toBlob();
-                                  const url = URL.createObjectURL(blob);
-                                  const link = document.createElement('a');
-                                  link.href = url;
-                                  link.download = `${estado.numero}.pdf`;
-                                  link.click();
-
-                                  URL.revokeObjectURL(url);
-                                  alert(`✅ PDF ${estado.numero} descargado exitosamente`);
-                                } catch (error) {
-                                  console.error('Error al descargar PDF:', error);
-                                  alert('❌ Error al generar el PDF');
-                                }
-                              }}
-                              className="text-purple-600 transition-colors cursor-pointer hover:text-purple-900"
-                              title="Descargar PDF"
-                            >
-                              <Download size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(estado.id, estado.numero)}
-                              className="text-red-600 transition-colors cursor-pointer hover:text-red-900"
-                              title="Eliminar estado"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                        <td className="px-4 py-4 text-center whitespace-nowrap">
+                          <div className="flex justify-center">
+                            <AccionesEstado
+                              estado={estado}
+                              descargando={descargando}
+                              onDescargar={handleDescargarPDF}
+                              onEliminar={handleDelete}
+                            />
                           </div>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center">
-                        <div className="text-gray-500">
-                          <BarChart3 size={48} className="mx-auto mb-4 text-gray-300" />
-                          <p className="text-lg font-medium">No hay estados de cuenta</p>
-                          <p className="mt-1">Comienza creando tu primer estado de cuenta</p>
-                          <Link
-                            href="/admin/estados-cuenta/nuevo"
-                            className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors rounded-md bg-primary hover:bg-red-700"
-                          >
-                            <Plus size={18} className="mr-2" />
-                            Crear Estado de Cuenta
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
-            <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
-              <span>👈</span>
-              <span>Deslizá para ver más columnas</span>
-              <span>👉</span>
-            </div>
-          </div>
-
-          {/* Paginación */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-              <div className="text-sm text-gray-500">
-                Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredEstados?.length || 0)} de {filteredEstados?.length || 0} resultados
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="px-3 py-1 text-sm">
-                  Página {currentPage} de {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight size={16} />
-                </button>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          )}
-        </div>
+
+            <div className="px-4 py-2 text-center border-t border-gray-200 bg-gray-50 sm:hidden">
+              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                <span>👈</span>
+                <span>Deslizá para ver más columnas, o probá la vista de tarjetas</span>
+                <span>👉</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
