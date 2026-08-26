@@ -284,8 +284,8 @@ export default function ListaOrdenesTrabajo() {
                 disabled={sincronizando}
                 className="flex items-center px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50"
               >
-                <RefreshCw size={16} className={`sm:mr-2 ${sincronizando ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{sincronizando ? 'Sincronizando...' : 'Sincronizar'}</span>
+                <RefreshCw size={16} className={`mr-2 ${sincronizando ? 'animate-spin' : ''}`} />
+                <span>{sincronizando ? 'Sincronizando...' : 'Sincronizar'}</span>
               </button>
             )}
             <Link
