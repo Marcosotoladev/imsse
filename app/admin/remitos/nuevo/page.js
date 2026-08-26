@@ -4,8 +4,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, RefreshCw, ArrowLeft, User, Building2 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Home, Save, Download, Eye, PlusCircle, Trash2, RefreshCw, ArrowLeft, User, Building2 } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import SignatureCanvas from 'react-signature-canvas';

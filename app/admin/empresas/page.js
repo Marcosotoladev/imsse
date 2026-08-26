@@ -195,8 +195,12 @@ export default function GestionEmpresas() {
     }
   };
 
-  // Formulario de sedes reutilizado en crear y editar
-  const SedesForm = () => (
+  // Formulario de sedes reutilizado en crear y editar.
+  // OJO: se invoca como renderSedesForm() (no como <Componente/>) a propósito:
+  // si se define un componente dentro del render y se usa como JSX, React lo
+  // trata como un tipo nuevo en cada re-render y remonta el subárbol completo,
+  // haciendo que los inputs pierdan el foco después de cada tecla.
+  const renderSedesForm = () => (
     <div>
       <div className="flex items-center justify-between mb-2">
         <label className="block text-xs font-medium text-gray-700">Sedes / Obras</label>
@@ -426,7 +430,7 @@ export default function GestionEmpresas() {
                 />
               </div>
 
-              <SedesForm />
+              {renderSedesForm()}
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                 <button
@@ -517,7 +521,7 @@ export default function GestionEmpresas() {
                 />
               </div>
 
-              <SedesForm />
+              {renderSedesForm()}
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                 <button

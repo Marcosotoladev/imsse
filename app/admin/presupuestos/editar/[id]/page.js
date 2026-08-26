@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Home, LogOut, Save, Download, Eye, PlusCircle, Trash2, Percent, DollarSign } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Home, Save, Download, Eye, PlusCircle, Trash2, Percent, DollarSign } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../../lib/firebase';
 import apiService from '../../../../../lib/services/apiService';
 import { use } from 'react';
@@ -149,15 +149,6 @@ export default function EditarPresupuesto({ params }) {
 
     return () => unsubscribe();
   }, [id, router]);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
 
   const adaptarDatosParaPDF = (presupuesto, cliente) => {
     return {
@@ -344,29 +335,6 @@ export default function EditarPresupuesto({ params }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header IMSSE */}
-      <header className="text-white shadow bg-primary">
-        <div className="container flex items-center justify-between px-4 py-4 mx-auto">
-          <div className="flex items-center">
-            <img
-              src="/logo/imsse-logo.png"
-              alt="IMSSE Logo"
-              className="w-8 h-8 mr-3"
-            />
-            <h1 className="text-xl font-bold font-montserrat">IMSSE - Panel de Administración</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="hidden md:inline">{user?.email}</span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
-            >
-              <LogOut size={18} className="mr-2" /> Salir
-            </button>
-          </div>
-        </div>
-      </header>
-
       <div className="container px-4 py-8 mx-auto">
         {/* Breadcrumb y acciones */}
         <div className="flex flex-wrap items-center justify-between mb-8">

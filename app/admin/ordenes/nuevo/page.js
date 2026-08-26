@@ -23,10 +23,9 @@ import {
   FileText,
   Download,
   RefreshCw,
-  LogOut,
   Home
 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -129,15 +128,6 @@ export default function CrearOrdenTrabajo() {
 
     return () => unsubscribe();
   }, [router]);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/admin');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
 
   // Reemplaza SOLO esta función en tu código existente:
   const cargarClientesDisponibles = async (perfilUsuario) => {
@@ -564,32 +554,6 @@ export default function CrearOrdenTrabajo() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header IMSSE */}
-      <header className="text-white shadow bg-primary">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <img
-                src="/logo/imsse-logo.png"
-                alt="IMSSE Logo"
-                className="w-6 h-6 mr-2 md:w-8 md:h-8 md:mr-3"
-              />
-              <h1 className="text-lg font-bold md:text-xl font-montserrat">IMSSE</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="hidden text-sm md:inline">{user?.email}</span>
-              <button
-                onClick={handleLogout}
-                className="flex items-center p-2 text-white rounded-md hover:bg-red-700"
-              >
-                <LogOut size={16} className="md:mr-2" />
-                <span className="hidden md:inline">Salir</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Navegación */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="px-4 py-3">
@@ -1230,7 +1194,7 @@ export default function CrearOrdenTrabajo() {
           </div>
 
           {/* Botones finales */}
-          <div className="sticky bottom-0 p-4 bg-white border-t border-gray-200 shadow-lg md:static md:shadow-none md:border-0 md:bg-transparent">
+          <div className="sticky bottom-16 md:bottom-0 p-4 bg-white border-t border-gray-200 shadow-lg md:static md:shadow-none md:border-0 md:bg-transparent">
             <div className="flex space-x-3">
               <Link
                 href="/admin/ordenes"
