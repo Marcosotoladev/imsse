@@ -16,6 +16,7 @@ import {
   Bell,
   BarChart3,
   Users,
+  Building2,
   CalendarDays,
   Folder,
   FileText,
@@ -324,6 +325,12 @@ export default function AdminLayout({ children }) {
       icon: Folder,
       roles: ['admin'],
       children: DOCUMENTOS_SUB
+    },
+    {
+      name: 'Empresas',
+      path: '/admin/empresas',
+      icon: Building2,
+      roles: ['admin']
     },
     {
       name: 'Usuarios',

@@ -329,6 +329,12 @@ const OrdenTrabajoPDF = ({ orden }) => {
               <Text style={styles.label}>Teléfono:</Text>
               <Text style={styles.value}>{safeCliente.telefono || ''}</Text>
             </View>
+            {safeCliente.sedeNombre && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Sede:</Text>
+                <Text style={styles.value}>{safeCliente.sedeNombre}</Text>
+              </View>
+            )}
             <View style={styles.field}>
               <Text style={styles.label}>Dirección:</Text>
               <Text style={styles.value}>{safeCliente.direccion || ''}</Text>

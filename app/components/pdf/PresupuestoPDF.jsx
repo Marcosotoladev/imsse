@@ -439,6 +439,12 @@ export default function PresupuestoPDF({ presupuesto }) {
                 <Text style={styles.value}>{cliente.cuit}</Text>
               </View>
             )}
+            {cliente.sedeNombre && (
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Sede:</Text>
+                <Text style={styles.value}>{cliente.sedeNombre}</Text>
+              </View>
+            )}
             {cliente.direccion && (
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Dirección:</Text>

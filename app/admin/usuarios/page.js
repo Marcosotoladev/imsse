@@ -34,12 +34,23 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 
+const CARGO_OPCIONES = [
+  'Propietario',
+  'Gerente',
+  'Responsable de Seguridad',
+  'Encargado',
+  'Referente',
+  'Administrativo',
+  'Otro'
+];
+
 export default function GestionUsuarios() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
   const [filtros, setFiltros] = useState({
     busqueda: '',
     rol: 'todos',
@@ -67,6 +78,12 @@ export default function GestionUsuarios() {
     esEmailFicticio: false,
     empresa: '',
     telefono: '',
+    fechaNacimiento: '',
+    direccion: '',
+    cargo: '',
+    dni: '',
+    empresaSeleccion: '',
+    nuevaEmpresaNombre: '',
     rol: 'cliente',
     password: '',
     confirmPassword: '',
@@ -80,6 +97,12 @@ export default function GestionUsuarios() {
     email: '',
     empresa: '',
     telefono: '',
+    fechaNacimiento: '',
+    direccion: '',
+    cargo: '',
+    dni: '',
+    empresaSeleccion: '',
+    nuevaEmpresaNombre: '',
     rol: 'cliente',
     estado: 'activo'
   });
@@ -141,13 +164,17 @@ export default function GestionUsuarios() {
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      const usuariosData = await apiService.obtenerUsuarios();
+      const [usuariosData, empresasData] = await Promise.all([
+        apiService.obtenerUsuarios(),
+        apiService.obtenerEmpresas()
+      ]);
 
       // La estructura correcta es usuariosData.users
       const usuarios = usuariosData.users || [];
 
       setUsuarios(usuarios);
       setUsuariosFiltrados(usuarios);
+      setEmpresas(empresasData.empresas || []);
     } catch (error) {
       console.error('Error al cargar datos de usuarios:', error);
     } finally {
@@ -349,6 +376,12 @@ export default function GestionUsuarios() {
       esEmailFicticio: false,
       empresa: '',
       telefono: '',
+      fechaNacimiento: '',
+      direccion: '',
+      cargo: '',
+      dni: '',
+      empresaSeleccion: '',
+      nuevaEmpresaNombre: '',
       rol: 'cliente',
       password: '',
       confirmPassword: '',
@@ -356,6 +389,29 @@ export default function GestionUsuarios() {
       showConfirmPassword: false
     });
     setModalCrearAbierto(true);
+  };
+
+  // Resuelve la Empresa vinculada a un contacto tipo "cliente": si eligió una empresa existente,
+  // devuelve su id; si cargó una nueva, la crea en la colección `empresas` primero.
+  const resolverEmpresaCliente = async (datos) => {
+    if (datos.rol !== 'cliente') {
+      return { empresa: datos.empresa || '', empresaId: null };
+    }
+
+    if (datos.empresaSeleccion === '__nueva__') {
+      if (!datos.nuevaEmpresaNombre.trim()) {
+        throw new Error('Ingresá el nombre de la nueva empresa o seleccioná una existente');
+      }
+      const nuevaEmpresa = await apiService.crearEmpresa({ razonSocial: datos.nuevaEmpresaNombre.trim() });
+      return { empresa: datos.nuevaEmpresaNombre.trim(), empresaId: nuevaEmpresa.id };
+    }
+
+    if (datos.empresaSeleccion) {
+      const empresaExistente = empresas.find((e) => e.id === datos.empresaSeleccion);
+      return { empresa: empresaExistente?.razonSocial || '', empresaId: datos.empresaSeleccion };
+    }
+
+    return { empresa: '', empresaId: null };
   };
 
   const handleCrearUsuario = async (e) => {
@@ -379,7 +435,8 @@ export default function GestionUsuarios() {
 
     setProcesando(true);
     try {
-      await apiService.crearUsuarioAdmin(formDataCrear);
+      const { empresa, empresaId } = await resolverEmpresaCliente(formDataCrear);
+      await apiService.crearUsuarioAdmin({ ...formDataCrear, empresa, empresaId });
       alert('✅ Usuario creado exitosamente');
       setModalCrearAbierto(false);
       await cargarDatos();
@@ -400,6 +457,12 @@ export default function GestionUsuarios() {
       email: usuario.email || '',
       empresa: usuario.empresa || '',
       telefono: usuario.telefono || '',
+      fechaNacimiento: usuario.fechaNacimiento || '',
+      direccion: usuario.direccion || '',
+      cargo: usuario.cargo || '',
+      dni: usuario.dni || '',
+      empresaSeleccion: usuario.empresaId || '',
+      nuevaEmpresaNombre: '',
       rol: usuario.rol || 'cliente',
       estado: usuario.estado || 'activo'
     });
@@ -413,7 +476,8 @@ export default function GestionUsuarios() {
 
     setProcesando(true);
     try {
-      await apiService.actualizarUsuario(usuarioSeleccionado.id, formDataEditar);
+      const { empresa, empresaId } = await resolverEmpresaCliente(formDataEditar);
+      await apiService.actualizarUsuario(usuarioSeleccionado.id, { ...formDataEditar, empresa, empresaId });
       alert('✅ Usuario actualizado exitosamente');
       setModalEditarAbierto(false);
       await cargarDatos();
@@ -1219,14 +1283,33 @@ export default function GestionUsuarios() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
-                  <input
-                    type="text"
-                    value={formDataCrear.empresa}
-                    onChange={(e) => setFormDataCrear({ ...formDataCrear, empresa: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    placeholder="Nombre de la empresa"
-                  />
+                  {formDataCrear.rol === 'cliente' ? (
+                    <>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
+                      <select
+                        value={formDataCrear.empresaSeleccion}
+                        onChange={(e) => setFormDataCrear({ ...formDataCrear, empresaSeleccion: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">-- Sin empresa asignada --</option>
+                        {empresas.map((emp) => (
+                          <option key={emp.id} value={emp.id}>{emp.razonSocial}</option>
+                        ))}
+                        <option value="__nueva__">+ Crear nueva empresa...</option>
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
+                      <input
+                        type="text"
+                        value={formDataCrear.empresa}
+                        onChange={(e) => setFormDataCrear({ ...formDataCrear, empresa: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                        placeholder="Nombre de la empresa"
+                      />
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Teléfono</label>
@@ -1239,6 +1322,72 @@ export default function GestionUsuarios() {
                   />
                 </div>
               </div>
+
+              {formDataCrear.rol === 'cliente' && formDataCrear.empresaSeleccion === '__nueva__' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de la Nueva Empresa *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formDataCrear.nuevaEmpresaNombre}
+                    onChange={(e) => setFormDataCrear({ ...formDataCrear, nuevaEmpresaNombre: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="Ej: Autocity S.A."
+                  />
+                </div>
+              )}
+
+              {formDataCrear.rol === 'cliente' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Cargo</label>
+                    <select
+                      value={formDataCrear.cargo}
+                      onChange={(e) => setFormDataCrear({ ...formDataCrear, cargo: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {CARGO_OPCIONES.map((opcion) => (
+                        <option key={opcion} value={opcion}>{opcion}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">DNI</label>
+                    <input
+                      type="text"
+                      value={formDataCrear.dni}
+                      onChange={(e) => setFormDataCrear({ ...formDataCrear, dni: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="12345678"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {formDataCrear.rol === 'tecnico' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
+                    <input
+                      type="date"
+                      value={formDataCrear.fechaNacimiento}
+                      onChange={(e) => setFormDataCrear({ ...formDataCrear, fechaNacimiento: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Dirección</label>
+                    <input
+                      type="text"
+                      value={formDataCrear.direccion}
+                      onChange={(e) => setFormDataCrear({ ...formDataCrear, direccion: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="Calle, número, ciudad"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1354,13 +1503,32 @@ export default function GestionUsuarios() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
-                  <input
-                    type="text"
-                    value={formDataEditar.empresa}
-                    onChange={(e) => setFormDataEditar({ ...formDataEditar, empresa: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                  />
+                  {formDataEditar.rol === 'cliente' ? (
+                    <>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
+                      <select
+                        value={formDataEditar.empresaSeleccion}
+                        onChange={(e) => setFormDataEditar({ ...formDataEditar, empresaSeleccion: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">-- Sin empresa asignada --</option>
+                        {empresas.map((emp) => (
+                          <option key={emp.id} value={emp.id}>{emp.razonSocial}</option>
+                        ))}
+                        <option value="__nueva__">+ Crear nueva empresa...</option>
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
+                      <input
+                        type="text"
+                        value={formDataEditar.empresa}
+                        onChange={(e) => setFormDataEditar({ ...formDataEditar, empresa: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      />
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Teléfono</label>
@@ -1372,6 +1540,72 @@ export default function GestionUsuarios() {
                   />
                 </div>
               </div>
+
+              {formDataEditar.rol === 'cliente' && formDataEditar.empresaSeleccion === '__nueva__' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de la Nueva Empresa *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formDataEditar.nuevaEmpresaNombre}
+                    onChange={(e) => setFormDataEditar({ ...formDataEditar, nuevaEmpresaNombre: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="Ej: Autocity S.A."
+                  />
+                </div>
+              )}
+
+              {formDataEditar.rol === 'cliente' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Cargo</label>
+                    <select
+                      value={formDataEditar.cargo}
+                      onChange={(e) => setFormDataEditar({ ...formDataEditar, cargo: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {CARGO_OPCIONES.map((opcion) => (
+                        <option key={opcion} value={opcion}>{opcion}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">DNI</label>
+                    <input
+                      type="text"
+                      value={formDataEditar.dni}
+                      onChange={(e) => setFormDataEditar({ ...formDataEditar, dni: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="12345678"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {formDataEditar.rol === 'tecnico' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
+                    <input
+                      type="date"
+                      value={formDataEditar.fechaNacimiento}
+                      onChange={(e) => setFormDataEditar({ ...formDataEditar, fechaNacimiento: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Dirección</label>
+                    <input
+                      type="text"
+                      value={formDataEditar.direccion}
+                      onChange={(e) => setFormDataEditar({ ...formDataEditar, direccion: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="Calle, número, ciudad"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

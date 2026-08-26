@@ -294,6 +294,24 @@ export default function VerRecibo({ params }) {
                 </div>
               </div>
 
+              {recibo.sedeNombre && (
+                <div className="pb-4 border-b border-gray-200">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-32 text-sm font-bold text-gray-700">SEDE:</div>
+                    <div className="flex-1 text-sm text-black">{recibo.sedeNombre}</div>
+                  </div>
+                </div>
+              )}
+
+              {recibo.direccion && (
+                <div className="pb-4 border-b border-gray-200">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-32 text-sm font-bold text-gray-700">DIRECCIÓN:</div>
+                    <div className="flex-1 text-sm text-black">{recibo.direccion}</div>
+                  </div>
+                </div>
+              )}
+
               <div className="pb-4 border-b border-gray-200">
                 <div className="flex items-start">
                   <div className="flex-shrink-0 w-32 text-sm font-bold text-gray-700">LA SUMA DE:</div>

@@ -241,6 +241,24 @@ const ReciboPDF = ({ recibo }) => {
             </View>
           </View>
 
+          {safeRecibo.sedeNombre && (
+            <View style={styles.field}>
+              <View style={styles.fieldRow}>
+                <Text style={styles.label}>SEDE:</Text>
+                <Text style={styles.value}>{safeRecibo.sedeNombre}</Text>
+              </View>
+            </View>
+          )}
+
+          {safeRecibo.direccion && (
+            <View style={styles.field}>
+              <View style={styles.fieldRow}>
+                <Text style={styles.label}>DIRECCIÓN:</Text>
+                <Text style={styles.value}>{safeRecibo.direccion}</Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.field}>
             <View style={styles.fieldRow}>
               <Text style={styles.label}>LA SUMA DE:</Text>

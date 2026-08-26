@@ -39,23 +39,26 @@ async function getDocuments(req, res, type, user) {
 
     // Aplicar filtros según el rol
     if (user.role === ROLES.CLIENTE) {
-      // Cliente: solo sus documentos y verificar permisos
+      // Cliente: solo los documentos de su Empresa y verificar permisos
       const userProfile = await firestore.collection('usuarios').doc(user.uid).get();
-      const permisos = userProfile.data()?.permisos || {};
-      
+      const perfilData = userProfile.data() || {};
+      const permisos = perfilData.permisos || {};
+
       if (!permisos[type]) {
         return res.status(403).json({ error: 'Access denied to this document type' });
       }
-      
-      // FILTRO CRÍTICO: Solo documentos asignados al cliente
+
+      // Filtramos por empresaId (todos los contactos de la misma Empresa ven los mismos documentos).
+      // Fallback a clienteId === uid para contactos que todavía no tengan empresaId (por ejemplo, si
+      // la migración de datos históricos no corrió todavía).
+      const empresaId = perfilData.empresaId || null;
+
       try {
         // Intentar con índice optimizado
-        const snapshot = await query
-          .where('clienteId', '==', user.uid)
-          .orderBy('fechaCreacion', 'desc')
-          .limit(50)
-          .get();
-          
+        const snapshot = empresaId
+          ? await query.where('empresaId', '==', empresaId).orderBy('fechaCreacion', 'desc').limit(50).get()
+          : await query.where('clienteId', '==', user.uid).orderBy('fechaCreacion', 'desc').limit(50).get();
+
         documents = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -65,13 +68,13 @@ async function getDocuments(req, res, type, user) {
             fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
           };
         });
-        
+
       } catch (indexError) {
         console.warn(`Índice compuesto no disponible para ${type}, usando filtro en memoria:`, indexError.message);
-        
+
         // Fallback: Obtener todos y filtrar en memoria
         const snapshot = await query.get();
-        
+
         documents = snapshot.docs
           .map(doc => {
             const data = doc.data();
@@ -82,7 +85,7 @@ async function getDocuments(req, res, type, user) {
               fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
             };
           })
-          .filter(doc => doc.clienteId === user.uid) // Filtrar por cliente
+          .filter(doc => (empresaId ? doc.empresaId === empresaId : doc.clienteId === user.uid))
           .sort((a, b) => {
             const fechaA = new Date(a.fechaCreacion || 0);
             const fechaB = new Date(b.fechaCreacion || 0);
@@ -90,7 +93,7 @@ async function getDocuments(req, res, type, user) {
           })
           .slice(0, 50); // Limitar resultados
       }
-      
+
     } else if (user.role === ROLES.TECNICO) {
       // ✅ CAMBIO PRINCIPAL: Técnico puede ver TODOS los documentos de órdenes, recordatorios y visitas
       if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
@@ -242,19 +245,23 @@ async function createDocument(req, res, type, user) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // VALIDACIÓN CRÍTICA: Verificar clienteId si se proporciona
+    // VALIDACIÓN CRÍTICA: Verificar clienteId si se proporciona, y resolver la Empresa del contacto
+    // (empresaId) para que el documento sea visible a todos los contactos de esa misma Empresa.
+    let empresaId = null;
     if (data.clienteId) {
       try {
         const clienteRef = await firestore.collection('usuarios').doc(data.clienteId).get();
         if (!clienteRef.exists) {
           return res.status(400).json({ error: 'Cliente no encontrado' });
         }
-        
+
         const clienteData = clienteRef.data();
         if (clienteData.rol !== 'cliente') {
           return res.status(400).json({ error: 'El ID proporcionado no corresponde a un cliente' });
         }
-        
+
+        empresaId = clienteData.empresaId || null;
+
         console.log(`Documento ${type} será asignado al cliente: ${clienteData.empresa} (${data.clienteId})`);
       } catch (error) {
         console.warn('Error al validar cliente:', error);
@@ -265,6 +272,7 @@ async function createDocument(req, res, type, user) {
     // Preparar datos del documento
     const docData = {
       ...data,
+      empresaId,
       creadoPor: user.uid,
       fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
       fechaModificacion: admin.firestore.FieldValue.serverTimestamp(),

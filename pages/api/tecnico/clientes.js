@@ -52,6 +52,7 @@ export default async function handler(req, res) {
           nombre: data.nombre || '',
           nombreCompleto: data.nombreCompleto || data.nombre || '',
           empresa: data.empresa || 'Sin empresa',
+          empresaId: data.empresaId || null,
           email: data.email || '',
           telefono: data.telefono || '',
           direccion: data.direccion || '',

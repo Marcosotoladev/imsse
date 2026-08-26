@@ -423,6 +423,15 @@ const RemitoPDF = ({ remito }) => {
               </View>
             </View>
 
+            {safeRemito.cliente?.sedeNombre && (
+              <View style={styles.field}>
+                <View style={styles.fieldRow}>
+                  <Text style={styles.label}>Sede:</Text>
+                  <Text style={styles.value}>{safeRemito.cliente.sedeNombre}</Text>
+                </View>
+              </View>
+            )}
+
             {safeRemito.cliente?.direccion && (
               <View style={styles.field}>
                 <View style={styles.fieldRow}>

@@ -22,9 +22,11 @@ export default function NuevoRemito() {
 
     // NUEVO: Estados para gestión de clientes
     const [clientesDisponibles, setClientesDisponibles] = useState([]);
+    const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
     const [cargandoClientes, setCargandoClientes] = useState(false);
     const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
     const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+    const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
 
     // Estado para el modal de descripción
     const [modalDescripcion, setModalDescripcion] = useState({
@@ -39,7 +41,8 @@ export default function NuevoRemito() {
         empresa: '',
         email: '',
         telefono: '',
-        direccion: ''
+        direccion: '',
+        sedeNombre: ''
     });
 
     const [remito, setRemito] = useState({
@@ -76,11 +79,15 @@ export default function NuevoRemito() {
     const cargarClientesDisponibles = async () => {
         setCargandoClientes(true);
         try {
-            const usuariosData = await apiService.obtenerUsuarios();
-            const clientes = usuariosData.users.filter(u => 
+            const [usuariosData, empresasData] = await Promise.all([
+                apiService.obtenerUsuarios(),
+                apiService.obtenerEmpresas()
+            ]);
+            const clientes = usuariosData.users.filter(u =>
                 u.rol === 'cliente' && u.estado === 'activo'
             );
             setClientesDisponibles(clientes);
+            setEmpresasDisponibles(empresasData.empresas || []);
             console.log('Clientes disponibles:', clientes);
         } catch (error) {
             console.error('Error al cargar clientes:', error);
@@ -93,14 +100,18 @@ export default function NuevoRemito() {
     const handleSeleccionarCliente = (clienteId) => {
         if (!clienteId) {
             setClienteSeleccionado(null);
+            setEmpresaDelCliente(null);
             setRemito({ ...remito, clienteId: '' });
-            setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '' });
+            setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '', sedeNombre: '' });
             return;
         }
 
         const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
         if (clienteEncontrado) {
+            const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
+
             setClienteSeleccionado(clienteEncontrado);
+            setEmpresaDelCliente(empresa);
             setRemito({ ...remito, clienteId: clienteId });
             // Auto-llenar datos del cliente
             setCliente({
@@ -108,8 +119,21 @@ export default function NuevoRemito() {
                 empresa: clienteEncontrado.empresa || '',
                 email: clienteEncontrado.email || '',
                 telefono: clienteEncontrado.telefono || '',
-                direccion: clienteEncontrado.direccion || ''
+                direccion: empresa?.direccionPrincipal || '',
+                sedeNombre: ''
             });
+        }
+    };
+
+    // Cambia la dirección cargada según la Sede elegida (o vuelve a la Dirección Principal)
+    const handleSeleccionarSede = (sedeId) => {
+        if (!sedeId) {
+            setCliente(prev => ({ ...prev, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }));
+            return;
+        }
+        const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
+        if (sede) {
+            setCliente(prev => ({ ...prev, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }));
         }
     };
 
@@ -119,8 +143,9 @@ export default function NuevoRemito() {
         if (tipo === 'manual') {
             // Limpiar selección y permitir edición manual
             setClienteSeleccionado(null);
+            setEmpresaDelCliente(null);
             setRemito({ ...remito, clienteId: '' });
-            setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '' });
+            setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '', sedeNombre: '' });
         }
     };
 
@@ -624,9 +649,23 @@ export default function NuevoRemito() {
                                     placeholder="Dirección completa"
                                 />
                                 <p className="mt-1 text-xs text-gray-500">
-                                    💡 La dirección siempre es editable (no se guarda en el registro del cliente)
+                                    💡 Se autocompleta con la dirección de la Empresa (o la Sede elegida), pero siempre es editable
                                 </p>
                             </div>
+                            {tipoCliente === 'existente' && empresaDelCliente?.sedes?.length > 0 && (
+                                <div className="md:col-span-2">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Sede</label>
+                                    <select
+                                        onChange={(e) => handleSeleccionarSede(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    >
+                                        <option value="">Dirección Principal</option>
+                                        {empresaDelCliente.sedes.map(sede => (
+                                            <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
                         
                         {/* Indicadores de asignación */}

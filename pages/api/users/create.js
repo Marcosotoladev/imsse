@@ -22,6 +22,11 @@ async function handler(req, res) {
       email = '',
       empresa = '',
       telefono = '',
+      fechaNacimiento = '',
+      direccion = '',
+      cargo = '',
+      dni = '',
+      empresaId = null,
       rol = ROLES.CLIENTE,
       password = '',
       esEmailFicticio = false
@@ -88,6 +93,10 @@ async function handler(req, res) {
       email: finalEmail,
       empresa: empresa.trim(),
       telefono: telefono.trim(),
+      fechaNacimiento: fechaNacimiento.trim(),
+      direccion: direccion.trim(),
+      cargo: cargo.trim(),
+      dni: dni.trim(),
       rol: rol || ROLES.CLIENTE,
       estado: 'activo', // Por defecto activo
       esEmailFicticio: !!esEmailFicticio || finalEmail.endsWith('@imse.app'),
@@ -107,6 +116,7 @@ async function handler(req, res) {
 
     if (userData.rol === ROLES.CLIENTE) {
       userData.clienteId = userRecord.uid;
+      userData.empresaId = empresaId || null;
     }
 
     await firestore.collection('usuarios').doc(userRecord.uid).set(userData);

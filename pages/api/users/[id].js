@@ -42,10 +42,15 @@ async function getUser(req, res, id, user) {
       apellido: userData.apellido,
       empresa: userData.empresa,
       telefono: userData.telefono,
+      fechaNacimiento: userData.fechaNacimiento,
+      direccion: userData.direccion,
+      cargo: userData.cargo,
+      dni: userData.dni,
       rol: userData.rol,
       estado: userData.estado,
       permisos: userData.permisos,
       clienteId: userData.clienteId,
+      empresaId: userData.empresaId,
       metodoBegistro: userData.metodoBegistro,
       fechaCreacion: userData.fechaCreacion?.toDate?.() || userData.fechaCreacion,
       fechaModificacion: userData.fechaModificacion?.toDate?.() || userData.fechaModificacion,
@@ -83,8 +88,8 @@ async function updateUser(req, res, id, user) {
       
       // Usuarios normales solo pueden actualizar datos personales
       const allowedFields = [
-        'nombre', 'apellido', 'telefono', 'empresa', 
-        'direccion', 'ciudad', 'codigoPostal'
+        'nombre', 'apellido', 'telefono', 'empresa',
+        'direccion', 'ciudad', 'codigoPostal', 'fechaNacimiento', 'dni'
       ];
       
       const filteredUpdate = {};

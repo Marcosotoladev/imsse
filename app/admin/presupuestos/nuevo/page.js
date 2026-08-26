@@ -37,9 +37,11 @@ export default function NuevoPresupuesto() {
 
     // Estados para gestión de clientes
     const [clientesDisponibles, setClientesDisponibles] = useState([]);
+    const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
     const [cargandoClientes, setCargandoClientes] = useState(false);
     const [tipoCliente, setTipoCliente] = useState('existente');
     const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+    const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
 
     // Estado para el modal de descripción
     const [modalDescripcion, setModalDescripcion] = useState({
@@ -55,7 +57,8 @@ export default function NuevoPresupuesto() {
         email: '',
         telefono: '',
         direccion: '',
-        cuit: ''
+        cuit: '',
+        sedeNombre: ''
     });
 
     const [presupuesto, setPresupuesto] = useState({
@@ -131,11 +134,15 @@ export default function NuevoPresupuesto() {
     const cargarClientesDisponibles = async () => {
         setCargandoClientes(true);
         try {
-            const usuariosData = await apiService.obtenerUsuarios();
+            const [usuariosData, empresasData] = await Promise.all([
+                apiService.obtenerUsuarios(),
+                apiService.obtenerEmpresas()
+            ]);
             const clientes = usuariosData.users.filter(u =>
                 u.rol === 'cliente' && u.estado === 'activo'
             );
             setClientesDisponibles(clientes);
+            setEmpresasDisponibles(empresasData.empresas || []);
         } catch (error) {
             console.error('Error al cargar clientes:', error);
         } finally {
@@ -146,6 +153,7 @@ export default function NuevoPresupuesto() {
     const handleSeleccionarCliente = (clienteId) => {
         if (!clienteId) {
             setClienteSeleccionado(null);
+            setEmpresaDelCliente(null);
             setPresupuesto({ ...presupuesto, clienteId: '' });
             setCliente({
                 nombre: '',
@@ -153,14 +161,18 @@ export default function NuevoPresupuesto() {
                 email: '',
                 telefono: '',
                 direccion: '',
-                cuit: ''
+                cuit: '',
+                sedeNombre: ''
             });
             return;
         }
 
         const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
         if (clienteEncontrado) {
+            const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
+
             setClienteSeleccionado(clienteEncontrado);
+            setEmpresaDelCliente(empresa);
             setPresupuesto({ ...presupuesto, clienteId: clienteId });
 
             setCliente({
@@ -168,9 +180,22 @@ export default function NuevoPresupuesto() {
                 empresa: clienteEncontrado.empresa || '',
                 email: clienteEncontrado.email || '',
                 telefono: clienteEncontrado.telefono || '',
-                direccion: '',
-                cuit: ''
+                direccion: empresa?.direccionPrincipal || '',
+                cuit: empresa?.cuit || '',
+                sedeNombre: ''
             });
+        }
+    };
+
+    // Cambia la dirección cargada según la Sede elegida (o vuelve a la Dirección Principal)
+    const handleSeleccionarSede = (sedeId) => {
+        if (!sedeId) {
+            setCliente(prev => ({ ...prev, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }));
+            return;
+        }
+        const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
+        if (sede) {
+            setCliente(prev => ({ ...prev, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }));
         }
     };
 
@@ -178,6 +203,7 @@ export default function NuevoPresupuesto() {
         setTipoCliente(tipo);
         if (tipo === 'manual') {
             setClienteSeleccionado(null);
+            setEmpresaDelCliente(null);
             setPresupuesto({ ...presupuesto, clienteId: '' });
             setCliente({
                 nombre: '',
@@ -185,7 +211,8 @@ export default function NuevoPresupuesto() {
                 email: '',
                 telefono: '',
                 direccion: '',
-                cuit: ''
+                cuit: '',
+                sedeNombre: ''
             });
         }
     };
@@ -654,6 +681,20 @@ export default function NuevoPresupuesto() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                 />
                             </div>
+                            {tipoCliente === 'existente' && empresaDelCliente?.sedes?.length > 0 && (
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Sede</label>
+                                    <select
+                                        onChange={(e) => handleSeleccionarSede(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="">Dirección Principal</option>
+                                        {empresaDelCliente.sedes.map(sede => (
+                                            <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         {tipoCliente === 'existente' && clienteSeleccionado && (

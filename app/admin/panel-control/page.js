@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Users,
+  Building2,
   Wrench,
   Bell,
   BellRing,
   CalendarDays,
   Clock,
   Folder,
+  Crown,
   Plus
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -36,7 +38,9 @@ const configuracionModulos = {
     { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' },
     { key: 'visitas', nombre: 'Calendario de Visitas', icono: CalendarDays, color: 'indigo', listUrl: '/admin/calendario-visitas', nuevoUrl: '/admin/calendario-visitas/nueva' },
     { key: 'documentos', nombre: 'Documentos', icono: Folder, esDocumentos: true, sub: DOCUMENTOS_SUB },
-    { key: 'usuarios', nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios', nuevoUrl: '/admin/usuarios?crear=true' }
+    { key: 'empresas', nombre: 'Empresas', icono: Building2, color: 'purple', listUrl: '/admin/empresas', nuevoUrl: '/admin/empresas?crear=true' },
+    { key: 'usuarios', nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios', nuevoUrl: '/admin/usuarios?crear=true' },
+    { key: 'suscripcion', nombre: 'Suscripción', icono: Crown, disabled: true }
   ],
   tecnico: [
     { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },

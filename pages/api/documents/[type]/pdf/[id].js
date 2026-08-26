@@ -33,9 +33,20 @@ async function handler(req, res) {
 
     const docData = doc.data();
 
-    // Verificar permisos de acceso (misma lógica que GET)
-    if (user.role === ROLES.CLIENTE && docData.clienteId !== user.uid) {
-      return res.status(403).json({ error: 'Access denied' });
+    // Verificar permisos de acceso (misma lógica que GET): el propio contacto,
+    // o cualquier contacto de la misma Empresa
+    if (user.role === ROLES.CLIENTE) {
+      let accesoPermitido = docData.clienteId === user.uid;
+
+      if (!accesoPermitido && docData.empresaId) {
+        const userProfile = await firestore.collection('usuarios').doc(user.uid).get();
+        const empresaId = userProfile.data()?.empresaId;
+        accesoPermitido = !!empresaId && empresaId === docData.empresaId;
+      }
+
+      if (!accesoPermitido) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
     }
 
     if (user.role === ROLES.TECNICO && type !== 'ordenes') {

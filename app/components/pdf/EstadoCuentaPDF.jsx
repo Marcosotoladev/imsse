@@ -503,6 +503,22 @@ const EstadoCuentaPDFSimplificado = ({ estadoCuenta }) => {
                 </View>
               </View>
             )}
+            {safeEstado.cliente?.sedeNombre && (
+              <View style={styles.field}>
+                <View style={styles.fieldRow}>
+                  <Text style={styles.label}>Sede:</Text>
+                  <Text style={styles.value}>{safeEstado.cliente.sedeNombre}</Text>
+                </View>
+              </View>
+            )}
+            {safeEstado.cliente?.direccion && (
+              <View style={styles.field}>
+                <View style={styles.fieldRow}>
+                  <Text style={styles.label}>Dirección:</Text>
+                  <Text style={styles.value}>{safeEstado.cliente.direccion}</Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 

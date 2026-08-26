@@ -45,9 +45,11 @@ export default function CrearOrdenTrabajo() {
 
   // NUEVO: Estados para gestión de clientes
   const [clientesDisponibles, setClientesDisponibles] = useState([]);
+  const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
   const [cargandoClientes, setCargandoClientes] = useState(false);
   const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
 
   // Referencias para firmas
   const firmaTecnicoRef = useRef(null);
@@ -62,6 +64,7 @@ export default function CrearOrdenTrabajo() {
       nombre: '',
       telefono: '',
       direccion: '',
+      sedeNombre: '',
       solicitadoPor: ''
     },
     fechaTrabajo: '',
@@ -158,6 +161,15 @@ export default function CrearOrdenTrabajo() {
 
       setClientesDisponibles(clientes);
       console.log('Clientes disponibles:', clientes);
+
+      // Empresas (para Sedes): admin y técnico pueden leerlas
+      try {
+        const empresasData = await apiService.obtenerEmpresas();
+        setEmpresasDisponibles(empresasData.empresas || []);
+      } catch (empresaError) {
+        console.error('Error al cargar empresas:', empresaError);
+        setEmpresasDisponibles([]);
+      }
     } catch (error) {
       console.error('Error al cargar clientes:', error);
       setClientesDisponibles([]);
@@ -170,6 +182,7 @@ export default function CrearOrdenTrabajo() {
   const handleSeleccionarCliente = (clienteId) => {
     if (!clienteId) {
       setClienteSeleccionado(null);
+      setEmpresaDelCliente(null);
       setOrden(prev => ({
         ...prev,
         clienteId: '',
@@ -178,6 +191,7 @@ export default function CrearOrdenTrabajo() {
           nombre: '',
           telefono: '',
           direccion: '',
+          sedeNombre: '',
           solicitadoPor: ''
         }
       }));
@@ -186,7 +200,10 @@ export default function CrearOrdenTrabajo() {
 
     const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
     if (clienteEncontrado) {
+      const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
+
       setClienteSeleccionado(clienteEncontrado);
+      setEmpresaDelCliente(empresa);
       setOrden(prev => ({
         ...prev,
         clienteId: clienteId,
@@ -194,9 +211,28 @@ export default function CrearOrdenTrabajo() {
           empresa: clienteEncontrado.empresa || '',
           nombre: clienteEncontrado.nombreCompleto || '',
           telefono: clienteEncontrado.telefono || '',
-          direccion: '', // ← Siempre vacío porque no se guarda en el registro
+          direccion: empresa?.direccionPrincipal || '',
+          sedeNombre: '',
           solicitadoPor: ''
         }
+      }));
+    }
+  };
+
+  // Cambia la "Dirección del Trabajo" según la Sede elegida (o vuelve a la Dirección Principal)
+  const handleSeleccionarSede = (sedeId) => {
+    if (!sedeId) {
+      setOrden(prev => ({
+        ...prev,
+        cliente: { ...prev.cliente, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }
+      }));
+      return;
+    }
+    const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
+    if (sede) {
+      setOrden(prev => ({
+        ...prev,
+        cliente: { ...prev.cliente, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }
       }));
     }
   };
@@ -207,6 +243,7 @@ export default function CrearOrdenTrabajo() {
     if (tipo === 'manual') {
       // Limpiar selección y permitir edición manual
       setClienteSeleccionado(null);
+      setEmpresaDelCliente(null);
       setOrden(prev => ({
         ...prev,
         clienteId: '',
@@ -215,6 +252,7 @@ export default function CrearOrdenTrabajo() {
           nombre: '',
           telefono: '',
           direccion: '',
+          sedeNombre: '',
           solicitadoPor: ''
         }
       }));
@@ -797,6 +835,21 @@ export default function CrearOrdenTrabajo() {
                 )}
               </div>
 
+              {tipoCliente === 'existente' && empresaDelCliente?.sedes?.length > 0 && (
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700">Sede</label>
+                  <select
+                    onChange={(e) => handleSeleccionarSede(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">Dirección Principal</option>
+                    {empresaDelCliente.sedes.map(sede => (
+                      <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Dirección del Trabajo</label>
                 <div className="relative">
@@ -811,7 +864,7 @@ export default function CrearOrdenTrabajo() {
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  💡 La dirección siempre es editable (específica para cada trabajo)
+                  💡 Se autocompleta con la dirección de la Empresa (o la Sede elegida), pero siempre es editable
                 </p>
               </div>
 

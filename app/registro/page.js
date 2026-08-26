@@ -4,10 +4,20 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, User, Building, Mail, Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { ArrowLeft, User, Building, Mail, Lock, Eye, EyeOff, CheckCircle, Briefcase, IdCard } from 'lucide-react';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import apiService from '../../lib/services/apiService';
+
+const CARGO_OPCIONES = [
+  'Propietario',
+  'Gerente',
+  'Responsable de Seguridad',
+  'Encargado',
+  'Referente',
+  'Administrativo',
+  'Otro'
+];
 
 export default function RegistroPublico() {
   const router = useRouter();
@@ -23,7 +33,9 @@ export default function RegistroPublico() {
     empresa: '',
     telefono: '',
     nombre: '',
-    apellido: ''
+    apellido: '',
+    cargo: '',
+    dni: ''
   });
 
   const [formData, setFormData] = useState({
@@ -32,6 +44,8 @@ export default function RegistroPublico() {
     email: '',
     empresa: '',
     telefono: '',
+    cargo: '',
+    dni: '',
     password: '',
     confirmPassword: ''
   });
@@ -97,7 +111,9 @@ export default function RegistroPublico() {
         empresa: '',
         telefono: '',
         nombre: nombre,
-        apellido: apellidoGoogle
+        apellido: apellidoGoogle,
+        cargo: '',
+        dni: ''
       });
       
       // Cerrar sesión temporalmente y mostrar modal para completar datos
@@ -143,6 +159,8 @@ export default function RegistroPublico() {
         email: result.user.email,
         empresa: datosGoogleCompletos.empresa.trim(),
         telefono: datosGoogleCompletos.telefono.trim(),
+        cargo: datosGoogleCompletos.cargo.trim(),
+        dni: datosGoogleCompletos.dni.trim(),
         rol: 'cliente',
         estado: 'activo',
         metodoRegistro: 'google',
@@ -205,6 +223,8 @@ export default function RegistroPublico() {
         email: formData.email.toLowerCase().trim(),
         empresa: formData.empresa.trim(),
         telefono: formData.telefono.trim(),
+        cargo: formData.cargo.trim(),
+        dni: formData.dni.trim(),
         rol: 'cliente', // Rol por defecto
         estado: 'activo', // Activo por defecto como cliente
         metodoRegistro: 'email',
@@ -432,6 +452,46 @@ export default function RegistroPublico() {
                 {errores.empresa && (
                   <p className="mt-1 text-sm text-red-600">{errores.empresa}</p>
                 )}
+              </div>
+
+              {/* Cargo y DNI */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700">
+                    Cargo (Opcional)
+                  </label>
+                  <div className="relative">
+                    <Briefcase className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                    <select
+                      name="cargo"
+                      value={formData.cargo}
+                      onChange={handleInputChange}
+                      className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {CARGO_OPCIONES.map((opcion) => (
+                        <option key={opcion} value={opcion}>{opcion}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700">
+                    DNI (Opcional)
+                  </label>
+                  <div className="relative">
+                    <IdCard className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                    <input
+                      type="text"
+                      name="dni"
+                      value={formData.dni}
+                      onChange={handleInputChange}
+                      className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="12345678"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Teléfono */}
@@ -672,6 +732,43 @@ export default function RegistroPublico() {
                   </div>
                 )}
 
+                {/* Cargo y DNI (opcional) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                      Cargo (Opcional)
+                    </label>
+                    <select
+                      value={datosGoogleCompletos.cargo}
+                      onChange={(e) => setDatosGoogleCompletos({
+                        ...datosGoogleCompletos,
+                        cargo: e.target.value
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {CARGO_OPCIONES.map((opcion) => (
+                        <option key={opcion} value={opcion}>{opcion}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-sm font-medium text-gray-700">
+                      DNI (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={datosGoogleCompletos.dni}
+                      onChange={(e) => setDatosGoogleCompletos({
+                        ...datosGoogleCompletos,
+                        dni: e.target.value
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="12345678"
+                    />
+                  </div>
+                </div>
+
                 {/* Teléfono (opcional) */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700">
@@ -681,7 +778,7 @@ export default function RegistroPublico() {
                     type="tel"
                     value={datosGoogleCompletos.telefono}
                     onChange={(e) => setDatosGoogleCompletos({
-                      ...datosGoogleCompletos, 
+                      ...datosGoogleCompletos,
                       telefono: e.target.value
                     })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -704,7 +801,7 @@ export default function RegistroPublico() {
                   onClick={() => {
                     setMostrarModalGoogle(false);
                     setUsuarioGoogle(null);
-                    setDatosGoogleCompletos({ empresa: '', telefono: '', nombre: '', apellido: '' });
+                    setDatosGoogleCompletos({ empresa: '', telefono: '', nombre: '', apellido: '', cargo: '', dni: '' });
                   }}
                   className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                   disabled={loading}

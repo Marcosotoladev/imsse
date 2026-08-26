@@ -443,6 +443,24 @@ export default function VerEstadoCuenta({ params }) {
                       </div>
                     </div>
                   )}
+
+                  {estadoCuenta.cliente?.sedeNombre && (
+                    <div className="pb-3 border-b border-gray-200">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">SEDE:</div>
+                        <div className="flex-1 text-sm text-black">{estadoCuenta.cliente.sedeNombre}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {estadoCuenta.cliente?.direccion && (
+                    <div className="pb-3 border-b border-gray-200">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 w-24 text-sm font-bold text-gray-700">DIRECCIÓN:</div>
+                        <div className="flex-1 text-sm text-black">{estadoCuenta.cliente.direccion}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -393,6 +393,12 @@ export default function VerOrdenTrabajo({ params }) {
                       <span className="text-gray-900">{orden.cliente.telefono}</span>
                     </div>
                   )}
+                  {orden.cliente?.sedeNombre && (
+                    <div>
+                      <span className="block text-sm font-medium text-gray-600">Sede:</span>
+                      <span className="text-gray-900">{orden.cliente.sedeNombre}</span>
+                    </div>
+                  )}
                   {orden.cliente?.direccion && (
                     <div>
                       <span className="block text-sm font-medium text-gray-600">Dirección:</span>

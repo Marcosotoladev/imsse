@@ -2,10 +2,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Shield, Flame, Eye, Zap, Wrench, AlertTriangle, Award, Clock, Users, CheckCircle, Star } from 'lucide-react';
+import SessionRedirect from './components/SessionRedirect';
 
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
+      <SessionRedirect />
 
 {/* Hero Section Épico con Estadísticas */}
 <section className="relative py-20 overflow-hidden text-white md:py-32">
