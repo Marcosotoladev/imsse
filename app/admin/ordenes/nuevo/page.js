@@ -657,7 +657,6 @@ export default function CrearOrdenTrabajo() {
                 onChange={handleInputChange}
                 className="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
-                readOnly
               />
             </div>
           </div>
