@@ -7,7 +7,7 @@ import Footer from './Footer';
 
 // Rutas que tienen su propio shell (AdminLayout, ClienteLayout, pantallas de auth)
 // y no deben mostrar el header/footer del sitio público.
-const APP_PREFIXES = ['/admin', '/cliente', '/login', '/registro'];
+const APP_PREFIXES = ['/admin', '/cliente', '/login', '/registro', '/mantenimiento'];
 
 export default function SiteChrome({ children }) {
   const pathname = usePathname();

@@ -175,6 +175,13 @@ export default function ClienteLayout({ children }) {
             return;
           }
 
+          // Modo mantenimiento: si la suscripción está vencida, se bloquea el acceso
+          const suscripcion = await apiService.obtenerSuscripcion();
+          if (suscripcion.bloqueada) {
+            router.push('/mantenimiento');
+            return;
+          }
+
           setUser(currentUser);
           setPerfil(perfilUsuario);
           setLoading(false);

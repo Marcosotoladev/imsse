@@ -220,6 +220,16 @@ export default function AdminLayout({ children }) {
             return;
           }
 
+          // Modo mantenimiento: si la suscripción está vencida, se bloquea el acceso
+          // (el Superadmin siempre puede entrar, sin importar el estado de la suscripción)
+          if (!perfilUsuario.superAdmin) {
+            const suscripcion = await apiService.obtenerSuscripcion();
+            if (suscripcion.bloqueada) {
+              router.push('/mantenimiento');
+              return;
+            }
+          }
+
           setUser(currentUser);
           setPerfil(perfilUsuario);
           setLoading(false);
@@ -353,9 +363,9 @@ export default function AdminLayout({ children }) {
     },
     {
       name: 'Suscripción',
+      path: '/admin/suscripcion',
       icon: Crown,
-      roles: ['admin'],
-      disabled: true
+      roles: ['admin']
     }
   ];
 

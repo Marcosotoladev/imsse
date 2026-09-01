@@ -32,15 +32,18 @@ async function getUsers(req, res, user) {
 
     const snapshot = await query.orderBy('fechaCreacion', 'desc').get();
     
-    const users = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
-        fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
-      };
-    });
+    const users = snapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
+          fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
+        };
+      })
+      // El Superadmin es invisible para el admin común: no aparece en la gestión de usuarios.
+      .filter(u => user.superAdmin || !u.superAdmin);
 
     return res.status(200).json({ users });
   } catch (error) {

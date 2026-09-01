@@ -27,13 +27,18 @@ async function getUser(req, res, id, user) {
     }
 
     const userDoc = await firestore.collection('usuarios').doc(id).get();
-    
+
     if (!userDoc.exists) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     const userData = userDoc.data();
-    
+
+    // El Superadmin es invisible: nadie más puede ver su perfil (ni siquiera un admin)
+    if (userData.superAdmin === true && !user.superAdmin && user.uid !== id) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     // No enviar datos sensibles
     const safeUserData = {
       id: userDoc.id,
@@ -72,12 +77,19 @@ async function updateUser(req, res, id, user) {
     }
 
     const userDoc = await firestore.collection('usuarios').doc(id).get();
-    
+
     if (!userDoc.exists) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // El Superadmin es invisible: un admin común no puede tocar ni descubrir su cuenta
+    if (userDoc.data().superAdmin === true && !user.superAdmin && user.uid !== id) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     let updateData = { ...req.body };
+    // Nadie puede otorgarse a sí mismo (ni a otros) el flag de Superadmin vía esta ruta
+    delete updateData.superAdmin;
     
     // Solo admin puede cambiar rol, estado y permisos
     if (user.role !== ROLES.ADMIN) {
@@ -184,12 +196,17 @@ async function deleteUser(req, res, id, user) {
     }
 
     const userDoc = await firestore.collection('usuarios').doc(id).get();
-    
+
     if (!userDoc.exists) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     const userData = userDoc.data();
+
+    // El Superadmin es invisible: un admin común no puede eliminarlo ni saber que existe
+    if (userData.superAdmin === true && !user.superAdmin) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     // Verificar si es el último admin activo (prevención de seguridad)
     if (userData.rol === ROLES.ADMIN) {
