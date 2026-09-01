@@ -1,0 +1,71 @@
+[
+  {
+    "grupo": "Rociadores",
+    "titulo": "Inspección Visual de Rociadores (Cabezales)",
+    "tipo": "tabular",
+    "nombreUnidad": "Rociador",
+    "incluyeNA": true,
+    "camposTexto": [
+      { "nombre": "Sector" },
+      { "nombre": "Tipo / Modelo" }
+    ],
+    "columnas": [
+      { "nombre": "Libre de Obstrucciones" },
+      { "nombre": "Sin Corrosión ni Pintura" },
+      { "nombre": "Ampolla / Elemento Térmico Íntegro" },
+      { "nombre": "Orientación Correcta" },
+      { "nombre": "Área de Cobertura Despejada" },
+      { "nombre": "Deflector sin Daños" }
+    ]
+  },
+  {
+    "grupo": "Rociadores",
+    "titulo": "Sistema de Rociadores - Componentes Generales (NFPA 13 / NFPA 25)",
+    "tipo": "lista",
+    "items": [
+      { "descripcion": "Válvula de Control Principal", "guia": "Verificar que esté totalmente abierta, señalizada y supervisada/candadeada (NFPA 25 - inspección semanal/mensual)." },
+      { "descripcion": "Válvula de Alarma (Check Valve)", "guia": "Verificar sellado correcto, sin fugas, trim completo." },
+      { "descripcion": "Manómetros de Presión", "guia": "Verificar lectura normal en el lado de suministro y del sistema. Reemplazar si están fuera de calibración (cada 5 años según NFPA 25)." },
+      { "descripcion": "Interruptor de Flujo de Agua (Water Flow Switch)", "guia": "Probar activación y transmisión de señal a la central de alarma." },
+      { "descripcion": "Conexión de Bomberos (FDC)", "guia": "Verificar accesibilidad, tapas colocadas, roscas sin daño y señalización visible." },
+      { "descripcion": "Gabinete de Rociadores de Repuesto", "guia": "Verificar cantidad mínima según los tipos instalados y presencia de la llave especial (NFPA 25, revisión anual)." },
+      { "descripcion": "Prueba de Válvula de Drenaje Principal (Main Drain Test)", "guia": "Realizar la prueba anual y comparar la presión residual con los valores históricos registrados." },
+      { "descripcion": "Sistema Anticongelante", "guia": "En sectores no calefaccionados: verificar concentración de glicol/anticongelante." },
+      { "descripcion": "Soportería y Tuberías", "guia": "Verificar ausencia de corrosión, fugas y soportes desprendidos o dañados." },
+      { "descripcion": "Señalización de Válvulas", "guia": "Carteles identificatorios en cada válvula indicando el sector que protege." }
+    ]
+  },
+  {
+    "grupo": "Sistemas de Alarma",
+    "titulo": "Central de Alarma y Monitoreo (NFPA 72)",
+    "tipo": "lista",
+    "items": [
+      { "descripcion": "Panel Central de Alarma (FACP)", "guia": "Verificar ausencia de señales de falla, alarma o supervisión activas." },
+      { "descripcion": "Fuente de Alimentación Secundaria (Baterías)", "guia": "Medir tensión y verificar autonomía mínima (24 h en standby + 5 min en alarma, según NFPA 72)." },
+      { "descripcion": "Transmisión a Central Receptora de Alarmas (CRA)", "guia": "Verificar comunicador digital/IP y confirmar recepción de señal de prueba en la central de monitoreo." },
+      { "descripcion": "Señal de Falla de Comunicación", "guia": "Simular corte de línea/red y verificar que se genere la señal de supervisión correspondiente." },
+      { "descripcion": "Prueba de Secuencia Causa-Efecto", "guia": "Verificar que la activación de cada dispositivo dispare correctamente las salidas programadas (corte de gas, ascensores, presurización, etc.)." },
+      { "descripcion": "Anunciador Remoto", "guia": "Verificar funcionamiento y correspondencia de estados con el panel principal." },
+      { "descripcion": "Libro de Registro de Inspecciones (NFPA 72)", "guia": "Verificar que esté completo, actualizado y disponible en el sitio." },
+      { "descripcion": "Cableado y Conexiones", "guia": "Inspección de cajas de paso, borneras y tendido, sin empalmes expuestos." }
+    ]
+  },
+  {
+    "grupo": "Sistemas de Alarma",
+    "titulo": "Dispositivos de Notificación (Sirenas / Estrobos)",
+    "tipo": "tabular",
+    "nombreUnidad": "Dispositivo",
+    "incluyeNA": true,
+    "camposTexto": [
+      { "nombre": "Sector" },
+      { "nombre": "Tipo" }
+    ],
+    "columnas": [
+      { "nombre": "Ubicación Visible/Accesible" },
+      { "nombre": "Nivel Sonoro Audible" },
+      { "nombre": "Estrobo Funcional" },
+      { "nombre": "Cableado sin Daños" },
+      { "nombre": "Etiquetado Correcto" }
+    ]
+  }
+]

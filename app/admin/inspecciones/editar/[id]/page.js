@@ -1,17 +1,15 @@
-// app/admin/ordenes/editar/[id]/page.jsx - Editar Orden de Trabajo IMSSE
+// app/admin/inspecciones/editar/[id]/page.js - Editar Visita Técnica (siempre online)
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Home,
   Save,
-  Download,
-  RefreshCw,
   Eye,
   Shield,
   User,
+  Building2,
   MapPin,
   Calendar,
   Clock,
@@ -19,116 +17,155 @@ import {
   Camera,
   Plus,
   Trash2,
-  Upload,
   PenTool,
   CheckCircle,
-  FileText
+  FileText,
+  RefreshCw,
+  Home,
+  ClipboardCheck
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../../lib/firebase';
 import apiService from '../../../../../lib/services/apiService';
 import tecnicoService from '../../../../../lib/services/tecnicoService';
-import { use } from 'react';
+import { uploadToCloudinary } from '../../../../../lib/cloudinary';
+import PlanillasAdjuntas from '../../../../components/inspecciones/PlanillasAdjuntas';
 import SignatureCanvas from 'react-signature-canvas';
+import { extraerObservacionesChecklist, sincronizarObservaciones } from '../../../../../lib/utils/observacionesChecklist';
 
-export default function EditarOrdenTrabajo({ params }) {
-  const resolvedParams = use(params);
-  const id = resolvedParams.id;
+export default function EditarInspeccionTecnica({ params }) {
+  const { id } = use(params);
 
-  const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [perfil, setPerfil] = useState(null);
+  const router = useRouter();
+
+  const [clientesDisponibles, setClientesDisponibles] = useState([]);
+  const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [tipoCliente, setTipoCliente] = useState('existente');
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
+
+  const [plantillasDisponibles, setPlantillasDisponibles] = useState([]);
+  const [planillasAdjuntas, setPlanillasAdjuntas] = useState([]);
   const [tecnicosDisponibles, setTecnicosDisponibles] = useState([]);
 
-  // Referencias para firmas
+  // Fotos ya guardadas en Cloudinary (vienen con `url` real). Se pueden quitar
+  // de la lista pero no se re-suben. Las fotos nuevas quedan como File locales
+  // hasta el guardado, igual que en "nueva".
+  const [fotosExistentes, setFotosExistentes] = useState([]);
+  const [fotos, setFotos] = useState([]);
+
   const firmaTecnicoRef = useRef(null);
   const firmaClienteRef = useRef(null);
+  const observacionesChecklistRef = useRef(new Map());
+  const [mostrarCanvasTecnico, setMostrarCanvasTecnico] = useState(false);
+  const [mostrarCanvasCliente, setMostrarCanvasCliente] = useState(false);
 
-  // Estado del formulario
-  const [orden, setOrden] = useState({
+  const [inspeccion, setInspeccion] = useState({
     numero: '',
+    clienteId: '',
     cliente: {
       empresa: '',
       nombre: '',
       telefono: '',
       direccion: '',
+      sedeNombre: '',
       solicitadoPor: ''
     },
     fechaTrabajo: '',
     horarioInicio: '',
     horarioFin: '',
     tecnicos: [{ nombre: '' }],
-    tareasRealizadas: '',
-    fotos: []
+    observaciones: ''
   });
 
-  // Estado para firmas
   const [firmas, setFirmas] = useState({
     tecnico: { firma: null, aclaracion: '' },
     cliente: { firma: null, aclaracion: '' }
   });
-
-  // Estado para mostrar canvas de firma
-  const [mostrarCanvasTecnico, setMostrarCanvasTecnico] = useState(false);
-  const [mostrarCanvasCliente, setMostrarCanvasCliente] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
+        try {
+          const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
 
-        tecnicoService.obtenerTecnicos()
-          .then((response) => setTecnicosDisponibles(response?.users || response?.tecnicos || []))
-          .catch((error) => {
-            console.error('Error al cargar los técnicos:', error);
-            setTecnicosDisponibles([]);
+          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+            router.push('/cliente/dashboard');
+            return;
+          }
+
+          setUser(currentUser);
+          setPerfil(perfilUsuario);
+
+          const [{ clientes, empresas }, inspeccionData] = await Promise.all([
+            cargarClientesDisponibles(perfilUsuario),
+            apiService.obtenerInspeccionTecnicaPorId(id)
+          ]);
+          cargarPlantillas();
+          cargarTecnicos();
+
+          if (!inspeccionData) {
+            alert('Visita técnica no encontrada.');
+            router.push('/admin/inspecciones');
+            return;
+          }
+
+          setInspeccion({
+            numero: inspeccionData.numero || '',
+            clienteId: inspeccionData.clienteId || '',
+            cliente: {
+              empresa: inspeccionData.cliente?.empresa || '',
+              nombre: inspeccionData.cliente?.nombre || '',
+              telefono: inspeccionData.cliente?.telefono || '',
+              direccion: inspeccionData.cliente?.direccion || '',
+              sedeNombre: inspeccionData.cliente?.sedeNombre || '',
+              solicitadoPor: inspeccionData.cliente?.solicitadoPor || ''
+            },
+            fechaTrabajo: inspeccionData.fechaTrabajo || '',
+            horarioInicio: inspeccionData.horarioInicio || '',
+            horarioFin: inspeccionData.horarioFin || '',
+            tecnicos: inspeccionData.tecnicos?.length > 0 ? inspeccionData.tecnicos : [{ nombre: '' }],
+            observaciones: inspeccionData.observaciones || ''
           });
 
-        try {
-          const ordenData = await apiService.obtenerOrdenTrabajoPorId(id);
+          setFirmas({
+            tecnico: {
+              firma: inspeccionData.firmas?.tecnico?.firma || null,
+              aclaracion: inspeccionData.firmas?.tecnico?.aclaracion || ''
+            },
+            cliente: {
+              firma: inspeccionData.firmas?.cliente?.firma || null,
+              aclaracion: inspeccionData.firmas?.cliente?.aclaracion || ''
+            }
+          });
 
-          if (ordenData) {
-            setOrden({
-              numero: ordenData.numero || '',
-              cliente: {
-                empresa: ordenData.cliente?.empresa || '',
-                nombre: ordenData.cliente?.nombre || '',
-                telefono: ordenData.cliente?.telefono || '',
-                direccion: ordenData.cliente?.direccion || '',
-                solicitadoPor: ordenData.cliente?.solicitadoPor || ''
-              },
-              fechaTrabajo: ordenData.fechaTrabajo || '',
-              horarioInicio: ordenData.horarioInicio || '',
-              horarioFin: ordenData.horarioFin || '',
-              tecnicos: ordenData.tecnicos?.length > 0 ? ordenData.tecnicos : [{ nombre: '' }],
-              tareasRealizadas: ordenData.tareasRealizadas || '',
-              fotos: ordenData.fotos || []
-            });
+          setPlanillasAdjuntas(inspeccionData.planillasAdjuntas || []);
+          setFotosExistentes(inspeccionData.fotos || []);
 
-            setFirmas({
-              tecnico: {
-                firma: ordenData.firmas?.tecnico?.firma || null,
-                aclaracion: ordenData.firmas?.tecnico?.aclaracion || ''
-              },
-              cliente: {
-                firma: ordenData.firmas?.cliente?.firma || null,
-                aclaracion: ordenData.firmas?.cliente?.aclaracion || ''
-              }
-            });
-          } else {
-            alert('Orden de trabajo no encontrada.');
-            router.push('/admin/ordenes');
+          const tipo = inspeccionData.tipoCliente || (inspeccionData.clienteId ? 'existente' : 'manual');
+          setTipoCliente(tipo);
+
+          if (inspeccionData.clienteId) {
+            const clienteEncontrado = clientes.find(c => c.id === inspeccionData.clienteId);
+            if (clienteEncontrado) {
+              setClienteSeleccionado(clienteEncontrado);
+              const empresa = empresas.find(e => e.id === clienteEncontrado.empresaId) || null;
+              setEmpresaDelCliente(empresa);
+            }
           }
 
           setLoading(false);
         } catch (error) {
-          console.error('Error al cargar orden de trabajo IMSSE:', error);
-          alert('Error al cargar los datos de la orden.');
-          router.push('/admin/ordenes');
+          console.error('Error al cargar la inspección técnica:', error);
+          alert('Error al cargar los datos de la visita.');
+          router.push('/admin/inspecciones');
         }
       } else {
         router.push('/admin');
@@ -138,138 +175,219 @@ export default function EditarOrdenTrabajo({ params }) {
     return () => unsubscribe();
   }, [id, router]);
 
-  const handleDescargarPDF = async () => {
+  const cargarPlantillas = async () => {
     try {
-      const { pdf } = await import('@react-pdf/renderer');
-      const { default: OrdenTrabajoPDF } = await import('../../../../components/pdf/OrdenTrabajoPDF');
-
-      const blob = await pdf(<OrdenTrabajoPDF orden={{...orden, firmas}} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${orden.numero}.pdf`;
-      link.click();
-
-      URL.revokeObjectURL(url);
-      alert(`✅ Orden ${orden.numero} descargada exitosamente`);
-
+      const response = await apiService.obtenerPlantillasInspeccion();
+      setPlantillasDisponibles(response?.documents || []);
     } catch (error) {
-      console.error('Error al generar PDF:', error);
-      alert('❌ Error al generar el PDF. Inténtalo de nuevo.');
+      console.error('Error al cargar las plantillas:', error);
+      setPlantillasDisponibles([]);
     }
   };
 
+  const cargarTecnicos = async () => {
+    try {
+      const response = await tecnicoService.obtenerTecnicos();
+      setTecnicosDisponibles(response?.users || response?.tecnicos || []);
+    } catch (error) {
+      console.error('Error al cargar los técnicos:', error);
+      setTecnicosDisponibles([]);
+    }
+  };
+
+  const cargarClientesDisponibles = async (perfilUsuario) => {
+    setCargandoClientes(true);
+    try {
+      let clientes = [];
+
+      if (perfilUsuario && perfilUsuario.rol === 'tecnico') {
+        const clientesData = await tecnicoService.obtenerClientes();
+        clientes = clientesData.users || clientesData.clientes || [];
+      } else {
+        const usuariosData = await apiService.obtenerUsuarios();
+        clientes = usuariosData.users.filter(u =>
+          u.rol === 'cliente' && u.estado === 'activo'
+        );
+      }
+
+      setClientesDisponibles(clientes);
+
+      let empresas = [];
+      try {
+        const empresasData = await apiService.obtenerEmpresas();
+        empresas = empresasData.empresas || [];
+        setEmpresasDisponibles(empresas);
+      } catch (empresaError) {
+        console.error('Error al cargar empresas:', empresaError);
+        setEmpresasDisponibles([]);
+      }
+
+      return { clientes, empresas };
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+      setClientesDisponibles([]);
+      return { clientes: [], empresas: [] };
+    } finally {
+      setCargandoClientes(false);
+    }
+  };
+
+  const handleSeleccionarCliente = (clienteId) => {
+    if (!clienteId) {
+      setClienteSeleccionado(null);
+      setEmpresaDelCliente(null);
+      setInspeccion(prev => ({
+        ...prev,
+        clienteId: '',
+        cliente: { empresa: '', nombre: '', telefono: '', direccion: '', sedeNombre: '', solicitadoPor: '' }
+      }));
+      return;
+    }
+
+    const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
+    if (clienteEncontrado) {
+      const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
+
+      setClienteSeleccionado(clienteEncontrado);
+      setEmpresaDelCliente(empresa);
+      setInspeccion(prev => ({
+        ...prev,
+        clienteId,
+        cliente: {
+          empresa: clienteEncontrado.empresa || '',
+          nombre: clienteEncontrado.nombreCompleto || '',
+          telefono: clienteEncontrado.telefono || '',
+          direccion: empresa?.direccionPrincipal || '',
+          sedeNombre: '',
+          solicitadoPor: ''
+        }
+      }));
+    }
+  };
+
+  const handleSeleccionarSede = (sedeId) => {
+    if (!sedeId) {
+      setInspeccion(prev => ({
+        ...prev,
+        cliente: { ...prev.cliente, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }
+      }));
+      return;
+    }
+    const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
+    if (sede) {
+      setInspeccion(prev => ({
+        ...prev,
+        cliente: { ...prev.cliente, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }
+      }));
+    }
+  };
+
+  const handleCambiarTipoCliente = (tipo) => {
+    setTipoCliente(tipo);
+    if (tipo === 'manual') {
+      setClienteSeleccionado(null);
+      setEmpresaDelCliente(null);
+      setInspeccion(prev => ({
+        ...prev,
+        clienteId: '',
+        cliente: { empresa: '', nombre: '', telefono: '', direccion: '', sedeNombre: '', solicitadoPor: '' }
+      }));
+    }
+  };
+
+  useEffect(() => {
+    const configurarCanvas = () => {
+      [firmaTecnicoRef, firmaClienteRef].forEach(ref => {
+        if (ref.current) {
+          const canvas = ref.current.getCanvas();
+          if (canvas) {
+            canvas.style.touchAction = 'none';
+            canvas.style.msTouchAction = 'none';
+            canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+            canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+            canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
+          }
+        }
+      });
+    };
+
+    const timer = setTimeout(configurarCanvas, 100);
+    return () => clearTimeout(timer);
+  }, [loading, mostrarCanvasTecnico, mostrarCanvasCliente]);
+
+  // Copia a "Observaciones Generales" las observaciones que se van cargando en los
+  // ítems del checklist (una por línea), sin pisar lo que el usuario escriba a mano.
+  useEffect(() => {
+    const mapaNuevo = extraerObservacionesChecklist(planillasAdjuntas);
+    setInspeccion(prev => ({
+      ...prev,
+      observaciones: sincronizarObservaciones(prev.observaciones, observacionesChecklistRef.current, mapaNuevo)
+    }));
+    observacionesChecklistRef.current = mapaNuevo;
+  }, [planillasAdjuntas]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
-      setOrden(prev => ({
-        ...prev,
-        [parent]: { ...prev[parent], [child]: value }
-      }));
+      setInspeccion(prev => ({ ...prev, [parent]: { ...prev[parent], [child]: value } }));
     } else {
-      setOrden(prev => ({ ...prev, [name]: value }));
+      setInspeccion(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const handleTecnicoChange = (index, value) => {
-    const updatedTecnicos = orden.tecnicos.map((tecnico, i) =>
-      i === index ? { nombre: value } : tecnico
-    );
-    setOrden(prev => ({ ...prev, tecnicos: updatedTecnicos }));
+    const updatedTecnicos = inspeccion.tecnicos.map((tecnico, i) => (i === index ? { nombre: value } : tecnico));
+    setInspeccion(prev => ({ ...prev, tecnicos: updatedTecnicos }));
   };
 
   const addTecnico = () => {
-    setOrden(prev => ({
-      ...prev,
-      tecnicos: [...prev.tecnicos, { nombre: '' }]
-    }));
+    setInspeccion(prev => ({ ...prev, tecnicos: [...prev.tecnicos, { nombre: '' }] }));
   };
 
   const removeTecnico = (index) => {
-    if (orden.tecnicos.length === 1) return;
-    const updatedTecnicos = orden.tecnicos.filter((_, i) => i !== index);
-    setOrden(prev => ({ ...prev, tecnicos: updatedTecnicos }));
+    if (inspeccion.tecnicos.length === 1) return;
+    setInspeccion(prev => ({ ...prev, tecnicos: prev.tecnicos.filter((_, i) => i !== index) }));
   };
 
-  const uploadToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', 'ordenes_trabajo');
-
-    try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: formData }
-      );
-
-      if (!response.ok) throw new Error('Error al subir la imagen');
-      const data = await response.json();
-      return data.secure_url;
-    } catch (error) {
-      console.error('Error uploading to Cloudinary:', error);
-      throw error;
-    }
-  };
-
-  const handleFotoUpload = async (e) => {
+  const handleFotoSeleccionada = (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    setSubiendoFoto(true);
-
-    try {
-      const uploadPromises = files.map(async (file) => {
-        if (file.size > 10 * 1024 * 1024) {
-          alert(`La foto ${file.name} es muy grande. Máximo 10MB por foto.`);
-          return null;
-        }
-
-        if (!file.type.startsWith('image/')) {
-          alert(`${file.name} no es una imagen válida.`);
-          return null;
-        }
-
-        try {
-          const url = await uploadToCloudinary(file);
-          return {
-            id: Date.now() + Math.random(),
-            url,
-            nombre: file.name,
-            fechaSubida: new Date().toISOString()
-          };
-        } catch (error) {
-          alert(`Error al subir ${file.name}: ${error.message}`);
-          return null;
-        }
-      });
-
-      const fotosSubidas = await Promise.all(uploadPromises);
-      const fotosValidas = fotosSubidas.filter(foto => foto !== null);
-
-      if (fotosValidas.length > 0) {
-        setOrden(prev => ({
-          ...prev,
-          fotos: [...prev.fotos, ...fotosValidas]
-        }));
-        alert(`${fotosValidas.length} foto(s) subida(s) exitosamente.`);
+    const nuevasFotos = [];
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`La foto ${file.name} es muy grande. Máximo 10MB por foto.`);
+        continue;
       }
-    } catch (error) {
-      console.error('Error al procesar fotos:', error);
-      alert('Error al procesar las fotos.');
-    } finally {
-      setSubiendoFoto(false);
-      e.target.value = '';
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} no es una imagen válida.`);
+        continue;
+      }
+      nuevasFotos.push({
+        id: Date.now() + Math.random(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        nombre: file.name
+      });
     }
+
+    if (nuevasFotos.length > 0) {
+      setFotos(prev => [...prev, ...nuevasFotos]);
+    }
+    e.target.value = '';
   };
 
   const removeFoto = (id) => {
-    setOrden(prev => ({
-      ...prev,
-      fotos: prev.fotos.filter(foto => foto.id !== id)
-    }));
+    setFotos(prev => {
+      const foto = prev.find(f => f.id === id);
+      if (foto) URL.revokeObjectURL(foto.previewUrl);
+      return prev.filter(f => f.id !== id);
+    });
+  };
+
+  const removeFotoExistente = (id) => {
+    setFotosExistentes(prev => prev.filter(f => f.id !== id));
   };
 
   const capturarFirma = (tipo) => {
@@ -278,20 +396,13 @@ export default function EditarOrdenTrabajo({ params }) {
       alert('Error: Canvas de firma no disponible');
       return;
     }
-
     if (sigCanvas.isEmpty()) {
       alert('Por favor dibuje la firma antes de capturar.');
       return;
     }
-
     try {
       const firmaDataURL = sigCanvas.toDataURL('image/png', 1.0);
-
-      setFirmas(prev => ({
-        ...prev,
-        [tipo]: { ...prev[tipo], firma: firmaDataURL }
-      }));
-
+      setFirmas(prev => ({ ...prev, [tipo]: { ...prev[tipo], firma: firmaDataURL } }));
       if (tipo === 'tecnico') {
         setMostrarCanvasTecnico(false);
       } else {
@@ -309,11 +420,7 @@ export default function EditarOrdenTrabajo({ params }) {
   };
 
   const eliminarFirma = (tipo) => {
-    setFirmas(prev => ({
-      ...prev,
-      [tipo]: { ...prev[tipo], firma: null }
-    }));
-
+    setFirmas(prev => ({ ...prev, [tipo]: { ...prev[tipo], firma: null } }));
     if (tipo === 'tecnico') {
       setMostrarCanvasTecnico(false);
     } else {
@@ -322,57 +429,65 @@ export default function EditarOrdenTrabajo({ params }) {
   };
 
   const handleAclaracionChange = (tipo, value) => {
-    setFirmas(prev => ({
-      ...prev,
-      [tipo]: { ...prev[tipo], aclaracion: value }
-    }));
+    setFirmas(prev => ({ ...prev, [tipo]: { ...prev[tipo], aclaracion: value } }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!orden.numero || !orden.cliente.empresa || !orden.cliente.nombre) {
+    if (tipoCliente === 'existente' && !inspeccion.clienteId) {
+      alert('Por favor, selecciona un cliente del sistema.');
+      return;
+    }
+
+    if (!inspeccion.numero || !inspeccion.cliente.empresa || !inspeccion.cliente.nombre) {
       alert('Por favor completa: Empresa y Contacto del cliente');
       return;
     }
 
-    if (!orden.tareasRealizadas.trim()) {
-      alert('Por favor describe las tareas realizadas');
-      return;
-    }
-
-    if (!orden.fechaTrabajo) {
+    if (!inspeccion.fechaTrabajo) {
       alert('Por favor especifica la fecha del trabajo');
       return;
     }
 
-    if (orden.tecnicos.some(t => !t.nombre.trim())) {
+    if (inspeccion.tecnicos.some(t => !t.nombre.trim())) {
       alert('Por favor completa el nombre de todos los técnicos');
+      return;
+    }
+
+    if (planillasAdjuntas.length === 0) {
+      alert('Adjuntá al menos una planilla de inspección y completá el checklist.');
       return;
     }
 
     setGuardando(true);
 
     try {
-      const ordenData = {
-        numero: orden.numero,
-        cliente: orden.cliente,
-        fechaTrabajo: orden.fechaTrabajo,
-        horarioInicio: orden.horarioInicio,
-        horarioFin: orden.horarioFin,
-        tecnicos: orden.tecnicos.filter(t => t.nombre.trim()),
-        tareasRealizadas: orden.tareasRealizadas,
-        fotos: orden.fotos,
-        firmas: firmas,
+      const fotosNuevasSubidas = await Promise.all(
+        fotos.map((foto) => uploadToCloudinary(foto.file, 'inspecciones_tecnicas'))
+      );
+
+      const datos = {
+        numero: inspeccion.numero,
+        clienteId: inspeccion.clienteId || null,
+        tipoCliente,
+        cliente: inspeccion.cliente,
+        fechaTrabajo: inspeccion.fechaTrabajo,
+        horarioInicio: inspeccion.horarioInicio,
+        horarioFin: inspeccion.horarioFin,
+        tecnicos: inspeccion.tecnicos.filter(t => t.nombre.trim()),
+        observaciones: inspeccion.observaciones,
+        planillasAdjuntas,
+        fotos: [...fotosExistentes, ...fotosNuevasSubidas],
+        firmas,
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      await apiService.actualizarOrdenTrabajo(id, ordenData);
-      alert('✅ Orden de trabajo actualizada exitosamente');
-      router.push('/admin/ordenes');
+      await apiService.actualizarInspeccionTecnica(id, datos);
+      router.push(`/admin/inspecciones/${id}`);
     } catch (error) {
-      console.error('Error al actualizar orden de trabajo:', error);
-      alert('❌ Error al actualizar la orden. Inténtelo de nuevo.');
+      console.error('Error al actualizar la inspección técnica:', error);
+      alert('❌ Error al actualizar la visita. Inténtelo de nuevo.');
     } finally {
       setGuardando(false);
     }
@@ -383,7 +498,7 @@ export default function EditarOrdenTrabajo({ params }) {
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="w-12 h-12 mx-auto border-b-2 rounded-full animate-spin border-primary"></div>
-          <p className="mt-4 text-gray-600">Cargando orden de trabajo IMSSE...</p>
+          <p className="mt-4 text-gray-600">Cargando visita técnica IMSSE...</p>
         </div>
       </div>
     );
@@ -391,7 +506,6 @@ export default function EditarOrdenTrabajo({ params }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navegación */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="px-4 py-3">
           <div className="flex flex-col space-y-3 md:flex-row md:items-center md:justify-between md:space-y-0">
@@ -401,8 +515,8 @@ export default function EditarOrdenTrabajo({ params }) {
                 Panel
               </Link>
               <span className="mx-2 text-gray-500">/</span>
-              <Link href="/admin/ordenes" className="text-primary hover:underline">
-                Órdenes
+              <Link href="/admin/inspecciones" className="text-primary hover:underline">
+                Visita Técnica
               </Link>
               <span className="mx-2 text-gray-500">/</span>
               <span className="font-medium text-gray-700">Editar</span>
@@ -410,24 +524,15 @@ export default function EditarOrdenTrabajo({ params }) {
 
             <div className="flex space-x-2">
               <Link
-                href={`/admin/ordenes/${id}`}
+                href={`/admin/inspecciones/${id}`}
                 className="flex items-center px-3 py-2 text-sm text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700 md:px-4"
               >
                 <Eye size={16} className="mr-1 md:mr-2" />
                 Ver
               </Link>
-              {orden.cliente.empresa && orden.tareasRealizadas && (
-                <button
-                  onClick={handleDescargarPDF}
-                  className="flex items-center px-3 py-2 text-sm text-white transition-colors bg-purple-600 rounded-md hover:bg-purple-700 md:px-4"
-                >
-                  <Download size={16} className="mr-1 md:mr-2" />
-                  PDF
-                </button>
-              )}
               <button
                 type="submit"
-                form="orden-form"
+                form="inspeccion-form"
                 disabled={guardando}
                 className="flex items-center px-3 py-2 text-sm text-white transition-colors rounded-md bg-primary hover:bg-red-700 disabled:opacity-50 md:px-4"
               >
@@ -440,48 +545,129 @@ export default function EditarOrdenTrabajo({ params }) {
       </div>
 
       <div className="max-w-4xl px-4 py-6 mx-auto">
-        {/* Título */}
         <div className="mb-6 text-center">
           <div className="flex items-center justify-center mb-3">
-            <div className="p-3 bg-blue-100 rounded-full">
-              <Shield size={28} className="text-blue-600" />
+            <div className="p-3 bg-purple-100 rounded-full">
+              <Shield size={28} className="text-purple-600" />
             </div>
           </div>
           <h2 className="text-xl font-bold md:text-2xl font-montserrat text-primary">
-            Editar Orden de Trabajo {orden.numero}
+            Editar Visita Técnica {inspeccion.numero}
           </h2>
           <p className="text-sm text-gray-600 md:text-base">
-            Actualiza los datos del trabajo realizado por IMSSE
+            Actualizá el checklist y los datos correspondientes al sistema inspeccionado
           </p>
         </div>
 
-        <form id="orden-form" onSubmit={handleSubmit} className="space-y-6">
+        <form id="inspeccion-form" onSubmit={handleSubmit} className="space-y-6">
 
-          {/* Información básica */}
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <FileText size={20} className="mr-2 text-primary" />
               Información Básica
             </h3>
-
             <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700">Número de Orden</label>
+              <label className="block mb-2 text-sm font-medium text-gray-700">Número de Visita</label>
               <input
                 type="text"
                 name="numero"
-                value={orden.numero}
+                value={inspeccion.numero}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 text-lg bg-gray-100 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
-                readOnly
               />
             </div>
           </div>
 
-          {/* Cliente */}
-          <div className="p-4 text-gray-700 rounded-lg shadow-md bg-w hite md:p-6">
+          <div className="p-4 text-gray-700 bg-white border-l-4 border-green-500 rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
-              <User size={20} className="mr-2 text-primary" />
+              <User className="mr-2" size={20} />
+              Selección de Cliente
+            </h3>
+
+            <div className="mb-6">
+              <div className="flex mb-4 space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="tipoCliente"
+                    value="existente"
+                    checked={tipoCliente === 'existente'}
+                    onChange={() => handleCambiarTipoCliente('existente')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium">Cliente del sistema</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="tipoCliente"
+                    value="manual"
+                    checked={tipoCliente === 'manual'}
+                    onChange={() => handleCambiarTipoCliente('manual')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium">Cliente nuevo (manual)</span>
+                </label>
+              </div>
+
+              {tipoCliente === 'existente' && (
+                <div className="p-4 rounded-lg bg-green-50">
+                  <label className="block mb-2 text-sm font-medium text-gray-700">
+                    Seleccionar cliente registrado *
+                  </label>
+                  <select
+                    value={inspeccion.clienteId}
+                    onChange={(e) => handleSeleccionarCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                    disabled={cargandoClientes}
+                  >
+                    <option value="">
+                      {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
+                    </option>
+                    {clientesDisponibles.map(cliente => (
+                      <option key={cliente.id} value={cliente.id}>
+                        {cliente.empresa} - {cliente.nombreCompleto}
+                      </option>
+                    ))}
+                  </select>
+
+                  {clienteSeleccionado && (
+                    <div className="p-3 mt-3 bg-white border border-green-200 rounded">
+                      <div className="text-sm">
+                        <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
+                        <p className="text-gray-600">{clienteSeleccionado.email}</p>
+                        {clienteSeleccionado.telefono && (
+                          <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {clientesDisponibles.length === 0 && !cargandoClientes && (
+                    <p className="mt-2 text-sm text-yellow-600">
+                      No hay clientes activos en el sistema.
+                      <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
+                        Crear cliente aquí
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {tipoCliente === 'manual' && (
+                <div className="p-4 rounded-lg bg-gray-50">
+                  <p className="mb-3 text-sm text-gray-600">
+                    Los datos se ingresarán manualmente y no se asignará a un usuario del sistema.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
+            <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+              <Building2 size={20} className="mr-2 text-primary" />
               Datos del Cliente
             </h3>
 
@@ -491,11 +677,12 @@ export default function EditarOrdenTrabajo({ params }) {
                 <input
                   type="text"
                   name="cliente.empresa"
-                  value={orden.cliente.empresa}
+                  value={inspeccion.cliente.empresa}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Nombre de la empresa"
                   required
+                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
               </div>
 
@@ -504,25 +691,32 @@ export default function EditarOrdenTrabajo({ params }) {
                 <input
                   type="text"
                   name="cliente.nombre"
-                  value={orden.cliente.nombre}
+                  value={inspeccion.cliente.nombre}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Nombre del contacto"
                   required
+                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Teléfono</label>
-                <input
-                  type="tel"
-                  name="cliente.telefono"
-                  value={orden.cliente.telefono}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="+54 351 123 4567"
-                />
-              </div>
+              {tipoCliente === 'existente' && empresaDelCliente?.sedes?.length > 0 && (
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700">Sede</label>
+                  <select
+                    onChange={(e) => handleSeleccionarSede(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">Dirección Principal</option>
+                    {empresaDelCliente.sedes.map(sede => (
+                      <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
+                    ))}
+                  </select>
+                  {inspeccion.cliente.sedeNombre && (
+                    <p className="mt-1 text-xs text-gray-500">Sede actual: {inspeccion.cliente.sedeNombre}</p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Dirección del Trabajo</label>
@@ -531,10 +725,10 @@ export default function EditarOrdenTrabajo({ params }) {
                   <input
                     type="text"
                     name="cliente.direccion"
-                    value={orden.cliente.direccion}
+                    value={inspeccion.cliente.direccion}
                     onChange={handleInputChange}
                     className="w-full py-3 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Dirección donde se realizó el trabajo"
+                    placeholder="Dirección donde se realizó la visita"
                   />
                 </div>
               </div>
@@ -544,16 +738,15 @@ export default function EditarOrdenTrabajo({ params }) {
                 <input
                   type="text"
                   name="cliente.solicitadoPor"
-                  value={orden.cliente.solicitadoPor}
+                  value={inspeccion.cliente.solicitadoPor}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Quien solicitó el trabajo"
+                  placeholder="Quien solicitó la visita"
                 />
               </div>
             </div>
           </div>
 
-          {/* Fecha y horarios */}
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <Calendar size={20} className="mr-2 text-primary" />
@@ -566,7 +759,7 @@ export default function EditarOrdenTrabajo({ params }) {
                 <input
                   type="date"
                   name="fechaTrabajo"
-                  value={orden.fechaTrabajo}
+                  value={inspeccion.fechaTrabajo}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   required
@@ -581,7 +774,7 @@ export default function EditarOrdenTrabajo({ params }) {
                     <input
                       type="time"
                       name="horarioInicio"
-                      value={orden.horarioInicio}
+                      value={inspeccion.horarioInicio}
                       onChange={handleInputChange}
                       className="w-full py-3 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -595,7 +788,7 @@ export default function EditarOrdenTrabajo({ params }) {
                     <input
                       type="time"
                       name="horarioFin"
-                      value={orden.horarioFin}
+                      value={inspeccion.horarioFin}
                       onChange={handleInputChange}
                       className="w-full py-3 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -605,14 +798,13 @@ export default function EditarOrdenTrabajo({ params }) {
             </div>
           </div>
 
-          {/* Técnicos */}
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <Users size={20} className="mr-2 text-primary" />
-              Técnicos que Trabajaron
+              Técnicos que Realizaron la Visita
             </h3>
 
-            {orden.tecnicos.map((tecnico, index) => (
+            {inspeccion.tecnicos.map((tecnico, index) => (
               <div key={index} className="p-4 mb-4 border border-gray-200 rounded-md bg-gray-50">
                 <div className="space-y-3">
                   <div>
@@ -635,7 +827,7 @@ export default function EditarOrdenTrabajo({ params }) {
                     </select>
                   </div>
 
-                  {orden.tecnicos.length > 1 && (
+                  {inspeccion.tecnicos.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeTecnico(index)}
@@ -659,70 +851,47 @@ export default function EditarOrdenTrabajo({ params }) {
             </button>
           </div>
 
-          {/* Tareas realizadas */}
+          <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
+            <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
+              <ClipboardCheck size={20} className="mr-2 text-primary" />
+              Checklist de Inspección *
+            </h3>
+            <PlanillasAdjuntas
+              plantillasDisponibles={plantillasDisponibles}
+              planillasAdjuntas={planillasAdjuntas}
+              onChange={setPlanillasAdjuntas}
+            />
+          </div>
+
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <CheckCircle size={20} className="mr-2 text-primary" />
-              Tareas Realizadas
+              Observaciones Generales
             </h3>
-
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700">Descripción de los Trabajos Realizados *</label>
-              <textarea
-                name="tareasRealizadas"
-                value={orden.tareasRealizadas}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="Describe detalladamente todos los trabajos realizados, materiales utilizados, observaciones, etc."
-                rows={6}
-                required
-              />
-            </div>
+            <textarea
+              name="observaciones"
+              value={inspeccion.observaciones}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder="Se completan solas con las observaciones que cargues en el checklist — podés editarlas o agregar más acá (opcional)"
+              rows={4}
+            />
           </div>
 
-          {/* Fotos del trabajo */}
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <Camera size={20} className="mr-2 text-primary" />
-              Fotos del Trabajo
+              Fotos
             </h3>
 
             <div className="space-y-4">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">
-                  Agregar Más Fotos (Opcional)
-                </label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleFotoUpload}
-                    disabled={subiendoFoto}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                  {subiendoFoto && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-md">
-                      <div className="flex items-center">
-                        <Upload className="w-5 h-5 mr-2 animate-spin text-primary" />
-                        <span className="text-sm text-primary">Subiendo...</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Máximo 10MB por foto. Formatos: JPG, PNG, GIF
-                </p>
-              </div>
-
-              {/* Previsualización de fotos */}
-              {orden.fotos.length > 0 && (
+              {fotosExistentes.length > 0 && (
                 <div>
                   <h4 className="mb-3 text-sm font-medium text-gray-700">
-                    Fotos Actuales ({orden.fotos.length})
+                    Fotos Actuales ({fotosExistentes.length})
                   </h4>
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-                    {orden.fotos.map((foto) => (
+                    {fotosExistentes.map((foto) => (
                       <div key={foto.id} className="relative group">
                         <img
                           src={foto.url}
@@ -731,8 +900,53 @@ export default function EditarOrdenTrabajo({ params }) {
                         />
                         <button
                           type="button"
+                          onClick={() => removeFotoExistente(foto.id)}
+                          className="absolute p-1 text-white bg-red-500 rounded-full top-1 right-1"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                        <p className="mt-1 text-xs text-gray-500 truncate">
+                          {foto.nombre}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Agregar Fotos Nuevas (Opcional)
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFotoSeleccionada}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Máximo 10MB por foto. Se suben recién al guardar los cambios.
+                </p>
+              </div>
+
+              {fotos.length > 0 && (
+                <div>
+                  <h4 className="mb-3 text-sm font-medium text-gray-700">
+                    Fotos Nuevas ({fotos.length})
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                    {fotos.map((foto) => (
+                      <div key={foto.id} className="relative group">
+                        <img
+                          src={foto.previewUrl}
+                          alt={foto.nombre}
+                          className="object-cover w-full h-24 border border-gray-200 rounded-md"
+                        />
+                        <button
+                          type="button"
                           onClick={() => removeFoto(foto.id)}
-                          className="absolute p-1 text-white transition-opacity bg-red-500 rounded-full top-1 right-1 group-hover:opacity-100"
+                          className="absolute p-1 text-white bg-red-500 rounded-full top-1 right-1"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -747,7 +961,6 @@ export default function EditarOrdenTrabajo({ params }) {
             </div>
           </div>
 
-          {/* Firmas digitales */}
           <div className="p-4 bg-white rounded-lg shadow-md md:p-6">
             <h3 className="flex items-center mb-4 text-lg font-semibold text-gray-700">
               <PenTool size={20} className="mr-2 text-primary" />
@@ -755,13 +968,11 @@ export default function EditarOrdenTrabajo({ params }) {
             </h3>
 
             <div className="space-y-6">
-              {/* Firma del técnico */}
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
                   Firma del Técnico
                 </label>
 
-                {/* Mostrar firma existente o canvas */}
                 {firmas.tecnico.firma && !mostrarCanvasTecnico ? (
                   <div className="text-center">
                     <img
@@ -799,11 +1010,7 @@ export default function EditarOrdenTrabajo({ params }) {
                             width: 400,
                             height: 150,
                             className: 'signature-canvas border border-gray-200 rounded',
-                            style: {
-                              width: '100%',
-                              height: '150px',
-                              touchAction: 'none'
-                            }
+                            style: { width: '100%', height: '150px', touchAction: 'none' }
                           }}
                           backgroundColor="#f9fafb"
                           penColor="#000000"
@@ -854,21 +1061,13 @@ export default function EditarOrdenTrabajo({ params }) {
                     placeholder="Nombre completo del técnico"
                   />
                 </div>
-
-                {firmas.tecnico.firma && !mostrarCanvasTecnico && (
-                  <div className="p-2 mt-3 border border-green-200 rounded-md bg-green-50">
-                    <p className="text-sm font-medium text-green-700">✓ Firma del técnico guardada</p>
-                  </div>
-                )}
               </div>
 
-              {/* Firma del cliente */}
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
                   Firma del Cliente (Conformidad)
                 </label>
 
-                {/* Mostrar firma existente o canvas */}
                 {firmas.cliente.firma && !mostrarCanvasCliente ? (
                   <div className="text-center">
                     <img
@@ -906,11 +1105,7 @@ export default function EditarOrdenTrabajo({ params }) {
                             width: 400,
                             height: 150,
                             className: 'signature-canvas border border-gray-200 rounded',
-                            style: {
-                              width: '100%',
-                              height: '150px',
-                              touchAction: 'none'
-                            }
+                            style: { width: '100%', height: '150px', touchAction: 'none' }
                           }}
                           backgroundColor="#f9fafb"
                           penColor="#000000"
@@ -961,21 +1156,14 @@ export default function EditarOrdenTrabajo({ params }) {
                     placeholder="Nombre completo del cliente"
                   />
                 </div>
-
-                {firmas.cliente.firma && !mostrarCanvasCliente && (
-                  <div className="p-2 mt-3 border border-green-200 rounded-md bg-green-50">
-                    <p className="text-sm font-medium text-green-700">✓ Firma del cliente guardada</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Botones finales */}
           <div className="sticky bottom-16 md:bottom-0 p-4 bg-white border-t border-gray-200 shadow-lg md:static md:shadow-none md:border-0 md:bg-transparent">
             <div className="flex space-x-3">
               <Link
-                href="/admin/ordenes"
+                href="/admin/inspecciones"
                 className="flex-1 px-4 py-3 text-center text-gray-700 transition-colors border border-gray-300 rounded-md hover:bg-gray-100 md:flex-none md:px-6"
               >
                 Cancelar
@@ -991,21 +1179,6 @@ export default function EditarOrdenTrabajo({ params }) {
             </div>
           </div>
         </form>
-
-        {/* Información IMSSE */}
-        <div className="p-6 mt-8 text-center bg-white border border-red-200 rounded-lg shadow-md">
-          <div className="text-sm text-gray-600">
-            <p className="font-semibold text-primary">IMSSE INGENIERÍA S.A.S</p>
-            <p>Edición de órdenes de trabajo - Sistemas de protección contra incendios</p>
-            <p>Especialistas en sistemas contra incendios desde 1994</p>
-            <p className="mt-2">
-              <span className="font-medium">Certificaciones:</span> Notifier | Mircom | Inim | Secutron | Bosch
-            </p>
-            <p className="mt-2">
-              📧 info@imsseingenieria.com | 🌐 www.imsseingenieria.com | 📍 Córdoba, Argentina
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

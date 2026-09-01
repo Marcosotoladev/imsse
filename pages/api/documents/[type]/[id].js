@@ -5,13 +5,22 @@ import admin from '../../../../lib/firebase-admin';
 
 const COLLECTIONS = {
   presupuestos: 'presupuestos',
-  recibos: 'recibos', 
+  recibos: 'recibos',
   remitos: 'remitos',
   estados: 'estados_cuenta',
   ordenes: 'ordenes_trabajo',
   recordatorios: 'recordatorios',
-  visitas: 'visitas'
+  visitas: 'visitas',
+  inspecciones: 'inspecciones_tecnicas',
+  plantillas: 'plantillas_inspeccion',
+  planaccion: 'plan_accion'
 };
+
+// Tipos a los que el técnico tiene acceso de lectura (incluye 'plantillas': necesita
+// listarlas para adjuntarlas a una inspección, aunque no pueda crearlas/editarlas)
+const TECNICO_LECTURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones', 'plantillas'];
+// Tipos a los que el técnico tiene acceso de escritura (crear/editar/borrar)
+const TECNICO_ESCRITURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones'];
 
 async function handler(req, res) {
   const { type, id } = req.query;
@@ -62,7 +71,7 @@ async function getDocument(req, res, type, id, user) {
 
     if (user.role === ROLES.TECNICO) {
       // ✅ CAMBIO: Técnicos pueden acceder a órdenes, recordatorios Y VISITAS
-      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
+      if (!TECNICO_LECTURA.includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       // ✅ Removemos las verificaciones de asignación específica
@@ -107,7 +116,7 @@ async function updateDocument(req, res, type, id, user) {
 
     if (user.role === ROLES.TECNICO) {
       // ✅ CAMBIO: Técnicos pueden editar órdenes, recordatorios Y VISITAS
-      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
+      if (!TECNICO_ESCRITURA.includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
@@ -126,7 +135,10 @@ async function updateDocument(req, res, type, id, user) {
         'titulo', 'descripcion', 'fechaRecordatorio', 'prioridad', 'completado',
         'cliente', 'direccion', 'telefono', 'email', 'observaciones',
         // Campos específicos para visitas:
-        'fecha', 'hora', 'empresa', 'detalle'
+        'fecha', 'hora', 'empresa', 'detalle',
+        // Campos específicos para inspecciones técnicas:
+        'tipoSistema', 'planillasAdjuntas', 'firmas', 'tecnicos',
+        'fechaTrabajo', 'horarioInicio', 'horarioFin'
       ];
       updateData = {};
       
@@ -177,7 +189,7 @@ async function deleteDocument(req, res, type, id, user) {
       return res.status(403).json({ error: 'Clients cannot delete documents' });
     }
 
-    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios', 'visitas'].includes(type)) {
+    if (user.role === ROLES.TECNICO && !TECNICO_ESCRITURA.includes(type)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

@@ -42,12 +42,12 @@ async function handler(req, res) {
 
     let finalEmail = email.trim().toLowerCase();
 
-    // Si es email ficticio o viene vacío, generar uno interno único y limpio (ej: juan.perez@imse.app)
+    // Si es email ficticio o viene vacío, generar uno interno único y limpio (ej: juan.perez@imsse.app)
     if (esEmailFicticio || !finalEmail) {
       const cleanNombre = nombre.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
       const cleanApellido = apellido.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
       const baseUser = cleanApellido ? `${cleanNombre}.${cleanApellido}` : cleanNombre;
-      finalEmail = `${baseUser || 'usuario'}@imse.app`;
+      finalEmail = `${baseUser || 'usuario'}@imsse.app`;
     }
 
     // Validar formato de email
@@ -99,7 +99,7 @@ async function handler(req, res) {
       dni: dni.trim(),
       rol: rol || ROLES.CLIENTE,
       estado: 'activo', // Por defecto activo
-      esEmailFicticio: !!esEmailFicticio || finalEmail.endsWith('@imse.app'),
+      esEmailFicticio: !!esEmailFicticio || finalEmail.endsWith('@imsse.app'),
       metodoRegistro: 'admin_panel',
       creadoPor: user.uid,
       fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
@@ -109,8 +109,9 @@ async function handler(req, res) {
         recibos: true,
         remitos: true,
         estados: true,
-        ordenes: true,
-        recordatorios: true
+        recordatorios: true,
+        inspecciones: true,
+        planaccion: true
       }
     };
 

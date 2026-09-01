@@ -8,7 +8,6 @@ import {
   Receipt,
   Truck,
   CreditCard,
-  Wrench,
   User,
   Building,
   Calendar,
@@ -16,11 +15,17 @@ import {
   XCircle,
   Clock,
   AlertCircle,
-  Eye
+  Eye,
+  ClipboardCheck,
+  ClipboardList
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+
+// Algunos tipos usan una ruta con guion distinta de la clave interna (que coincide
+// con el nombre del método de apiService, ej. "obtenerPlanAccion" -> "planaccion").
+const RUTA_TIPO = { planaccion: 'plan-accion' };
 
 export default function DashboardCliente() {
   const [perfil, setPerfil] = useState(null);
@@ -30,7 +35,8 @@ export default function DashboardCliente() {
     recibos: [],
     remitos: [],
     estados: [],
-    ordenes: []
+    inspecciones: [],
+    planaccion: []
   });
   const [estadisticas, setEstadisticas] = useState({});
 
@@ -60,11 +66,17 @@ export default function DashboardCliente() {
       color: 'orange',
       descripcion: 'Resúmenes de cuenta y estados financieros'
     },
-    ordenes: {
-      nombre: 'Órdenes de Trabajo',
-      icono: Wrench,
-      color: 'red',
-      descripcion: 'Órdenes de trabajo y servicios técnicos'
+    inspecciones: {
+      nombre: 'Visita Técnica',
+      icono: ClipboardCheck,
+      color: 'teal',
+      descripcion: 'Checklists de visita técnica realizados'
+    },
+    planaccion: {
+      nombre: 'Plan de Acción',
+      icono: ClipboardList,
+      color: 'purple',
+      descripcion: 'Propuestas de mejora para tus instalaciones'
     }
   };
 
@@ -96,7 +108,8 @@ export default function DashboardCliente() {
         recibos: 'obtenerRecibos',
         remitos: 'obtenerRemitos',
         estados: 'obtenerEstadosCuenta',
-        ordenes: 'obtenerOrdenesTrabajo'
+        inspecciones: 'obtenerInspeccionesTecnicas',
+        planaccion: 'obtenerPlanAccion'
       };
       
       // Cargar solo los documentos para los que tiene permisos
@@ -194,7 +207,8 @@ export default function DashboardCliente() {
       green: 'bg-green-100 text-green-800 border-green-200',
       purple: 'bg-purple-100 text-purple-800 border-purple-200',
       orange: 'bg-orange-100 text-orange-800 border-orange-200',
-      red: 'bg-red-100 text-red-800 border-red-200'
+      red: 'bg-red-100 text-red-800 border-red-200',
+      teal: 'bg-teal-100 text-teal-800 border-teal-200'
     };
     return colores[color] || colores.blue;
   };
@@ -306,7 +320,7 @@ export default function DashboardCliente() {
                     </div>
                   </div>
                   <Link
-                    href={`/cliente/${tipo}`}
+                    href={`/cliente/${RUTA_TIPO[tipo] || tipo}`}
                     className="text-sm font-medium text-primary hover:underline"
                   >
                     Ver todos
@@ -344,7 +358,11 @@ export default function DashboardCliente() {
                           )}
                         </div>
                         <Link
-                          href={`/cliente/${tipo}/${doc.id}`}
+                          href={
+                            tipo === 'planaccion'
+                              ? `/cliente/${RUTA_TIPO[tipo] || tipo}`
+                              : `/cliente/${RUTA_TIPO[tipo] || tipo}/${doc.id}`
+                          }
                           className="p-2 ml-3 text-gray-400 hover:text-gray-600"
                           title="Ver detalles"
                         >

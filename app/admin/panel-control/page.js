@@ -1,4 +1,4 @@
-// app/admin/panel-control/page.jsx - Panel Final con Calendario de Visitas y Control de Asistencia
+// app/admin/panel-control/page.jsx - Panel Final con Control de Asistencia
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -10,11 +10,13 @@ import {
   Wrench,
   Bell,
   BellRing,
-  CalendarDays,
   Clock,
   Folder,
   Crown,
-  Plus
+  Plus,
+  ClipboardCheck,
+  ListChecks,
+  ClipboardList
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -33,10 +35,12 @@ const DOCUMENTOS_SUB = [
 const configuracionModulos = {
   admin: [
     { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },
+    { key: 'inspecciones', nombre: 'Visita Técnica', icono: ClipboardCheck, color: 'orange', listUrl: '/admin/inspecciones', nuevoUrl: '/admin/inspecciones/nueva' },
+    { key: 'plantillas', nombre: 'Plantillas', icono: ListChecks, color: 'cyan', listUrl: '/admin/plantillas', nuevoUrl: '/admin/plantillas/nueva' },
+    { key: 'planaccion', nombre: 'Plan de Acción', icono: ClipboardList, color: 'purple', listUrl: '/admin/plan-accion', nuevoUrl: '/admin/plan-accion/nueva' },
     { key: 'asistencia', nombre: 'Control de Asistencia', icono: Clock, color: 'teal', listUrl: '/admin/control-asistencia/admin' },
     { key: 'notificaciones', nombre: 'Notificaciones', icono: BellRing, disabled: true },
     { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' },
-    { key: 'visitas', nombre: 'Calendario de Visitas', icono: CalendarDays, color: 'indigo', listUrl: '/admin/calendario-visitas', nuevoUrl: '/admin/calendario-visitas/nueva' },
     { key: 'documentos', nombre: 'Documentos', icono: Folder, esDocumentos: true, sub: DOCUMENTOS_SUB },
     { key: 'empresas', nombre: 'Empresas', icono: Building2, color: 'purple', listUrl: '/admin/empresas', nuevoUrl: '/admin/empresas?crear=true' },
     { key: 'usuarios', nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios', nuevoUrl: '/admin/usuarios?crear=true' },
@@ -44,9 +48,9 @@ const configuracionModulos = {
   ],
   tecnico: [
     { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },
+    { key: 'inspecciones', nombre: 'Visita Técnica', icono: ClipboardCheck, color: 'orange', listUrl: '/admin/inspecciones', nuevoUrl: '/admin/inspecciones/nueva' },
     { key: 'asistencia', nombre: 'Control de Asistencia', icono: Clock, color: 'teal', listUrl: '/admin/control-asistencia', nuevoUrl: '/admin/control-asistencia/marcar' },
-    { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' },
-    { key: 'visitas', nombre: 'Calendario de Visitas', icono: CalendarDays, color: 'indigo', listUrl: '/admin/calendario-visitas', nuevoUrl: '/admin/calendario-visitas/nueva' }
+    { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' }
   ]
 };
 
@@ -58,7 +62,9 @@ const getIconBadgeClasses = (color) => {
     yellow: 'bg-amber-500',
     indigo: 'bg-indigo-600',
     purple: 'bg-purple-600',
-    slate: 'bg-slate-700'
+    slate: 'bg-slate-700',
+    orange: 'bg-orange-600',
+    cyan: 'bg-cyan-600'
   };
   return colores[color] || 'bg-blue-600';
 };
@@ -85,7 +91,7 @@ function DocumentosCard({ modulo }) {
         onClick={() => setOpenMenu(openMenu === 'ver' ? null : 'ver')}
         className="flex items-center flex-1 min-w-0 gap-3 text-left"
       >
-        <div className="inline-flex items-center justify-center flex-shrink-0 text-white bg-purple-600 w-11 h-11 rounded-xl shadow-sm">
+        <div className="inline-flex items-center justify-center flex-shrink-0 text-white bg-indigo-600 w-11 h-11 rounded-xl shadow-sm">
           <Folder size={20} />
         </div>
         <p className="text-sm font-semibold text-gray-900 truncate">{modulo.nombre}</p>

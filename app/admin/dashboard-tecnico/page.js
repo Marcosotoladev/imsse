@@ -12,8 +12,8 @@ import {
   User,
   Building,
   Calendar,
-  CalendarDays,
-  Clock
+  Clock,
+  ClipboardCheck
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -94,7 +94,7 @@ export default function DashboardTecnico() {
           <h2 className="text-2xl font-bold text-gray-900 font-montserrat">
             ¡Bienvenido, {perfil?.nombre}!
           </h2>
-          <p className="text-gray-600">Gestiona tus órdenes de trabajo, recordatorios y calendario de visitas</p>
+          <p className="text-gray-600">Gestiona tus órdenes de trabajo, visitas técnicas y recordatorios</p>
         </div>
 
         {/* Información del perfil */}
@@ -143,6 +143,23 @@ export default function DashboardTecnico() {
             </Link>
           </div>
 
+          {/* Card Visita Técnica */}
+          <div className="relative flex items-center gap-3 p-4 transition-all duration-200 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-0.5">
+            <Link href="/admin/inspecciones" className="absolute inset-0 rounded-2xl" aria-label="Visita Técnica" />
+            <div className="flex items-center flex-1 min-w-0 gap-3 pointer-events-none">
+              <div className="flex items-center justify-center flex-shrink-0 text-white bg-orange-600 w-11 h-11 rounded-xl shadow-sm transition-transform group-hover:scale-105">
+                <ClipboardCheck size={20} />
+              </div>
+              <p className="text-sm font-semibold text-gray-900 truncate">Visita Técnica</p>
+            </div>
+            <Link
+              href="/admin/inspecciones/nueva"
+              className="relative z-10 inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+            >
+              <Plus size={14} /> Nuevo
+            </Link>
+          </div>
+
           {/* Card Control de Asistencia */}
           <div className="relative flex items-center gap-3 p-4 transition-all duration-200 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-0.5">
             <Link href="/admin/control-asistencia" className="absolute inset-0 rounded-2xl" aria-label="Control de Asistencia" />
@@ -177,22 +194,6 @@ export default function DashboardTecnico() {
             </Link>
           </div>
 
-          {/* Card Calendario de Visitas */}
-          <div className="relative flex items-center gap-3 p-4 transition-all duration-200 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-0.5">
-            <Link href="/admin/calendario-visitas" className="absolute inset-0 rounded-2xl" aria-label="Calendario de Visitas" />
-            <div className="flex items-center flex-1 min-w-0 gap-3 pointer-events-none">
-              <div className="flex items-center justify-center flex-shrink-0 text-white bg-indigo-600 w-11 h-11 rounded-xl shadow-sm transition-transform group-hover:scale-105">
-                <CalendarDays size={20} />
-              </div>
-              <p className="text-sm font-semibold text-gray-900 truncate">Calendario de Visitas</p>
-            </div>
-            <Link
-              href="/admin/calendario-visitas/nueva"
-              className="relative z-10 inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
-            >
-              <Plus size={14} /> Nuevo
-            </Link>
-          </div>
         </div>
 
         {/* Footer simple */}

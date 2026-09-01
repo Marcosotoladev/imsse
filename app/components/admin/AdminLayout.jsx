@@ -17,13 +17,15 @@ import {
   BarChart3,
   Users,
   Building2,
-  CalendarDays,
   Folder,
   FileText,
   Receipt,
   Truck,
   CreditCard,
-  Crown
+  Crown,
+  ClipboardCheck,
+  ListChecks,
+  ClipboardList
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -50,13 +52,12 @@ const BOTTOM_NAV = {
     { name: 'Inicio', path: '/admin/dashboard-tecnico', icon: BarChart3 },
     { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench },
     { name: 'Asistencia', path: '/admin/control-asistencia', icon: Clock },
-    { name: 'Recordatorios', path: '/admin/recordatorios', icon: Bell },
-    { name: 'Calendario', path: '/admin/calendario-visitas', icon: CalendarDays }
+    { name: 'Recordatorios', path: '/admin/recordatorios', icon: Bell }
   ]
 };
 
 // Nombres del sidebar (menuItemsConfig) que ya están cubiertos por la bottom nav de admin:
-// el resto del menú (Recordatorios, Calendario, Documentos, Usuarios) cae dentro de "Más"
+// el resto del menú (Recordatorios, Documentos, Usuarios) cae dentro de "Más"
 const BOTTOM_NAV_ADMIN_NAMES = new Set(['Panel de Control', 'Órdenes de Trabajo', 'Control de Asistencia', 'Notificaciones']);
 
 function isPathActive(pathname, path) {
@@ -291,6 +292,24 @@ export default function AdminLayout({ children }) {
       roles: ['admin', 'tecnico']
     },
     {
+      name: 'Visita Técnica',
+      path: '/admin/inspecciones',
+      icon: ClipboardCheck,
+      roles: ['admin', 'tecnico']
+    },
+    {
+      name: 'Plantillas',
+      path: '/admin/plantillas',
+      icon: ListChecks,
+      roles: ['admin']
+    },
+    {
+      name: 'Plan de Acción',
+      path: '/admin/plan-accion',
+      icon: ClipboardList,
+      roles: ['admin']
+    },
+    {
       name: 'Control de Asistencia',
       path: '/admin/control-asistencia/admin',
       icon: Clock,
@@ -312,12 +331,6 @@ export default function AdminLayout({ children }) {
       name: 'Recordatorios',
       path: '/admin/recordatorios',
       icon: Bell,
-      roles: ['admin', 'tecnico']
-    },
-    {
-      name: 'Calendario de Visitas',
-      path: '/admin/calendario-visitas',
-      icon: CalendarDays,
       roles: ['admin', 'tecnico']
     },
     {

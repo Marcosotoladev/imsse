@@ -17,8 +17,13 @@ async function handler(req, res) {
     estados: 'estados_cuenta',
     ordenes: 'ordenes_trabajo',
     recordatorios: 'recordatorios',
-    visitas: 'visitas'
+    visitas: 'visitas',
+    inspecciones: 'inspecciones_tecnicas',
+    plantillas: 'plantillas_inspeccion',
+    planaccion: 'plan_accion'
   };
+
+  const TECNICO_LECTURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones', 'plantillas'];
 
   if (!COLLECTIONS[type]) {
     return res.status(400).json({ error: 'Invalid document type' });
@@ -42,10 +47,10 @@ async function handler(req, res) {
         ? query.where('empresaId', '==', perfilData.empresaId)
         : query.where('clienteId', '==', user.uid);
     } else if (user.role === ROLES.TECNICO) {
-      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
+      if (!TECNICO_LECTURA.includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      
+
       // ✅ CAMBIO: Para visitas, no filtrar por técnico asignado
       // Solo aplicar filtro para órdenes y recordatorios:
       if (type === 'ordenes') {
@@ -53,7 +58,7 @@ async function handler(req, res) {
       } else if (type === 'recordatorios') {
         query = query.where('asignadoA', '==', user.uid);
       }
-      // Para 'visitas' no aplicamos filtro adicional - técnicos ven todas las visitas
+      // Para 'visitas' e 'inspecciones' no aplicamos filtro adicional - técnicos ven todas
     }
 
     // Filtros adicionales

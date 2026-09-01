@@ -15,8 +15,9 @@ import {
   Receipt,
   Truck,
   CreditCard,
-  Wrench,
   Bell,
+  ClipboardCheck,
+  ClipboardList,
   List,
   LayoutGrid,
   Key,
@@ -123,8 +124,9 @@ export default function GestionUsuarios() {
     recibos: Receipt,
     remitos: Truck,
     estados: CreditCard,
-    ordenes: Wrench,
-    recordatorios: Bell
+    recordatorios: Bell,
+    inspecciones: ClipboardCheck,
+    planaccion: ClipboardList
   };
 
   // Nombres legibles para los tipos de documentos
@@ -133,8 +135,9 @@ export default function GestionUsuarios() {
     recibos: 'Recibos',
     remitos: 'Remitos',
     estados: 'Estados de Cuenta',
-    ordenes: 'Órdenes de Trabajo',
-    recordatorios: 'Recordatorios'
+    recordatorios: 'Recordatorios',
+    inspecciones: 'Visita Técnica',
+    planaccion: 'Plan de Acción'
   };
 
   useEffect(() => {
@@ -231,8 +234,9 @@ export default function GestionUsuarios() {
       recibos: false,
       remitos: false,
       estados: false,
-      ordenes: false,
-      recordatorios: false
+      recordatorios: false,
+      inspecciones: false,
+      planaccion: false
     });
     setModalAbierto(true);
     setUsuarioEditando(null); // Cerrar dropdown si estaba abierto
@@ -294,6 +298,40 @@ export default function GestionUsuarios() {
       ...prev,
       [tipoDocumento]: valor
     }));
+  };
+
+  // Activa el permiso "Visita Técnica" para todos los clientes existentes que
+  // todavía no lo tengan (los usuarios nuevos ya lo reciben por defecto al crearse).
+  const [activandoInspeccionesMasivo, setActivandoInspeccionesMasivo] = useState(false);
+  const handleActivarInspeccionesTodos = async () => {
+    const clientesSinPermiso = usuarios.filter(
+      (u) => u.rol === 'cliente' && u.permisos?.inspecciones !== true
+    );
+
+    if (clientesSinPermiso.length === 0) {
+      alert('Todos los clientes ya tienen activado el permiso de Visita Técnica.');
+      return;
+    }
+
+    if (!confirm(`Se va a activar "Visita Técnica" para ${clientesSinPermiso.length} cliente(s) que todavía no lo tienen. ¿Continuar?`)) {
+      return;
+    }
+
+    setActivandoInspeccionesMasivo(true);
+    try {
+      for (const cliente of clientesSinPermiso) {
+        await apiService.actualizarUsuario(cliente.id, {
+          permisos: { ...cliente.permisos, inspecciones: true }
+        });
+      }
+      await cargarDatos();
+      alert(`✅ Permiso activado para ${clientesSinPermiso.length} cliente(s).`);
+    } catch (error) {
+      console.error('Error al activar permisos de forma masiva:', error);
+      alert('❌ Hubo un error activando el permiso para algunos clientes. Revisá la lista e intentá de nuevo.');
+    } finally {
+      setActivandoInspeccionesMasivo(false);
+    }
   };
 
   // Función para guardar los permisos
@@ -597,13 +635,24 @@ export default function GestionUsuarios() {
               Administre usuarios, roles y permisos del sistema IMSSE
             </p>
           </div>
-          <button
-            onClick={handleAbrirCrearModal}
-            className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors rounded-xl bg-primary hover:bg-red-700 shadow-sm"
-          >
-            <UserPlus size={18} className="mr-2" />
-            + Nuevo
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleActivarInspeccionesTodos}
+              disabled={activandoInspeccionesMasivo}
+              title="Activa el permiso de Visita Técnica para los clientes existentes que todavía no lo tengan"
+              className="flex items-center px-4 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <ClipboardCheck size={18} className="mr-2" />
+              {activandoInspeccionesMasivo ? 'Activando...' : 'Activar Visita Técnica (clientes existentes)'}
+            </button>
+            <button
+              onClick={handleAbrirCrearModal}
+              className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors rounded-xl bg-primary hover:bg-red-700 shadow-sm"
+            >
+              <UserPlus size={18} className="mr-2" />
+              + Nuevo
+            </button>
+          </div>
         </div>
 
         {/* Filtros Colapsables */}
@@ -1262,7 +1311,7 @@ export default function GestionUsuarios() {
                 </label>
                 {formDataCrear.esEmailFicticio && (
                   <p className="mt-1 text-[11px] text-blue-700">
-                    Útil para técnicos. Se generará un email como: <span className="font-mono">tecnico.{formDataCrear.nombre.toLowerCase().trim() || 'nombre'}@imse.app</span>.
+                    Útil para técnicos. Se generará un email como: <span className="font-mono">tecnico.{formDataCrear.nombre.toLowerCase().trim() || 'nombre'}@imsse.app</span>.
                   </p>
                 )}
               </div>

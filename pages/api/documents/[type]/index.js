@@ -10,8 +10,17 @@ const COLLECTIONS = {
   estados: 'estados_cuenta',
   ordenes: 'ordenes_trabajo',
   recordatorios: 'recordatorios',
-  visitas: 'visitas'
+  visitas: 'visitas',
+  inspecciones: 'inspecciones_tecnicas',
+  plantillas: 'plantillas_inspeccion',
+  planaccion: 'plan_accion'
 };
+
+// Tipos a los que el técnico tiene acceso de lectura (incluye 'plantillas': necesita
+// listarlas para adjuntarlas a una inspección, aunque no pueda crearlas/editarlas)
+const TECNICO_LECTURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones', 'plantillas'];
+// Tipos a los que el técnico tiene acceso de escritura (crear/editar/borrar)
+const TECNICO_ESCRITURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones'];
 
 async function handler(req, res) {
   const { type } = req.query;
@@ -96,7 +105,7 @@ async function getDocuments(req, res, type, user) {
 
     } else if (user.role === ROLES.TECNICO) {
       // ✅ CAMBIO PRINCIPAL: Técnico puede ver TODOS los documentos de órdenes, recordatorios y visitas
-      if (!['ordenes', 'recordatorios', 'visitas'].includes(type)) {
+      if (!TECNICO_LECTURA.includes(type)) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
@@ -241,7 +250,7 @@ async function createDocument(req, res, type, user) {
       return res.status(403).json({ error: 'Clients cannot create documents' });
     }
 
-    if (user.role === ROLES.TECNICO && !['ordenes', 'recordatorios', 'visitas'].includes(type)) {
+    if (user.role === ROLES.TECNICO && !TECNICO_ESCRITURA.includes(type)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

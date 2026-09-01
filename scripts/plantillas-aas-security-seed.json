@@ -1,0 +1,111 @@
+[
+  {
+    "grupo": "Extinción",
+    "grupoIMSSE": "Supresión de Incendios",
+    "titulo": "Inspección Técnica - Control de Hidrantes (Mensual)",
+    "tipo": "tabular",
+    "nombreUnidad": "Hidrante",
+    "incluyeNA": false,
+    "camposTexto": [
+      { "nombre": "Sector" },
+      { "nombre": "Ubicación" }
+    ],
+    "columnas": [
+      { "nombre": "Accesible" },
+      { "nombre": "Estado del Gabinete" },
+      { "nombre": "Llave" },
+      { "nombre": "Manguera" },
+      { "nombre": "Lanza" },
+      { "nombre": "Cartel en Altura" },
+      { "nombre": "Demarcación de Piso" },
+      { "nombre": "Mes Última PH" },
+      { "nombre": "Funcionamiento Válvula" },
+      { "nombre": "Presión" }
+    ]
+  },
+  {
+    "grupo": "Extinción",
+    "grupoIMSSE": "Supresión de Incendios",
+    "titulo": "Control de Bombas Contra Incendio",
+    "tipo": "lista",
+    "items": [
+      { "descripcion": "Tanque de agua", "guia": "¿El nivel del tanque de agua es superior a los 3/4?" },
+      { "descripcion": "Bomba eléctrica Jockey", "guia": "¿La bomba Jockey está alimentada de energía eléctrica?" },
+      { "descripcion": "Electro Bomba", "guia": "Estado general." },
+      { "descripcion": "Cuerpo de la Bomba", "guia": "Verificar ausencia de fugas severas en sellos, bridas o empaquetaduras. Verificar ventilaciones libres y drenajes de piso sin obstrucciones." },
+      { "descripcion": "Condición de la Sala", "guia": "Verificar que las válvulas de succión y descarga estén abiertas y candadeadas/supervisadas." },
+      { "descripcion": "Manómetros", "guia": "Inspeccionar manómetros de succión y descarga (lecturas normales de presión)." },
+      { "descripcion": "Tablero Eléctrico", "guia": "Verificar luz piloto verde de 'Energía Disponible' encendida. Verificar que el interruptor principal esté en posición Automático. Inspeccionar visualmente aislamiento y ausencia de alarmas o fallas de fase." },
+      { "descripcion": "Arranque de Bomba Jockey", "guia": "Forzar caída de presión para verificar arranque automático y corte de la Jockey." },
+      { "descripcion": "Arranque Bomba Eléctrica", "guia": "Realizar prueba de arranque sin flujo (Churn Test) por 10 minutos mínimo." },
+      { "descripcion": "Procedimiento de Arranque", "guia": "Iniciar la bomba principal abriendo la línea de censado (caída de presión real)." },
+      { "descripcion": "Verificación de Corriente", "guia": "Medir corriente (Amperes) y tensión (Voltios) en las 3 fases durante la marcha." },
+      { "descripcion": "Gland / Prensaestopas", "guia": "Verificar goteo de lubricación del sello mecánico/empaquetadura (1 o 2 gotas por segundo)." },
+      { "descripcion": "Presión de arranque (Bar)", "guia": "Registrar la presión del sistema en el instante de arranque de la bomba y anotar el valor en Observaciones. Debe coincidir con la presión de arranque de diseño/placa.", "subtitulo": "Durante el Funcionamiento" },
+      { "descripcion": "Presión de succión (Bar)", "guia": "Registrar la presión en la línea de succión durante el funcionamiento y anotar el valor en Observaciones. No debe caer por debajo del mínimo admisible (riesgo de cavitación)." },
+      { "descripcion": "Presión de descarga (Bar)", "guia": "Registrar la presión en la línea de descarga con la bomba en marcha a caudal nominal y anotar el valor en Observaciones." },
+      { "descripcion": "Presión de agua de enfriamiento (Bar)", "guia": "Registrar la presión de la línea de agua de enfriamiento del motor/sello (si aplica) y anotar el valor en Observaciones." }
+    ]
+  },
+  {
+    "grupo": "Detección",
+    "grupoIMSSE": "Detección de Incendios",
+    "titulo": "Zonas: Detectores y Avisadores Manuales",
+    "tipo": "tabular",
+    "nombreUnidad": "Zona",
+    "incluyeNA": false,
+    "camposTexto": [
+      { "nombre": "Tipo dispositivo" }
+    ],
+    "columnas": [
+      { "nombre": "Estado" }
+    ]
+  },
+  {
+    "grupo": "Detección",
+    "grupoIMSSE": "Detección de Incendios",
+    "titulo": "Sistema de Extracción/Presurización",
+    "tipo": "lista",
+    "items": [
+      { "descripcion": "Presurizador de Caja de Escalera", "guia": "Estado del equipo, estado estructural, anclaje." },
+      { "descripcion": "Extractor de Humos/Gases en Cochera", "guia": "Estado del equipo, estado estructural, anclajes." },
+      { "descripcion": "Alimentación eléctrica y tablero de control presurizador", "guia": "Tablero, tensiones, borneras, cableados, cañería." },
+      { "descripcion": "Alimentación eléctrica y tablero de control extractor", "guia": "Tablero, tensiones, borneras, cableados, cañería." },
+      { "descripcion": "Sistema Presurización - Alarma Incendio", "guia": "¿Se encuentra vinculado? ¿La activación es manual o automática?" },
+      { "descripcion": "Sistema de Extractor Aire - Alarma Incendio", "guia": "¿La activación es manual o automática?" }
+    ]
+  },
+  {
+    "grupo": "Detección",
+    "grupoIMSSE": "Detección de Incendios",
+    "titulo": "Central de Detección y Paneles de Control",
+    "tipo": "lista",
+    "items": [
+      { "descripcion": "Central de Incendios (Panel)", "guia": "Inspección visual de leds de falla, alarmas y condiciones normales." },
+      { "descripcion": "Fuentes Auxiliares (Remotas)", "guia": "Prueba de conmutación ante corte de energía primaria (220V)." },
+      { "descripcion": "Baterías de Respaldo", "guia": "Bornes, sulfatación o deformación. Prueba de carga, tensión y medición." },
+      { "descripcion": "Detectores de Humo y Detectores de Calor", "guia": "Limpieza exterior, remoción de polvo, pelusas o insectos en la cámara. Prueba funcional de activación con humo artificial." },
+      { "descripcion": "Avisadores Manuales", "guia": "Accesibilidad, rotura de vidrios o tapas plásticas. Prueba funcional aviso central." },
+      { "descripcion": "Sirenas y Luces Estroboscópicas", "guia": "Inspección visual de montaje rígido y limpieza. Prueba acústica y lumínica." },
+      { "descripcion": "Cableados y Conexiones", "guia": "Inspección de cajas de paso, borneras fijas y estado del tendido." },
+      { "descripcion": "Módulos de Control e Interfaz", "guia": "Verificación de relés y mandos a otros sistemas (corte de gas, ascensores, presurización escalera extractores)." }
+    ]
+  },
+  {
+    "grupo": "Relevamiento",
+    "grupoIMSSE": "Mantenimiento",
+    "titulo": "General",
+    "tipo": "lista",
+    "items": [
+      { "descripcion": "Inspección Hidrantes" },
+      { "descripcion": "Inspección / Pruebas Sala Bombas" },
+      { "descripcion": "Inspección / Prueba Presurizador" },
+      { "descripcion": "Inspección / Prueba Extractor" },
+      { "descripcion": "Inspección / Prueba Medidor Bomberos" },
+      { "descripcion": "Inspección / Prueba Alarma Incendio" },
+      { "descripcion": "Inspección / Prueba Luces Emergencia" },
+      { "descripcion": "Inspección / Prueba Dispositivos vinculados Alarma Incendio" },
+      { "descripcion": "SEÑALIZACIONES", "guia": "CARTELERIA IDENTIFICATORIA DE NUMERO DE PISOS, CARTELES SALIDA EMRGENCIA." }
+    ]
+  }
+]
