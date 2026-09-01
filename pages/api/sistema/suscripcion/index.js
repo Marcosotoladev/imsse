@@ -38,6 +38,7 @@ async function getSuscripcion(req, res, user) {
 
     if (user.superAdmin) {
       response.activadoManualmente = sub?.activadoManualmente || false;
+      response.bloqueadoManualmente = sub?.bloqueadoManualmente || false;
       response.diasGracia = sub?.diasGracia ?? 0;
       response.mercadopago = sub?.mercadopago || null;
 
@@ -61,7 +62,7 @@ async function updateSuscripcion(req, res, user) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const { fechaVencimiento, monto, moneda, diasGracia, activadoManualmente } = req.body;
+    const { fechaVencimiento, monto, moneda, diasGracia, activadoManualmente, bloqueadoManualmente } = req.body;
     const updateData = {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedBy: user.uid
@@ -97,6 +98,10 @@ async function updateSuscripcion(req, res, user) {
 
     if (activadoManualmente !== undefined) {
       updateData.activadoManualmente = !!activadoManualmente;
+    }
+
+    if (bloqueadoManualmente !== undefined) {
+      updateData.bloqueadoManualmente = !!bloqueadoManualmente;
     }
 
     await subscriptionRef().set(updateData, { merge: true });

@@ -11,7 +11,10 @@ import {
   ExternalLink,
   XCircle,
   RefreshCw,
-  History
+  History,
+  Zap,
+  Lock,
+  RotateCcw
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -29,7 +32,8 @@ export default function SuscripcionPage() {
     monto: '',
     moneda: 'ARS',
     diasGracia: 0,
-    activadoManualmente: false
+    // 'automatico' = según fecha de vencimiento | 'activar' = forzar activa | 'bloquear' = forzar mantenimiento
+    modoManual: 'automatico'
   });
 
   useEffect(() => {
@@ -61,12 +65,16 @@ export default function SuscripcionPage() {
       setLoading(true);
       const data = await apiService.obtenerSuscripcion();
       setSuscripcion(data);
+      let modoManual = 'automatico';
+      if (data.bloqueadoManualmente) modoManual = 'bloquear';
+      else if (data.activadoManualmente) modoManual = 'activar';
+
       setForm({
         fechaVencimiento: data.fechaVencimiento ? String(data.fechaVencimiento).slice(0, 10) : '',
         monto: data.monto ?? '',
         moneda: data.moneda || 'ARS',
         diasGracia: data.diasGracia ?? 0,
-        activadoManualmente: data.activadoManualmente ?? false
+        modoManual
       });
     } catch (error) {
       console.error('Error al cargar suscripción:', error);
@@ -84,7 +92,8 @@ export default function SuscripcionPage() {
         monto: form.monto,
         moneda: form.moneda,
         diasGracia: form.diasGracia,
-        activadoManualmente: form.activadoManualmente
+        activadoManualmente: form.modoManual === 'activar',
+        bloqueadoManualmente: form.modoManual === 'bloquear'
       });
       alert('✅ Configuración de suscripción actualizada');
       await cargarSuscripcion();
@@ -144,9 +153,9 @@ export default function SuscripcionPage() {
     );
   }
 
-  const vencida = suscripcion?.bloqueada;
-  const estadoLabel = vencida ? 'Vencida' : 'Activa';
-  const estadoColor = vencida ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
+  const bloqueada = suscripcion?.bloqueada;
+  const estadoLabel = bloqueada ? 'En mantenimiento' : 'Activa';
+  const estadoColor = bloqueada ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -254,17 +263,53 @@ export default function SuscripcionPage() {
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
                   />
                 </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={form.activadoManualmente}
-                      onChange={(e) => setForm((prev) => ({ ...prev, activadoManualmente: e.target.checked }))}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary"
-                    />
-                    <span className="text-sm text-gray-700">Activar manualmente (ignorar vencimiento)</span>
-                  </label>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-xs font-medium text-gray-700">Anular estado automático</label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, modoManual: 'automatico' }))}
+                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border rounded-lg transition-colors ${
+                      form.modoManual === 'automatico'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <RotateCcw size={16} />
+                    Automático (según vencimiento)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, modoManual: 'activar' }))}
+                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border rounded-lg transition-colors ${
+                      form.modoManual === 'activar'
+                        ? 'border-green-600 bg-green-50 text-green-700'
+                        : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Zap size={16} />
+                    Forzar activa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, modoManual: 'bloquear' }))}
+                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border rounded-lg transition-colors ${
+                      form.modoManual === 'bloquear'
+                        ? 'border-red-600 bg-red-50 text-red-700'
+                        : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Lock size={16} />
+                    Forzar mantenimiento
+                  </button>
                 </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  {form.modoManual === 'automatico' && 'La app se bloquea sola si se pasa la fecha de vencimiento sin pago.'}
+                  {form.modoManual === 'activar' && 'La app queda activa para todos aunque la suscripción esté vencida.'}
+                  {form.modoManual === 'bloquear' && 'La app queda en mantenimiento para todos (menos vos) aunque la suscripción esté al día.'}
+                </p>
               </div>
 
               <div className="flex justify-end">
