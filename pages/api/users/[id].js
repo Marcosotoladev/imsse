@@ -52,6 +52,7 @@ async function getUser(req, res, id, user) {
       cargo: userData.cargo,
       dni: userData.dni,
       rol: userData.rol,
+      superAdmin: userData.superAdmin === true,
       estado: userData.estado,
       permisos: userData.permisos,
       clienteId: userData.clienteId,

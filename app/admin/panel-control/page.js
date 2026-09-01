@@ -44,7 +44,7 @@ const configuracionModulos = {
     { key: 'documentos', nombre: 'Documentos', icono: Folder, esDocumentos: true, sub: DOCUMENTOS_SUB },
     { key: 'empresas', nombre: 'Empresas', icono: Building2, color: 'purple', listUrl: '/admin/empresas', nuevoUrl: '/admin/empresas?crear=true' },
     { key: 'usuarios', nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios', nuevoUrl: '/admin/usuarios?crear=true' },
-    { key: 'suscripcion', nombre: 'Suscripción', icono: Crown, disabled: true }
+    { key: 'suscripcion', nombre: 'Suscripción', icono: Crown, color: 'yellow', listUrl: '/admin/suscripcion' }
   ],
   tecnico: [
     { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },
