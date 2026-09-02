@@ -46,7 +46,7 @@ const BOTTOM_NAV = {
     { name: 'Inicio', path: '/admin/panel-control', icon: BarChart3 },
     { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench },
     { name: 'Asistencia', path: '/admin/control-asistencia/admin', icon: Clock },
-    { name: 'Notificaciones', icon: BellRing, disabled: true }
+    { name: 'Notificaciones', path: '/admin/notificaciones', icon: BellRing }
   ],
   tecnico: [
     { name: 'Inicio', path: '/admin/dashboard-tecnico', icon: BarChart3 },
@@ -68,7 +68,17 @@ function isGroupActive(pathname, children) {
   return children.some((child) => isPathActive(pathname, child.path));
 }
 
-// Una fila de menú: link simple, grupo desplegable (Documentos) o item deshabilitado (Notificaciones/Facturas)
+// Numerito de no leídos, reutilizado en sidebar y bottom nav
+function BadgeNoLeidos({ count, className = '' }) {
+  if (!count) return null;
+  return (
+    <span className={`flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-red-500 rounded-full ${className}`}>
+      {count > 9 ? '9+' : count}
+    </span>
+  );
+}
+
+// Una fila de menú: link simple, grupo desplegable (Documentos) o item deshabilitado (Facturas)
 function MenuEntry({ item, pathname, docsOpen, setDocsOpen, onNavigate }) {
   if (item.disabled) {
     return (
@@ -141,7 +151,8 @@ function MenuEntry({ item, pathname, docsOpen, setDocsOpen, onNavigate }) {
       }`}
     >
       <item.icon size={18} className="mr-3" />
-      {item.name}
+      <span className="flex-1">{item.name}</span>
+      <BadgeNoLeidos count={item.badge} />
     </Link>
   );
 }
@@ -182,7 +193,10 @@ function BottomNavEntry({ item, pathname, isMoreOpen, onMoreClick }) {
         active ? 'text-primary' : 'text-gray-500'
       }`}
     >
-      <item.icon size={20} />
+      <span className="relative">
+        <item.icon size={20} />
+        <BadgeNoLeidos count={item.badge} className="absolute -top-1.5 -right-2" />
+      </span>
       <span className="text-[11px] font-medium">{item.name}</span>
     </Link>
   );
@@ -195,6 +209,7 @@ export default function AdminLayout({ children }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
   const moreRef = useRef(null);
   const menuRef = useRef(null);
   const router = useRouter();
@@ -272,6 +287,32 @@ export default function AdminLayout({ children }) {
     };
   }, []);
 
+  // Cantidad de notificaciones sin leer para el numerito del ícono: se consulta al entrar,
+  // cada 45s, y al cambiar de página (para que se limpie apenas se sale de /admin/notificaciones,
+  // que es donde se marcan como leídas).
+  useEffect(() => {
+    if (!user) return;
+
+    let activo = true;
+
+    const cargarNoLeidas = async () => {
+      try {
+        const { count } = await apiService.obtenerNotificacionesNoLeidas();
+        if (activo) setNotifCount(count || 0);
+      } catch (error) {
+        console.error('Error al obtener notificaciones sin leer:', error);
+      }
+    };
+
+    cargarNoLeidas();
+    const intervalo = setInterval(cargarNoLeidas, 45000);
+
+    return () => {
+      activo = false;
+      clearInterval(intervalo);
+    };
+  }, [user, pathname]);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -333,9 +374,9 @@ export default function AdminLayout({ children }) {
     },
     {
       name: 'Notificaciones',
+      path: '/admin/notificaciones',
       icon: BellRing,
-      roles: ['admin', 'tecnico'],
-      disabled: true
+      roles: ['admin', 'tecnico']
     },
     {
       name: 'Recordatorios',
@@ -369,13 +410,14 @@ export default function AdminLayout({ children }) {
     }
   ];
 
-  // Filtrar menú según el rol del usuario
-  const menuItems = menuItemsConfig.filter(item =>
-    perfil && item.roles.includes(perfil.rol)
-  );
+  // Filtrar menú según el rol del usuario, agregando el numerito de no leídas a Notificaciones
+  const conBadge = (item) => (item.name === 'Notificaciones' ? { ...item, badge: notifCount } : item);
+  const menuItems = menuItemsConfig
+    .filter(item => perfil && item.roles.includes(perfil.rol))
+    .map(conBadge);
 
   const rol = perfil?.rol === 'tecnico' ? 'tecnico' : 'admin';
-  const bottomNavItems = BOTTOM_NAV[rol];
+  const bottomNavItems = BOTTOM_NAV[rol].map(conBadge);
   // Para admin: lo que no entra en la bottom nav queda en el panel "Más"
   const moreItems = rol === 'admin' ? menuItems.filter((item) => !BOTTOM_NAV_ADMIN_NAMES.has(item.name)) : [];
 

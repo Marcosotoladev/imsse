@@ -41,11 +41,22 @@ const MODULOS_DISPONIBLES = [
       { key: 'remitos', nombre: 'Remitos', path: '/cliente/remitos' },
       { key: 'estados', nombre: 'Estados de Cuenta', path: '/cliente/estados' }
     ]
-  }
+  },
+  { key: 'notificaciones', nombre: 'Notificaciones', icono: BellRing, path: '/cliente/notificaciones', siempre: true }
 ];
 
 function isPathActive(pathname, path) {
   return !!path && (pathname === path || pathname.startsWith(`${path}/`));
+}
+
+// Numerito de no leídas, reutilizado en sidebar y bottom nav
+function BadgeNoLeidos({ count, className = '' }) {
+  if (!count) return null;
+  return (
+    <span className={`flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-red-500 rounded-full ${className}`}>
+      {count > 9 ? '9+' : count}
+    </span>
+  );
 }
 
 function MenuEntry({ item, pathname, docsOpen, setDocsOpen, onNavigate }) {
@@ -100,7 +111,8 @@ function MenuEntry({ item, pathname, docsOpen, setDocsOpen, onNavigate }) {
       }`}
     >
       <item.icono size={18} className="mr-3" />
-      {item.nombre}
+      <span className="flex-1">{item.nombre}</span>
+      <BadgeNoLeidos count={item.badge} />
     </Link>
   );
 }
@@ -141,7 +153,10 @@ function BottomNavEntry({ item, pathname, isOpen, onOpenClick }) {
         active ? 'text-primary' : 'text-gray-500'
       }`}
     >
-      <item.icono size={20} />
+      <span className="relative">
+        <item.icono size={20} />
+        <BadgeNoLeidos count={item.badge} className="absolute -top-1.5 -right-2" />
+      </span>
       <span className="text-[11px] font-medium">{item.nombre}</span>
     </Link>
   );
@@ -153,6 +168,7 @@ export default function ClienteLayout({ children }) {
   const [loading, setLoading] = useState(true);
   const [docsSheetOpen, setDocsSheetOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
   const sheetRef = useRef(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -220,6 +236,32 @@ export default function ClienteLayout({ children }) {
     };
   }, []);
 
+  // Cantidad de notificaciones sin leer para el numerito del ícono: se consulta al entrar,
+  // cada 45s, y al cambiar de página (para que se limpie apenas se sale de /cliente/notificaciones,
+  // que es donde se marcan como leídas).
+  useEffect(() => {
+    if (!user) return;
+
+    let activo = true;
+
+    const cargarNoLeidas = async () => {
+      try {
+        const { count } = await apiService.obtenerNotificacionesNoLeidas();
+        if (activo) setNotifCount(count || 0);
+      } catch (error) {
+        console.error('Error al obtener notificaciones sin leer:', error);
+      }
+    };
+
+    cargarNoLeidas();
+    const intervalo = setInterval(cargarNoLeidas, 45000);
+
+    return () => {
+      activo = false;
+      clearInterval(intervalo);
+    };
+  }, [user, pathname]);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -229,19 +271,21 @@ export default function ClienteLayout({ children }) {
     }
   };
 
-  // Filtrar módulos (y sub-items) según permisos del usuario
+  // Filtrar módulos (y sub-items) según permisos del usuario, agregando el numerito de
+  // no leídas a Notificaciones
   const menuItems = MODULOS_DISPONIBLES
     .map((modulo) => {
       if (modulo.children) {
         const children = modulo.children.filter((child) => perfil?.permisos?.[child.key] === true);
         return children.length ? { ...modulo, children } : null;
       }
-      return modulo.siempre || perfil?.permisos?.[modulo.key] === true ? modulo : null;
+      if (!(modulo.siempre || perfil?.permisos?.[modulo.key] === true)) return null;
+      return modulo.key === 'notificaciones' ? { ...modulo, badge: notifCount } : modulo;
     })
     .filter(Boolean);
 
-  // Bottom nav: el mismo menú filtrado + "Notificaciones" (próximamente) al final
-  const bottomNavItems = [...menuItems, { key: 'notificaciones', nombre: 'Notificaciones', icono: BellRing, disabled: true }];
+  // Bottom nav: mismo menú filtrado
+  const bottomNavItems = menuItems;
 
   // Nombre a mostrar en breadcrumb (baja hasta el sub-item si corresponde)
   let activeLabel = null;

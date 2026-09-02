@@ -27,6 +27,9 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../../lib/firebase';
 import apiService from '../../../../../lib/services/apiService';
+import offlineApiService from '../../../../../lib/services/offlineApiService';
+import localDB from '../../../../../lib/db/localDB';
+import { useBorrador } from '../../../../../lib/hooks/useBorrador';
 import tecnicoService from '../../../../../lib/services/tecnicoService';
 import { use } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
@@ -74,21 +77,45 @@ export default function EditarOrdenTrabajo({ params }) {
   const [mostrarCanvasTecnico, setMostrarCanvasTecnico] = useState(false);
   const [mostrarCanvasCliente, setMostrarCanvasCliente] = useState(false);
 
+  const [claveBorrador, setClaveBorrador] = useState(null);
+
+  // Autoguardado local mientras se completa el formulario (no se sube al servidor).
+  // Las fotos nuevas no se persisten en el borrador, solo su nombre (ver recuperación
+  // más abajo) — evita cualquier riesgo de compatibilidad/cuota en celulares de gama baja.
+  useBorrador(
+    claveBorrador,
+    {
+      orden: { ...orden, fotos: undefined },
+      firmas,
+      fotosPendientesNombres: orden.fotos.filter((f) => f.file).map((f) => f.nombre)
+    },
+    { enabled: !loading && !!claveBorrador }
+  );
+
   useEffect(() => {
     if (!id) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser(currentUser);
-
-        tecnicoService.obtenerTecnicos()
-          .then((response) => setTecnicosDisponibles(response?.users || response?.tecnicos || []))
-          .catch((error) => {
-            console.error('Error al cargar los técnicos:', error);
-            setTecnicosDisponibles([]);
-          });
-
         try {
+          const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
+
+          // A diferencia de "nueva", esta pantalla no chequeaba rol — cualquier
+          // usuario autenticado podía editar cualquier orden.
+          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+            router.push('/cliente/dashboard');
+            return;
+          }
+
+          setUser(currentUser);
+
+          tecnicoService.obtenerTecnicos()
+            .then((response) => setTecnicosDisponibles(response?.users || response?.tecnicos || []))
+            .catch((error) => {
+              console.error('Error al cargar los técnicos:', error);
+              setTecnicosDisponibles([]);
+            });
+
           const ordenData = await apiService.obtenerOrdenTrabajoPorId(id);
 
           if (ordenData) {
@@ -119,6 +146,34 @@ export default function EditarOrdenTrabajo({ params }) {
                 aclaracion: ordenData.firmas?.cliente?.aclaracion || ''
               }
             });
+
+            // Chequear si hay un borrador sin guardar de una edición anterior de esta
+            // misma orden (con scope por usuario: el dispositivo puede compartirse
+            // entre técnicos en distintos turnos).
+            const clave = `orden_editar_${id}_${currentUser.uid}`;
+            setClaveBorrador(clave);
+
+            const borrador = await localDB.obtenerBorrador(clave);
+            if (borrador?.datos) {
+              const empresaBorrador = borrador.datos.orden?.cliente?.empresa || 'esta orden';
+              const fechaBorrador = new Date(borrador.fecha).toLocaleString('es-AR');
+              const recuperar = confirm(
+                `Tenés cambios sin guardar de "${empresaBorrador}" (${fechaBorrador}). ¿Querés recuperarlos?`
+              );
+
+              if (recuperar) {
+                setOrden(prev => ({ ...prev, ...borrador.datos.orden, fotos: prev.fotos }));
+                setFirmas(borrador.datos.firmas);
+
+                if (borrador.datos.fotosPendientesNombres?.length) {
+                  alert(
+                    `Recordá volver a adjuntar ${borrador.datos.fotosPendientesNombres.length} foto(s) que tenías seleccionadas (no se guardan en el borrador): ${borrador.datos.fotosPendientesNombres.join(', ')}`
+                  );
+                }
+              } else {
+                await localDB.eliminarBorrador(clave);
+              }
+            }
           } else {
             alert('Orden de trabajo no encontrada.');
             router.push('/admin/ordenes');
@@ -193,83 +248,51 @@ export default function EditarOrdenTrabajo({ params }) {
     setOrden(prev => ({ ...prev, tecnicos: updatedTecnicos }));
   };
 
-  const uploadToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', 'ordenes_trabajo');
-
-    try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: formData }
-      );
-
-      if (!response.ok) throw new Error('Error al subir la imagen');
-      const data = await response.json();
-      return data.secure_url;
-    } catch (error) {
-      console.error('Error uploading to Cloudinary:', error);
-      throw error;
-    }
-  };
-
-  const handleFotoUpload = async (e) => {
+  // Fotos ya guardadas en Cloudinary conviven en `orden.fotos` con las nuevas
+  // (distinguidas por `foto.file`: las existentes no tienen `file`, solo `url` real).
+  // Las nuevas quedan como File locales hasta el guardado — si hay conexión se suben
+  // recién al enviar el formulario, y si no, quedan pendientes hasta sincronizar.
+  const handleFotoUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    setSubiendoFoto(true);
+    const fotosValidas = [];
 
-    try {
-      const uploadPromises = files.map(async (file) => {
-        if (file.size > 10 * 1024 * 1024) {
-          alert(`La foto ${file.name} es muy grande. Máximo 10MB por foto.`);
-          return null;
-        }
-
-        if (!file.type.startsWith('image/')) {
-          alert(`${file.name} no es una imagen válida.`);
-          return null;
-        }
-
-        try {
-          const url = await uploadToCloudinary(file);
-          return {
-            id: Date.now() + Math.random(),
-            url,
-            nombre: file.name,
-            fechaSubida: new Date().toISOString()
-          };
-        } catch (error) {
-          alert(`Error al subir ${file.name}: ${error.message}`);
-          return null;
-        }
-      });
-
-      const fotosSubidas = await Promise.all(uploadPromises);
-      const fotosValidas = fotosSubidas.filter(foto => foto !== null);
-
-      if (fotosValidas.length > 0) {
-        setOrden(prev => ({
-          ...prev,
-          fotos: [...prev.fotos, ...fotosValidas]
-        }));
-        alert(`${fotosValidas.length} foto(s) subida(s) exitosamente.`);
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`La foto ${file.name} es muy grande. Máximo 10MB por foto.`);
+        continue;
       }
-    } catch (error) {
-      console.error('Error al procesar fotos:', error);
-      alert('Error al procesar las fotos.');
-    } finally {
-      setSubiendoFoto(false);
-      e.target.value = '';
+
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} no es una imagen válida.`);
+        continue;
+      }
+
+      fotosValidas.push({
+        id: Date.now() + Math.random(),
+        file,
+        url: URL.createObjectURL(file),
+        nombre: file.name
+      });
     }
+
+    if (fotosValidas.length > 0) {
+      setOrden(prev => ({
+        ...prev,
+        fotos: [...prev.fotos, ...fotosValidas]
+      }));
+    }
+
+    e.target.value = '';
   };
 
   const removeFoto = (id) => {
-    setOrden(prev => ({
-      ...prev,
-      fotos: prev.fotos.filter(foto => foto.id !== id)
-    }));
+    setOrden(prev => {
+      const foto = prev.fotos.find(f => f.id === id);
+      if (foto?.file) URL.revokeObjectURL(foto.url);
+      return { ...prev, fotos: prev.fotos.filter(f => f.id !== id) };
+    });
   };
 
   const capturarFirma = (tipo) => {
@@ -354,6 +377,9 @@ export default function EditarOrdenTrabajo({ params }) {
     setGuardando(true);
 
     try {
+      const fotosExistentes = orden.fotos.filter(f => !f.file);
+      const fotosFiles = orden.fotos.filter(f => f.file).map(f => f.file);
+
       const ordenData = {
         numero: orden.numero,
         cliente: orden.cliente,
@@ -362,12 +388,25 @@ export default function EditarOrdenTrabajo({ params }) {
         horarioFin: orden.horarioFin,
         tecnicos: orden.tecnicos.filter(t => t.nombre.trim()),
         tareasRealizadas: orden.tareasRealizadas,
-        fotos: orden.fotos,
+        fotos: fotosExistentes,
         firmas: firmas,
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      await apiService.actualizarOrdenTrabajo(id, ordenData);
+      // Si hay señal sube las fotos nuevas y guarda ya; si no (o si algo falla en el
+      // camino), queda encolado localmente y se sincroniza solo cuando vuelva la señal.
+      const resultado = await offlineApiService.actualizarOrdenTrabajo(id, ordenData, fotosFiles);
+
+      if (claveBorrador) {
+        await localDB.eliminarBorrador(claveBorrador);
+      }
+
+      if (resultado.offline) {
+        alert(`📴 ${resultado.message}`);
+        router.push('/admin/ordenes');
+        return;
+      }
+
       alert('✅ Orden de trabajo actualizada exitosamente');
       router.push('/admin/ordenes');
     } catch (error) {

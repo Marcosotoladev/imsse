@@ -31,6 +31,8 @@ import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import offlineApiService from '../../../../lib/services/offlineApiService';
 import tecnicoService from '../../../../lib/services/tecnicoService';
+import localDB from '../../../../lib/db/localDB';
+import { useBorrador } from '../../../../lib/hooks/useBorrador';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import InspeccionTecnicaPDF from '../../../components/pdf/InspeccionTecnicaPDF';
 import PlanillasAdjuntas from '../../../components/inspecciones/PlanillasAdjuntas';
@@ -91,6 +93,28 @@ export default function CrearInspeccionTecnica() {
     cliente: { firma: null, aclaracion: '' }
   });
 
+  const [claveBorrador, setClaveBorrador] = useState(null);
+
+  // Autoguardado local mientras se completa el formulario (no se sube al servidor).
+  // Las fotos nuevas no se persisten en el borrador, solo su nombre (ver recuperación
+  // más abajo) — evita cualquier riesgo de compatibilidad/cuota en celulares de gama baja.
+  useBorrador(
+    claveBorrador,
+    {
+      inspeccion,
+      firmas,
+      tipoCliente,
+      planillasAdjuntas,
+      fotosPendientesNombres: fotos.map((f) => f.nombre)
+    },
+    {
+      enabled: !loading && !!claveBorrador,
+      tieneContenido: (datos) =>
+        !!(datos.inspeccion.cliente.empresa || datos.inspeccion.cliente.nombre ||
+          datos.inspeccion.observaciones || datos.planillasAdjuntas.length > 0)
+    }
+  );
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -117,6 +141,36 @@ export default function CrearInspeccionTecnica() {
           cargarClientesDisponibles(perfilUsuario);
           cargarPlantillas();
           cargarTecnicos();
+
+          // Chequear si hay un borrador sin guardar de una VT nueva abandonada
+          // (con scope por usuario: el dispositivo puede compartirse entre técnicos).
+          const clave = `inspeccion_nueva_${currentUser.uid}`;
+          setClaveBorrador(clave);
+
+          const borrador = await localDB.obtenerBorrador(clave);
+          if (borrador?.datos) {
+            const empresaBorrador = borrador.datos.inspeccion?.cliente?.empresa || 'una visita';
+            const fechaBorrador = new Date(borrador.fecha).toLocaleString('es-AR');
+            const recuperar = confirm(
+              `Tenés un borrador sin guardar de "${empresaBorrador}" (${fechaBorrador}). ¿Querés recuperarlo?`
+            );
+
+            if (recuperar) {
+              setInspeccion(borrador.datos.inspeccion);
+              setFirmas(borrador.datos.firmas);
+              setTipoCliente(borrador.datos.tipoCliente);
+              setPlanillasAdjuntas(borrador.datos.planillasAdjuntas || []);
+
+              if (borrador.datos.fotosPendientesNombres?.length) {
+                alert(
+                  `Recordá volver a adjuntar ${borrador.datos.fotosPendientesNombres.length} foto(s) que tenías seleccionadas (no se guardan en el borrador): ${borrador.datos.fotosPendientesNombres.join(', ')}`
+                );
+              }
+            } else {
+              await localDB.eliminarBorrador(clave);
+            }
+          }
+
           setLoading(false);
         } catch (error) {
           console.error('Error al verificar acceso:', error);
@@ -416,6 +470,10 @@ export default function CrearInspeccionTecnica() {
 
       const fotosFiles = fotos.map(f => f.file);
       const resultado = await offlineApiService.crearInspeccionTecnica(datos, fotosFiles);
+
+      if (claveBorrador) {
+        await localDB.eliminarBorrador(claveBorrador);
+      }
 
       if (resultado.offline) {
         setGuardadoOffline(true);

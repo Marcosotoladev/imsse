@@ -28,6 +28,9 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import offlineApiService from '../../../../lib/services/offlineApiService';
+import localDB from '../../../../lib/db/localDB';
+import { useBorrador } from '../../../../lib/hooks/useBorrador';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import OrdenTrabajoPDF from '../../../components/pdf/OrdenTrabajoPDF';
 import SignatureCanvas from 'react-signature-canvas';
@@ -89,6 +92,26 @@ export default function CrearOrdenTrabajo() {
     }
   });
 
+  const [claveBorrador, setClaveBorrador] = useState(null);
+
+  // Autoguardado local mientras se completa el formulario (no se sube al servidor).
+  // Las fotos nuevas no se persisten en el borrador, solo su nombre (ver recuperación
+  // más abajo) — evita cualquier riesgo de compatibilidad/cuota en celulares de gama baja.
+  useBorrador(
+    claveBorrador,
+    {
+      orden: { ...orden, fotos: undefined },
+      firmas,
+      tipoCliente,
+      fotosPendientesNombres: orden.fotos.map((f) => f.nombre)
+    },
+    {
+      enabled: !loading && !!claveBorrador,
+      tieneContenido: (datos) =>
+        !!(datos.orden.cliente.empresa || datos.orden.cliente.nombre || datos.orden.tareasRealizadas)
+    }
+  );
+
   // Reemplaza el useEffect completo:
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -118,6 +141,35 @@ export default function CrearOrdenTrabajo() {
 
           cargarClientesDisponibles(perfilUsuario); // ✅ MODIFICADO: pasar perfil
           cargarTecnicosDisponibles();
+
+          // Chequear si hay un borrador sin guardar de una OT nueva abandonada
+          // (con scope por usuario: el dispositivo puede compartirse entre técnicos).
+          const clave = `orden_nueva_${currentUser.uid}`;
+          setClaveBorrador(clave);
+
+          const borrador = await localDB.obtenerBorrador(clave);
+          if (borrador?.datos) {
+            const empresaBorrador = borrador.datos.orden?.cliente?.empresa || 'una orden';
+            const fechaBorrador = new Date(borrador.fecha).toLocaleString('es-AR');
+            const recuperar = confirm(
+              `Tenés un borrador sin guardar de "${empresaBorrador}" (${fechaBorrador}). ¿Querés recuperarlo?`
+            );
+
+            if (recuperar) {
+              setOrden(prev => ({ ...prev, ...borrador.datos.orden, fotos: [] }));
+              setFirmas(borrador.datos.firmas);
+              setTipoCliente(borrador.datos.tipoCliente);
+
+              if (borrador.datos.fotosPendientesNombres?.length) {
+                alert(
+                  `Recordá volver a adjuntar ${borrador.datos.fotosPendientesNombres.length} foto(s) que tenías seleccionadas (no se guardan en el borrador): ${borrador.datos.fotosPendientesNombres.join(', ')}`
+                );
+              }
+            } else {
+              await localDB.eliminarBorrador(clave);
+            }
+          }
+
           setLoading(false);
         } catch (error) {
           console.error('Error al obtener perfil:', error);
@@ -340,92 +392,52 @@ export default function CrearOrdenTrabajo() {
     setOrden(prev => ({ ...prev, tecnicos: updatedTecnicos }));
   };
 
-  // Función para subir fotos a Cloudinary - CORREGIDA
-  const uploadToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', 'ordenes_trabajo');
-
-    try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Error al subir la imagen');
-      }
-
-      const data = await response.json();
-      return data.secure_url;
-    } catch (error) {
-      console.error('Error uploading to Cloudinary:', error);
-      throw error;
-    }
-  };
-
-  const handleFotoUpload = async (e) => {
+  // Las fotos quedan como File locales hasta el guardado (igual que en Visita Técnica):
+  // si hay conexión se suben a Cloudinary recién al enviar el formulario, y si no la
+  // hay, quedan pendientes en el dispositivo hasta que offlineApiService las
+  // sincronice. `url` es un object URL local para la vista previa (en pantalla y en
+  // el "Ver PDF" de borrador) hasta ese momento.
+  const handleFotoUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    setSubiendoFoto(true);
+    const fotosValidas = [];
 
-    try {
-      const uploadPromises = files.map(async (file) => {
-        // Validar tamaño (máximo 10MB por foto)
-        if (file.size > 10 * 1024 * 1024) {
-          alert(`La foto ${file.name} es muy grande. Máximo 10MB por foto.`);
-          return null;
-        }
-
-        // Validar tipo
-        if (!file.type.startsWith('image/')) {
-          alert(`${file.name} no es una imagen válida.`);
-          return null;
-        }
-
-        try {
-          const url = await uploadToCloudinary(file);
-          return {
-            id: Date.now() + Math.random(),
-            url,
-            nombre: file.name,
-            fechaSubida: new Date().toISOString()
-          };
-        } catch (error) {
-          alert(`Error al subir ${file.name}: ${error.message}`);
-          return null;
-        }
-      });
-
-      const fotosSubidas = await Promise.all(uploadPromises);
-      const fotosValidas = fotosSubidas.filter(foto => foto !== null);
-
-      if (fotosValidas.length > 0) {
-        setOrden(prev => ({
-          ...prev,
-          fotos: [...prev.fotos, ...fotosValidas]
-        }));
-        alert(`${fotosValidas.length} foto(s) subida(s) exitosamente.`);
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`La foto ${file.name} es muy grande. Máximo 10MB por foto.`);
+        continue;
       }
-    } catch (error) {
-      console.error('Error al procesar fotos:', error);
-      alert('Error al procesar las fotos.');
-    } finally {
-      setSubiendoFoto(false);
-      e.target.value = ''; // Limpiar input
+
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} no es una imagen válida.`);
+        continue;
+      }
+
+      fotosValidas.push({
+        id: Date.now() + Math.random(),
+        file,
+        url: URL.createObjectURL(file),
+        nombre: file.name
+      });
     }
+
+    if (fotosValidas.length > 0) {
+      setOrden(prev => ({
+        ...prev,
+        fotos: [...prev.fotos, ...fotosValidas]
+      }));
+    }
+
+    e.target.value = ''; // Limpiar input
   };
 
   const removeFoto = (id) => {
-    setOrden(prev => ({
-      ...prev,
-      fotos: prev.fotos.filter(foto => foto.id !== id)
-    }));
+    setOrden(prev => {
+      const foto = prev.fotos.find(f => f.id === id);
+      if (foto?.file) URL.revokeObjectURL(foto.url);
+      return { ...prev, fotos: prev.fotos.filter(f => f.id !== id) };
+    });
   };
 
   // Función para capturar firma - MEJORADA para mejor respuesta
@@ -531,18 +543,27 @@ export default function CrearOrdenTrabajo() {
         horarioFin: orden.horarioFin,
         tecnicos: orden.tecnicos.filter(t => t.nombre.trim()),
         tareasRealizadas: orden.tareasRealizadas,
-        fotos: orden.fotos,
         firmas: firmas,
         empresa: 'IMSSE INGENIERÍA S.A.S',
         usuarioCreador: user.email,
-        creadoPor: user.email,
-        fechaCreacion: new Date(),
-        fechaModificacion: new Date()
+        creadoPor: user.email
       };
 
-      console.log('Guardando orden con datos:', ordenData);
+      // Si hay señal sube las fotos y crea ya la orden; si no (o si algo falla en el
+      // camino), queda encolada localmente y se sincroniza sola cuando vuelva la señal.
+      const fotosFiles = orden.fotos.map(f => f.file);
+      const resultado = await offlineApiService.crearOrdenTrabajo(ordenData, fotosFiles);
 
-      await apiService.crearOrdenTrabajo(ordenData);
+      if (claveBorrador) {
+        await localDB.eliminarBorrador(claveBorrador);
+      }
+
+      if (resultado.offline) {
+        alert(`📴 ${resultado.message}`);
+        router.push('/admin/ordenes');
+        return;
+      }
+
       alert('✅ Orden de trabajo creada exitosamente');
       router.push('/admin/ordenes');
     } catch (error) {

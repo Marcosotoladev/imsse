@@ -178,13 +178,25 @@ export default function OfflineIndicator({ showDetails = false, className = '' }
                   Pendientes: {offlineStatus.pendingSync}
                 </p>
                 <p className="text-xs text-gray-600">
-                  {offlineStatus.pendingSync === 0 
-                    ? 'Todo sincronizado' 
+                  {offlineStatus.pendingSync === 0
+                    ? 'Todo sincronizado'
                     : 'Datos por sincronizar'
                   }
                 </p>
               </div>
             </div>
+
+            {offlineStatus.fallidos > 0 && (
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} className="text-red-600" />
+                <div>
+                  <p className="text-sm font-medium text-red-700">
+                    Fallidos: {offlineStatus.fallidos}
+                  </p>
+                  <p className="text-xs text-red-600">No se pudieron sincronizar</p>
+                </div>
+              </div>
+            )}
 
             {/* Estado de progreso */}
             <div className="flex items-center gap-2">

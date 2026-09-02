@@ -1,4 +1,4 @@
-// app/admin/inspecciones/editar/[id]/page.js - Editar Visita Técnica (siempre online)
+// app/admin/inspecciones/editar/[id]/page.js - Editar Visita Técnica (funciona offline)
 'use client';
 
 import { useState, useEffect, useRef, use } from 'react';
@@ -27,8 +27,10 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../../lib/firebase';
 import apiService from '../../../../../lib/services/apiService';
+import offlineApiService from '../../../../../lib/services/offlineApiService';
 import tecnicoService from '../../../../../lib/services/tecnicoService';
-import { uploadToCloudinary } from '../../../../../lib/cloudinary';
+import localDB from '../../../../../lib/db/localDB';
+import { useBorrador } from '../../../../../lib/hooks/useBorrador';
 import PlanillasAdjuntas from '../../../../components/inspecciones/PlanillasAdjuntas';
 import SignatureCanvas from 'react-signature-canvas';
 import { extraerObservacionesChecklist, sincronizarObservaciones } from '../../../../../lib/utils/observacionesChecklist';
@@ -87,6 +89,23 @@ export default function EditarInspeccionTecnica({ params }) {
     tecnico: { firma: null, aclaracion: '' },
     cliente: { firma: null, aclaracion: '' }
   });
+
+  const [claveBorrador, setClaveBorrador] = useState(null);
+
+  // Autoguardado local mientras se completa el formulario (no se sube al servidor).
+  // Las fotos nuevas no se persisten en el borrador, solo su nombre (ver recuperación
+  // más abajo) — evita cualquier riesgo de compatibilidad/cuota en celulares de gama baja.
+  useBorrador(
+    claveBorrador,
+    {
+      inspeccion,
+      firmas,
+      tipoCliente,
+      planillasAdjuntas,
+      fotosPendientesNombres: fotos.map((f) => f.nombre)
+    },
+    { enabled: !loading && !!claveBorrador }
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -158,6 +177,36 @@ export default function EditarInspeccionTecnica({ params }) {
               setClienteSeleccionado(clienteEncontrado);
               const empresa = empresas.find(e => e.id === clienteEncontrado.empresaId) || null;
               setEmpresaDelCliente(empresa);
+            }
+          }
+
+          // Chequear si hay un borrador sin guardar de una edición anterior de esta
+          // misma visita (con scope por usuario: el dispositivo puede compartirse
+          // entre técnicos en distintos turnos).
+          const clave = `inspeccion_editar_${id}_${currentUser.uid}`;
+          setClaveBorrador(clave);
+
+          const borrador = await localDB.obtenerBorrador(clave);
+          if (borrador?.datos) {
+            const empresaBorrador = borrador.datos.inspeccion?.cliente?.empresa || 'esta visita';
+            const fechaBorrador = new Date(borrador.fecha).toLocaleString('es-AR');
+            const recuperar = confirm(
+              `Tenés cambios sin guardar de "${empresaBorrador}" (${fechaBorrador}). ¿Querés recuperarlos?`
+            );
+
+            if (recuperar) {
+              setInspeccion(borrador.datos.inspeccion);
+              setFirmas(borrador.datos.firmas);
+              setTipoCliente(borrador.datos.tipoCliente);
+              setPlanillasAdjuntas(borrador.datos.planillasAdjuntas || []);
+
+              if (borrador.datos.fotosPendientesNombres?.length) {
+                alert(
+                  `Recordá volver a adjuntar ${borrador.datos.fotosPendientesNombres.length} foto(s) que tenías seleccionadas (no se guardan en el borrador): ${borrador.datos.fotosPendientesNombres.join(', ')}`
+                );
+              }
+            } else {
+              await localDB.eliminarBorrador(clave);
             }
           }
 
@@ -463,10 +512,6 @@ export default function EditarInspeccionTecnica({ params }) {
     setGuardando(true);
 
     try {
-      const fotosNuevasSubidas = await Promise.all(
-        fotos.map((foto) => uploadToCloudinary(foto.file, 'inspecciones_tecnicas'))
-      );
-
       const datos = {
         numero: inspeccion.numero,
         clienteId: inspeccion.clienteId || null,
@@ -478,12 +523,26 @@ export default function EditarInspeccionTecnica({ params }) {
         tecnicos: inspeccion.tecnicos.filter(t => t.nombre.trim()),
         observaciones: inspeccion.observaciones,
         planillasAdjuntas,
-        fotos: [...fotosExistentes, ...fotosNuevasSubidas],
+        fotos: fotosExistentes,
         firmas,
         empresa: 'IMSSE INGENIERÍA S.A.S'
       };
 
-      await apiService.actualizarInspeccionTecnica(id, datos);
+      // Si hay señal sube las fotos nuevas y guarda ya; si no (o si algo falla en el
+      // camino), queda encolado localmente y se sincroniza solo cuando vuelva la señal
+      // — nada de lo ya completado (checklist, firmas, campos) se pierde.
+      const resultado = await offlineApiService.actualizarInspeccionTecnica(id, datos, fotos.map((f) => f.file));
+
+      if (claveBorrador) {
+        await localDB.eliminarBorrador(claveBorrador);
+      }
+
+      if (resultado.offline) {
+        alert(`📴 ${resultado.message}`);
+        router.push('/admin/inspecciones');
+        return;
+      }
+
       router.push(`/admin/inspecciones/${id}`);
     } catch (error) {
       console.error('Error al actualizar la inspección técnica:', error);

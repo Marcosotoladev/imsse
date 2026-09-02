@@ -22,6 +22,16 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 
+// Numerito de no leídas, igual al del sidebar
+function BadgeNoLeidos({ count }) {
+  if (!count) return null;
+  return (
+    <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+      {count > 9 ? '9+' : count}
+    </span>
+  );
+}
+
 // Documentos que se agrupan bajo la tarjeta "Documentos"
 const DOCUMENTOS_SUB = [
   { key: 'presupuestos', nombre: 'Presupuestos', listUrl: '/admin/presupuestos', nuevoUrl: '/admin/presupuestos/nuevo' },
@@ -39,7 +49,7 @@ const configuracionModulos = {
     { key: 'plantillas', nombre: 'Plantillas', icono: ListChecks, color: 'cyan', listUrl: '/admin/plantillas', nuevoUrl: '/admin/plantillas/nueva' },
     { key: 'planaccion', nombre: 'Plan de Acción', icono: ClipboardList, color: 'purple', listUrl: '/admin/plan-accion', nuevoUrl: '/admin/plan-accion/nueva' },
     { key: 'asistencia', nombre: 'Control de Asistencia', icono: Clock, color: 'teal', listUrl: '/admin/control-asistencia/admin' },
-    { key: 'notificaciones', nombre: 'Notificaciones', icono: BellRing, disabled: true },
+    { key: 'notificaciones', nombre: 'Notificaciones', icono: BellRing, color: 'indigo', listUrl: '/admin/notificaciones' },
     { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' },
     { key: 'documentos', nombre: 'Documentos', icono: Folder, esDocumentos: true, sub: DOCUMENTOS_SUB },
     { key: 'empresas', nombre: 'Empresas', icono: Building2, color: 'purple', listUrl: '/admin/empresas', nuevoUrl: '/admin/empresas?crear=true' },
@@ -138,6 +148,7 @@ export default function PanelControl() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -157,6 +168,10 @@ export default function PanelControl() {
 
           setUser(currentUser);
           setPerfil(perfilUsuario);
+
+          apiService.obtenerNotificacionesNoLeidas()
+            .then(({ count }) => setNotifCount(count || 0))
+            .catch((error) => console.error('Error al obtener notificaciones sin leer:', error));
         } catch (error) {
           console.error('Error al verificar usuario:', error);
           router.push('/admin');
@@ -244,6 +259,7 @@ export default function PanelControl() {
                   <p className="text-sm font-semibold text-gray-900 truncate">
                     {modulo.nombre}
                   </p>
+                  {modulo.key === 'notificaciones' && <BadgeNoLeidos count={notifCount} />}
                 </div>
                 {modulo.nuevoUrl && (
                   <Link
