@@ -34,6 +34,7 @@ async function getSuscripcion(req, res, user) {
       response.monto = sub?.monto ?? null;
       response.moneda = sub?.moneda || 'ARS';
       response.estadoMP = sub?.mercadopago?.status || null;
+      response.initPoint = sub?.mercadopago?.initPoint || null;
     }
 
     if (user.superAdmin) {

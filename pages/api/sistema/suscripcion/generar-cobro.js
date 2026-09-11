@@ -3,7 +3,7 @@
 // el plan no lleva payer_email fijo, así que quien abre el link autoriza con
 // la cuenta de MercadoPago que quiera y aporta su propio email en ese momento.
 // Esto evita el error "no coincide el email" que da un Preapproval con email prefijado.
-import { withAuth } from '../../../../lib/auth-middleware';
+import { withAuth, ROLES } from '../../../../lib/auth-middleware';
 import admin from '../../../../lib/firebase-admin';
 import { subscriptionRef, invalidateSubscriptionCache } from '../../../../lib/subscription';
 import { preApprovalPlanClient } from '../../../../lib/mercadopago';
@@ -15,15 +15,18 @@ async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!user.superAdmin) {
+  // El admin dueño de la cuenta también puede generar/reautorizar su propio cobro
+  // (típicamente desde /mantenimiento, para destrabarse solo). El resto de roles, no.
+  if (!user.superAdmin && user.role !== ROLES.ADMIN) {
     return res.status(403).json({ error: 'Access denied' });
   }
 
   try {
-    const { monto, moneda } = req.body;
-
     const snap = await subscriptionRef().get();
     const sub = snap.exists ? snap.data() : null;
+    // Solo el Superadmin puede fijar precio distinto al ya configurado: un admin
+    // bloqueado que llama esto no debe poder mandar su propio monto en el body.
+    const { monto, moneda } = user.superAdmin ? req.body : {};
     const montoFinal = Number(monto ?? sub?.monto);
     const monedaFinal = moneda || sub?.moneda || 'ARS';
 
@@ -72,4 +75,4 @@ async function handler(req, res) {
   }
 }
 
-export default withAuth(handler);
+export default withAuth(handler, [], { allowDuringMaintenance: true });
