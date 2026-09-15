@@ -23,7 +23,8 @@ import {
   FileText,
   Download,
   RefreshCw,
-  Home
+  Home,
+  Lock
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
@@ -77,6 +78,7 @@ export default function CrearOrdenTrabajo() {
       { nombre: '' }
     ],
     tareasRealizadas: '',
+    observacionesImsse: '',
     fotos: []
   });
 
@@ -543,6 +545,7 @@ export default function CrearOrdenTrabajo() {
         horarioFin: orden.horarioFin,
         tecnicos: orden.tecnicos.filter(t => t.nombre.trim()),
         tareasRealizadas: orden.tareasRealizadas,
+        observacionesImsse: orden.observacionesImsse,
         firmas: firmas,
         empresa: 'IMSSE INGENIERÍA S.A.S',
         usuarioCreador: user.email,
@@ -1022,6 +1025,25 @@ export default function CrearOrdenTrabajo() {
                 required
               />
             </div>
+          </div>
+
+          {/* Observaciones internas IMSSE - solo visibles para admin/técnico, no se incluyen en el PDF */}
+          <div className="p-4 border-2 border-dashed rounded-lg shadow-md bg-amber-50 border-amber-300 md:p-6">
+            <h3 className="flex items-center mb-1 text-lg font-semibold text-gray-700">
+              <Lock size={20} className="mr-2 text-amber-600" />
+              Observaciones Imsse
+            </h3>
+            <p className="mb-4 text-sm text-gray-500">
+              Uso interno: solo lo ven admin y técnicos. El cliente no accede a este campo y no se incluye en el PDF.
+            </p>
+            <textarea
+              name="observacionesImsse"
+              value={orden.observacionesImsse}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              placeholder="Notas internas para el equipo IMSSE (no visibles para el cliente)"
+              rows={4}
+            />
           </div>
 
           {/* Fotos del trabajo */}

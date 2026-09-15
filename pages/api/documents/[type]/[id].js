@@ -67,6 +67,9 @@ async function getDocument(req, res, type, id, user) {
       if (!accesoPermitido) {
         return res.status(403).json({ error: 'Access denied' });
       }
+
+      // Observaciones internas: comunicación técnico-admin, nunca visible para el cliente
+      delete docData.observacionesImsse;
     }
 
     if (user.role === ROLES.TECNICO) {
@@ -133,7 +136,7 @@ async function updateDocument(req, res, type, id, user) {
       const allowedFields = [
         'estado', 'notas', 'fechaCompletado', 'descripcionTrabajo', 'fotos',
         'titulo', 'descripcion', 'fechaRecordatorio', 'prioridad', 'completado',
-        'cliente', 'direccion', 'telefono', 'email', 'observaciones',
+        'cliente', 'direccion', 'telefono', 'email', 'observaciones', 'observacionesImsse',
         // Campos específicos para visitas:
         'fecha', 'hora', 'empresa', 'detalle',
         // Campos específicos para inspecciones técnicas:

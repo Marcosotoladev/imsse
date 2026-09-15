@@ -20,7 +20,8 @@ import {
   Camera,
   CheckCircle,
   PenTool,
-  ClipboardCheck
+  ClipboardCheck,
+  Lock
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
@@ -503,6 +504,22 @@ export default function VerInspeccionTecnica({ params }) {
                   <h3 className="mb-3 text-lg font-semibold text-gray-700">Observaciones Generales</h3>
                   <div className="text-gray-900 whitespace-pre-line">
                     {inspeccion.observaciones}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Observaciones internas IMSSE - solo admin/técnico, no se imprime en el PDF */}
+            {inspeccion.observacionesImsse && (
+              <div className="px-8 py-4">
+                <div className="p-4 border-2 border-dashed rounded-lg bg-amber-50 border-amber-300">
+                  <h3 className="flex items-center mb-3 text-lg font-semibold text-gray-700">
+                    <Lock size={18} className="mr-2 text-amber-600" />
+                    Observaciones Imsse
+                    <span className="ml-2 text-xs font-normal text-gray-500">(uso interno, no visible para el cliente)</span>
+                  </h3>
+                  <div className="text-gray-900 whitespace-pre-line">
+                    {inspeccion.observacionesImsse}
                   </div>
                 </div>
               </div>

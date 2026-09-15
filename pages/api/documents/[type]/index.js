@@ -103,6 +103,9 @@ async function getDocuments(req, res, type, user) {
           .slice(0, 50); // Limitar resultados
       }
 
+      // Observaciones internas: comunicación técnico-admin, nunca visible para el cliente
+      documents = documents.map(({ observacionesImsse, ...doc }) => doc);
+
     } else if (user.role === ROLES.TECNICO) {
       // ✅ CAMBIO PRINCIPAL: Técnico puede ver TODOS los documentos de órdenes, recordatorios y visitas
       if (!TECNICO_LECTURA.includes(type)) {
