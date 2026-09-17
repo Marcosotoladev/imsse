@@ -19,6 +19,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { richTextToPlainText } from '../../../lib/utils/richText';
 
 export default function EstadosCuentaCliente() {
   const [user, setUser] = useState(null);
@@ -277,9 +278,9 @@ export default function EstadosCuentaCliente() {
                               <div className="text-sm font-medium text-gray-900">
                                 {estado.numero}
                               </div>
-                              {estado.observaciones && (
+                              {richTextToPlainText(estado.observaciones) && (
                                 <div className="max-w-xs text-sm text-gray-500 truncate">
-                                  {estado.observaciones}
+                                  {richTextToPlainText(estado.observaciones)}
                                 </div>
                               )}
                             </div>

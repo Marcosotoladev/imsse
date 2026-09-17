@@ -8,6 +8,8 @@ import { Home, Edit, ArrowLeft, Download, Trash2, Calendar, Building, TrendingUp
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import RichTextViewer from '../../../components/ui/RichTextViewer';
+import { isRichTextEmpty } from '../../../../lib/utils/richText';
 import { use } from 'react';
 
 export default function VerEstadoCuenta({ params }) {
@@ -534,11 +536,11 @@ export default function VerEstadoCuenta({ params }) {
             </div>
 
             {/* Observaciones */}
-            {estadoCuenta.observaciones && (
+            {!isRichTextEmpty(estadoCuenta.observaciones) && (
               <div className="px-8 py-6">
                 <div className="p-4 rounded-lg bg-gray-50">
                   <h3 className="mb-3 text-lg font-bold text-red-600">OBSERVACIONES</h3>
-                  <div className="text-sm text-black whitespace-pre-line">{estadoCuenta.observaciones}</div>
+                  <RichTextViewer value={estadoCuenta.observaciones} className="text-sm text-black" />
                 </div>
               </div>
             )}

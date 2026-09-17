@@ -26,6 +26,8 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import RichTextViewer from '../../../components/ui/RichTextViewer';
+import { isRichTextEmpty } from '../../../../lib/utils/richText';
 import { use } from 'react';
 
 // Colores de badge para los estados del checklist (OK / NOK / NA)
@@ -510,7 +512,7 @@ export default function VerInspeccionTecnica({ params }) {
             )}
 
             {/* Observaciones internas IMSSE - solo admin/técnico, no se imprime en el PDF */}
-            {inspeccion.observacionesImsse && (
+            {!isRichTextEmpty(inspeccion.observacionesImsse) && (
               <div className="px-8 py-4">
                 <div className="p-4 border-2 border-dashed rounded-lg bg-amber-50 border-amber-300">
                   <h3 className="flex items-center mb-3 text-lg font-semibold text-gray-700">
@@ -518,9 +520,7 @@ export default function VerInspeccionTecnica({ params }) {
                     Observaciones Imsse
                     <span className="ml-2 text-xs font-normal text-gray-500">(uso interno, no visible para el cliente)</span>
                   </h3>
-                  <div className="text-gray-900 whitespace-pre-line">
-                    {inspeccion.observacionesImsse}
-                  </div>
+                  <RichTextViewer value={inspeccion.observacionesImsse} className="text-gray-900" />
                 </div>
               </div>
             )}

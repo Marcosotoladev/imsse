@@ -331,3 +331,85 @@ input:-webkit-autofill:active {
   height: 100%;
   width: 100%;
 }
+
+/* ==========================================
+   CONTENIDO DE TEXTO ENRIQUECIDO (Tiptap)
+   Usado tanto por el editor (RichTextEditor) como por el
+   visor de solo lectura (RichTextViewer) para que se vea igual.
+   ========================================== */
+.rich-text-content {
+  color: #374151; /* text-gray-700 */
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.rich-text-content p {
+  margin: 0 0 0.5em 0;
+  min-height: 1.6em;
+}
+
+.rich-text-content p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-content h3 {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #111827;
+  margin: 0.75em 0 0.4em 0;
+}
+
+.rich-text-content h3:first-child {
+  margin-top: 0;
+}
+
+.rich-text-content strong {
+  font-weight: 700;
+  color: inherit;
+}
+
+.rich-text-content em {
+  font-style: italic;
+}
+
+.rich-text-content ul,
+.rich-text-content ol {
+  padding-left: 1.4em;
+  margin: 0 0 0.5em 0;
+}
+
+.rich-text-content ul {
+  list-style: disc;
+}
+
+.rich-text-content ol {
+  list-style: decimal;
+}
+
+.rich-text-content ul ul {
+  list-style: circle;
+}
+
+.rich-text-content ul ul,
+.rich-text-content ol ol,
+.rich-text-content ul ol,
+.rich-text-content ol ul {
+  margin-bottom: 0;
+}
+
+.rich-text-content li {
+  margin: 0.15em 0;
+}
+
+.rich-text-content li p {
+  margin: 0;
+  min-height: 0;
+}
+
+.rich-text-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af; /* text-gray-400 */
+  pointer-events: none;
+  height: 0;
+}

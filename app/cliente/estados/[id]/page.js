@@ -27,6 +27,8 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import RichTextViewer from '../../../components/ui/RichTextViewer';
+import { isRichTextEmpty } from '../../../../lib/utils/richText';
 
 export default function DetalleEstadoCuentaCliente() {
   const router = useRouter();
@@ -354,13 +356,11 @@ export default function DetalleEstadoCuentaCliente() {
           </div>
 
           {/* Observaciones */}
-          {estadoCuenta.observaciones && (
+          {!isRichTextEmpty(estadoCuenta.observaciones) && (
             <div className="p-6 bg-white rounded-lg shadow">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">Observaciones</h2>
               <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                <p className="text-sm text-gray-700 whitespace-pre-line">
-                  {estadoCuenta.observaciones}
-                </p>
+                <RichTextViewer value={estadoCuenta.observaciones} className="text-sm text-gray-700" />
               </div>
             </div>
           )}

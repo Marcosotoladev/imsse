@@ -8,6 +8,7 @@ import { Home, Save, ArrowLeft, Plus, Trash2, Download, Calendar, DollarSign, Fi
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../../lib/firebase';
 import apiService from '../../../../../lib/services/apiService';
+import RichTextEditor from '../../../../components/ui/RichTextEditor';
 import { use } from 'react';
 
 export default function EditarEstadoCuenta({ params }) {
@@ -737,12 +738,11 @@ export default function EditarEstadoCuenta({ params }) {
             {/* Observaciones */}
             <div className="p-6 bg-white rounded-lg shadow-md">
               <h3 className="mb-4 text-lg font-semibold text-gray-700">Observaciones</h3>
-              <textarea
-                name="observaciones"
+              <RichTextEditor
                 value={estadoCuenta.observaciones}
-                onChange={handleEstadoChange}
-                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                onChange={(json) => setEstadoCuenta({ ...estadoCuenta, observaciones: json })}
                 placeholder="Observaciones adicionales sobre el estado de cuenta..."
+                minHeight={100}
               />
             </div>
 

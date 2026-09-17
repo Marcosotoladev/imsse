@@ -1,6 +1,7 @@
 // components/pdf/OrdenTrabajoPDF.jsx - PDF Orden de Trabajo IMSSE
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import RichTextPdf from './RichTextPdf';
 
 // Estilos profesionales para PDF IMSSE
 const styles = StyleSheet.create({
@@ -363,9 +364,11 @@ const OrdenTrabajoPDF = ({ orden }) => {
         {/* Tareas realizadas */}
         <View style={styles.tareasSection}>
           <Text style={styles.sectionTitle}>Tareas Realizadas</Text>
-          <Text style={styles.tareas}>
-            {safeOrden.tareasRealizadas || 'No se especificaron tareas realizadas.'}
-          </Text>
+          <RichTextPdf
+            content={safeOrden.tareasRealizadas}
+            textStyle={styles.tareas}
+            emptyText="No se especificaron tareas realizadas."
+          />
         </View>
 
         {/* Fotos */}

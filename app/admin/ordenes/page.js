@@ -26,6 +26,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 import offlineApiService from '../../../lib/services/offlineApiService';
+import { richTextToPlainText } from '../../../lib/utils/richText';
 
 const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todas' };
 
@@ -223,7 +224,7 @@ export default function ListaOrdenesTrabajo() {
         orden.numero?.toLowerCase().includes(term) ||
         orden.cliente?.empresa?.toLowerCase().includes(term) ||
         orden.cliente?.nombre?.toLowerCase().includes(term) ||
-        orden.tareasRealizadas?.toLowerCase().includes(term)
+        richTextToPlainText(orden.tareasRealizadas).toLowerCase().includes(term)
       );
     }
 

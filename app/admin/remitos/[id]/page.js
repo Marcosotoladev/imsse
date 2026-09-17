@@ -9,6 +9,8 @@ import { Home, Edit, ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import RichTextViewer from '../../../components/ui/RichTextViewer';
+import { isRichTextEmpty } from '../../../../lib/utils/richText';
 
 export default function VerRemito() {
   const router = useRouter();
@@ -417,11 +419,11 @@ export default function VerRemito() {
             </div>
 
             {/* Observaciones */}
-            {remito.observaciones && (
+            {!isRichTextEmpty(remito.observaciones) && (
               <div className="px-8 py-6">
                 <div className="p-4 rounded-lg bg-gray-50">
                   <h3 className="mb-3 text-lg font-bold text-red-600">OBSERVACIONES</h3>
-                  <div className="text-sm text-black whitespace-pre-line">{remito.observaciones}</div>
+                  <RichTextViewer value={remito.observaciones} className="text-sm text-black" />
                 </div>
               </div>
             )}

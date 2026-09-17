@@ -1,6 +1,8 @@
 // components/pdf/EstadoCuentaPDFSimplificado.js - PDF SIMPLIFICADO COMPLETO
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import RichTextPdf from './RichTextPdf';
+import { isRichTextEmpty } from '../../../lib/utils/richText';
 
 const styles = StyleSheet.create({
   page: {
@@ -601,10 +603,10 @@ const EstadoCuentaPDFSimplificado = ({ estadoCuenta }) => {
         </View>
 
         {/* Observaciones */}
-        {safeEstado.observaciones && (
+        {!isRichTextEmpty(safeEstado.observaciones) && (
           <View style={styles.observationsSection}>
             <Text style={styles.observationsTitle}>OBSERVACIONES</Text>
-            <Text style={styles.observationsText}>{safeEstado.observaciones}</Text>
+            <RichTextPdf content={safeEstado.observaciones} textStyle={styles.observationsText} />
           </View>
         )}
 

@@ -1,6 +1,8 @@
 // components/pdf/PresupuestoPDF.js - CON DESCUENTO
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import RichTextPdf from './RichTextPdf';
+import { isRichTextEmpty } from '../../../lib/utils/richText';
 
 // Estilos limpios y profesionales
 const styles = StyleSheet.create({
@@ -353,7 +355,7 @@ export default function PresupuestoPDF({ presupuesto }) {
   const safePresupuesto = presupuesto || {};
   const cliente = safePresupuesto.cliente || {};
   const items = safePresupuesto.items || [];
-  const observaciones = safePresupuesto.observaciones?.trim() || null;
+  const observaciones = !isRichTextEmpty(safePresupuesto.observaciones) ? safePresupuesto.observaciones : null;
   
   // Asegurar valores numéricos
   const subtotal = parseFloat(safePresupuesto.subtotal) || 0;
@@ -528,7 +530,7 @@ export default function PresupuestoPDF({ presupuesto }) {
         {observaciones && (
           <View style={styles.observaciones}>
             <Text style={styles.observacionesTitle}>Observaciones:</Text>
-            <Text style={styles.observacionesText}>{observaciones}</Text>
+            <RichTextPdf content={observaciones} textStyle={styles.observacionesText} />
           </View>
         )}
 

@@ -19,6 +19,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { richTextToPlainText } from '../../../lib/utils/richText';
 
 export default function PresupuestosCliente() {
   const [user, setUser] = useState(null);
@@ -310,9 +311,9 @@ export default function PresupuestosCliente() {
                             <div className="text-sm font-medium text-gray-900">
                               {presupuesto.numero}
                             </div>
-                            {presupuesto.observaciones && (
+                            {richTextToPlainText(presupuesto.observaciones) && (
                               <div className="max-w-xs text-sm text-gray-500 truncate">
-                                {presupuesto.observaciones}
+                                {richTextToPlainText(presupuesto.observaciones)}
                               </div>
                             )}
                           </div>
@@ -379,9 +380,9 @@ export default function PresupuestosCliente() {
                       <p className="text-lg font-bold text-gray-900">
                         {formatearMonto(presupuesto.total)}
                       </p>
-                      {presupuesto.observaciones && (
+                      {richTextToPlainText(presupuesto.observaciones) && (
                         <p className="text-sm text-gray-600 truncate">
-                          {presupuesto.observaciones}
+                          {richTextToPlainText(presupuesto.observaciones)}
                         </p>
                       )}
                     </div>

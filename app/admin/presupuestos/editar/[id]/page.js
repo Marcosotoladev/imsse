@@ -11,6 +11,7 @@ import apiService from '../../../../../lib/services/apiService';
 import { use } from 'react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import PresupuestoPDF from '../../../../components/pdf/PresupuestoPDF';
+import RichTextEditor from '../../../../components/ui/RichTextEditor';
 
 export default function EditarPresupuesto({ params }) {
   const resolvedParams = use(params);
@@ -744,12 +745,12 @@ export default function EditarPresupuesto({ params }) {
           {/* Observaciones */}
           <div className="p-6 bg-white rounded-lg shadow-md">
             <h3 className="mb-4 text-lg font-semibold text-gray-700">Observaciones</h3>
-            <textarea
+            <RichTextEditor
               value={presupuesto.observaciones}
-              onChange={(e) => setPresupuesto({ ...presupuesto, observaciones: e.target.value })}
-              className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md"
+              onChange={(json) => setPresupuesto({ ...presupuesto, observaciones: json })}
               placeholder="Observaciones adicionales, condiciones especiales, garantías, plazos de entrega, etc."
-            ></textarea>
+              minHeight={100}
+            />
             <p className="mt-2 text-xs text-gray-500">
               Estas observaciones aparecerán en el PDF del presupuesto (opcional)
             </p>

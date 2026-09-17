@@ -1,6 +1,8 @@
 // components/pdf/RemitoPDF.js - PDF Remito IMSSE (Formato mejorado como ReciboPDF)
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import RichTextPdf from './RichTextPdf';
+import { isRichTextEmpty } from '../../../lib/utils/richText';
 
 // Estilos profesionales para PDF IMSSE (basado en ReciboPDF)
 const styles = StyleSheet.create({
@@ -486,10 +488,10 @@ const RemitoPDF = ({ remito }) => {
         </View>
 
         {/* Observaciones */}
-        {safeRemito.observaciones && (
+        {!isRichTextEmpty(safeRemito.observaciones) && (
           <View style={styles.observationsSection}>
             <Text style={styles.observationsTitle}>OBSERVACIONES</Text>
-            <Text style={styles.observationsText}>{safeRemito.observaciones}</Text>
+            <RichTextPdf content={safeRemito.observaciones} textStyle={styles.observationsText} />
           </View>
         )}
 

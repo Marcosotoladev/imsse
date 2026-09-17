@@ -20,6 +20,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { richTextToPlainText } from '../../../lib/utils/richText';
 
 export default function OrdenesCliente() {
   const [user, setUser] = useState(null);
@@ -83,7 +84,7 @@ export default function OrdenesCliente() {
         orden.cliente?.empresa?.toLowerCase().includes(busqueda) ||
         orden.cliente?.nombre?.toLowerCase().includes(busqueda) ||
         orden.cliente?.direccion?.toLowerCase().includes(busqueda) ||
-        orden.tareasRealizadas?.toLowerCase().includes(busqueda) ||
+        richTextToPlainText(orden.tareasRealizadas).toLowerCase().includes(busqueda) ||
         orden.tecnicos?.some(t => t.nombre?.toLowerCase().includes(busqueda))
       );
     }
@@ -302,7 +303,7 @@ export default function OrdenesCliente() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="max-w-xs text-sm text-gray-900 truncate">
-                          {orden.tareasRealizadas || 'Sin descripción'}
+                          {richTextToPlainText(orden.tareasRealizadas) || 'Sin descripción'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -400,9 +401,9 @@ export default function OrdenesCliente() {
                         </div>
                       )}
                       
-                      {orden.tareasRealizadas && (
+                      {richTextToPlainText(orden.tareasRealizadas) && (
                         <div className="text-sm text-gray-600 truncate">
-                          <strong>Trabajo:</strong> {orden.tareasRealizadas}
+                          <strong>Trabajo:</strong> {richTextToPlainText(orden.tareasRealizadas)}
                         </div>
                       )}
                     </div>

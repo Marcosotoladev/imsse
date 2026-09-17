@@ -9,6 +9,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import SignatureCanvas from 'react-signature-canvas';
+import RichTextEditor from '../../../components/ui/RichTextEditor';
 
 
 export default function NuevoRemito() {
@@ -867,11 +868,11 @@ export default function NuevoRemito() {
                     {/* Observaciones */}
                     <div className="p-6 bg-white rounded-lg shadow-md">
                         <h3 className="mb-4 text-lg font-semibold text-primary">Observaciones</h3>
-                        <textarea
+                        <RichTextEditor
                             value={remito.observaciones}
-                            onChange={(e) => setRemito({ ...remito, observaciones: e.target.value })}
-                            className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                            onChange={(json) => setRemito({ ...remito, observaciones: json })}
                             placeholder="Instrucciones especiales, condiciones de entrega, comentarios adicionales..."
+                            minHeight={100}
                         />
                     </div>
 

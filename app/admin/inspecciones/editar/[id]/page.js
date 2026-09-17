@@ -35,6 +35,7 @@ import { useBorrador } from '../../../../../lib/hooks/useBorrador';
 import PlanillasAdjuntas from '../../../../components/inspecciones/PlanillasAdjuntas';
 import SignatureCanvas from 'react-signature-canvas';
 import { extraerObservacionesChecklist, sincronizarObservaciones } from '../../../../../lib/utils/observacionesChecklist';
+import RichTextEditor from '../../../../components/ui/RichTextEditor';
 
 export default function EditarInspeccionTecnica({ params }) {
   const { id } = use(params);
@@ -950,13 +951,11 @@ export default function EditarInspeccionTecnica({ params }) {
             <p className="mb-4 text-sm text-gray-500">
               Uso interno: solo lo ven admin y técnicos. El cliente no accede a este campo y no se incluye en el PDF.
             </p>
-            <textarea
-              name="observacionesImsse"
+            <RichTextEditor
               value={inspeccion.observacionesImsse}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              onChange={(json) => setInspeccion(prev => ({ ...prev, observacionesImsse: json }))}
               placeholder="Notas internas para el equipo IMSSE (no visibles para el cliente)"
-              rows={4}
+              minHeight={100}
             />
           </div>
 

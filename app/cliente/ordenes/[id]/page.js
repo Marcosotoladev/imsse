@@ -25,6 +25,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import RichTextViewer from '../../../components/ui/RichTextViewer';
 
 export default function DetalleOrdenCliente() {
   const router = useRouter();
@@ -366,9 +367,11 @@ export default function DetalleOrdenCliente() {
             </h2>
             
             <div className="p-4 border border-gray-200 rounded-md bg-gray-50">
-              <p className="text-sm text-gray-900 whitespace-pre-line">
-                {orden.tareasRealizadas || 'No se especificaron tareas realizadas'}
-              </p>
+              <RichTextViewer
+                value={orden.tareasRealizadas}
+                emptyText="No se especificaron tareas realizadas"
+                className="text-sm text-gray-900"
+              />
             </div>
           </div>
 

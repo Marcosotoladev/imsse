@@ -22,6 +22,8 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import RichTextViewer from '../../../components/ui/RichTextViewer';
+import { isRichTextEmpty } from '../../../../lib/utils/richText';
 
 export default function DetalleRemitoCliente() {
   const router = useRouter();
@@ -301,15 +303,13 @@ export default function DetalleRemitoCliente() {
               )}
             </div>
 
-            {remito.observaciones && (
+            {!isRichTextEmpty(remito.observaciones) && (
               <div className="mt-4">
                 <label className="block mb-1 text-sm font-medium text-gray-700">
                   Observaciones:
                 </label>
                 <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
-                  <p className="text-sm text-gray-900 whitespace-pre-line">
-                    {remito.observaciones}
-                  </p>
+                  <RichTextViewer value={remito.observaciones} className="text-sm text-gray-900" />
                 </div>
               </div>
             )}

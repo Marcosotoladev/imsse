@@ -36,6 +36,8 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import OrdenTrabajoPDF from '../../../components/pdf/OrdenTrabajoPDF';
 import SignatureCanvas from 'react-signature-canvas';
 import tecnicoService from '../../../../lib/services/tecnicoService';
+import RichTextEditor from '../../../components/ui/RichTextEditor';
+import { isRichTextEmpty } from '../../../../lib/utils/richText';
 
 export default function CrearOrdenTrabajo() {
   const [user, setUser] = useState(null);
@@ -110,7 +112,7 @@ export default function CrearOrdenTrabajo() {
     {
       enabled: !loading && !!claveBorrador,
       tieneContenido: (datos) =>
-        !!(datos.orden.cliente.empresa || datos.orden.cliente.nombre || datos.orden.tareasRealizadas)
+        !!(datos.orden.cliente.empresa || datos.orden.cliente.nombre || !isRichTextEmpty(datos.orden.tareasRealizadas))
     }
   );
 
@@ -517,7 +519,7 @@ export default function CrearOrdenTrabajo() {
       return;
     }
 
-    if (!orden.tareasRealizadas.trim()) {
+    if (isRichTextEmpty(orden.tareasRealizadas)) {
       alert('Por favor describe las tareas realizadas');
       return;
     }
@@ -615,7 +617,7 @@ export default function CrearOrdenTrabajo() {
                 <ArrowLeft size={16} className="mr-1 md:mr-2" />
                 Cancelar
               </Link>
-              {orden.cliente.empresa && orden.tareasRealizadas && (
+              {orden.cliente.empresa && !isRichTextEmpty(orden.tareasRealizadas) && (
                 <button
                   onClick={() => setMostrarPDF(true)}
                   className="flex items-center px-3 py-2 text-sm text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700 md:px-4"
@@ -1015,14 +1017,11 @@ export default function CrearOrdenTrabajo() {
 
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700">Descripción de los Trabajos Realizados *</label>
-              <textarea
-                name="tareasRealizadas"
+              <RichTextEditor
                 value={orden.tareasRealizadas}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                onChange={(json) => setOrden(prev => ({ ...prev, tareasRealizadas: json }))}
                 placeholder="Describe detalladamente todos los trabajos realizados, materiales utilizados, observaciones, etc."
-                rows={6}
-                required
+                minHeight={150}
               />
             </div>
           </div>
@@ -1036,13 +1035,11 @@ export default function CrearOrdenTrabajo() {
             <p className="mb-4 text-sm text-gray-500">
               Uso interno: solo lo ven admin y técnicos. El cliente no accede a este campo y no se incluye en el PDF.
             </p>
-            <textarea
-              name="observacionesImsse"
+            <RichTextEditor
               value={orden.observacionesImsse}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              onChange={(json) => setOrden(prev => ({ ...prev, observacionesImsse: json }))}
               placeholder="Notas internas para el equipo IMSSE (no visibles para el cliente)"
-              rows={4}
+              minHeight={100}
             />
           </div>
 
