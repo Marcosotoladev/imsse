@@ -413,3 +413,20 @@ input:-webkit-autofill:active {
   pointer-events: none;
   height: 0;
 }
+/* Pantalla de carga de la home cuando hay sesión iniciada (ver SessionRedirect.jsx).
+   El atributo lo pone un script inline en app/layout.js antes del primer pintado. */
+.session-redirect-loader {
+  display: none;
+}
+html[data-session-redirect] .session-redirect-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+html[data-session-redirect] body {
+  overflow: hidden;
+}

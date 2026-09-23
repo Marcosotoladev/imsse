@@ -11,6 +11,7 @@ import {
 import Image from 'next/image';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
+import { limpiarSesionActiva } from '../../../lib/utils/sessionHint';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -99,6 +100,7 @@ const Header = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      limpiarSesionActiva();
       router.push('/login');
       alert('Sesión cerrada exitosamente');
     } catch (error) {

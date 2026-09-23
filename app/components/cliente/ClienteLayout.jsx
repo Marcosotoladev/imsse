@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
+import { marcarSesionActiva, limpiarSesionActiva } from '../../../lib/utils/sessionHint';
 import apiService from '../../../lib/services/apiService';
 
 // Configuración de módulos para clientes (Documentos agrupa los distintos tipos)
@@ -198,6 +199,7 @@ export default function ClienteLayout({ children }) {
             return;
           }
 
+          marcarSesionActiva();
           setUser(currentUser);
           setPerfil(perfilUsuario);
           setLoading(false);
@@ -265,6 +267,7 @@ export default function ClienteLayout({ children }) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      limpiarSesionActiva();
       router.push('/admin');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);

@@ -32,8 +32,15 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <head>
+        {/* Si este dispositivo tiene sesión iniciada, en la home se muestra un loader
+            en vez de la landing mientras SessionRedirect redirige al panel */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(location.pathname==='/'&&localStorage.getItem('imsse_session_hint'))document.documentElement.dataset.sessionRedirect='1'}catch(e){}`,
+          }}
+        />
         <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

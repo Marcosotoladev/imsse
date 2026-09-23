@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, LogOut, CreditCard, RefreshCw, Calendar } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
+import { limpiarSesionActiva } from '../../lib/utils/sessionHint';
 import apiService from '../../lib/services/apiService';
 
 export default function MantenimientoPage() {
@@ -74,6 +75,7 @@ export default function MantenimientoPage() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      limpiarSesionActiva();
       router.push('/admin');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
