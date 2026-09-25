@@ -29,7 +29,6 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { marcarSesionActiva, limpiarSesionActiva } from '../../../lib/utils/sessionHint';
 import apiService from '../../../lib/services/apiService';
 
 // Submenú de Documentos (compartido entre el panel "Más" y el sidebar desktop)
@@ -246,7 +245,6 @@ export default function AdminLayout({ children }) {
             }
           }
 
-          marcarSesionActiva();
           setUser(currentUser);
           setPerfil(perfilUsuario);
           setLoading(false);
@@ -318,7 +316,6 @@ export default function AdminLayout({ children }) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      limpiarSesionActiva();
       router.push('/admin');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
