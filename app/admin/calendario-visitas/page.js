@@ -18,6 +18,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 // Nombres de los meses en español
 const MESES = [
@@ -47,18 +48,18 @@ function AccionBoton({ href, onClick, title, colorClasses, children }) {
   );
 }
 
-function AccionesVisita({ visita, onVer, onEliminar }) {
+function AccionesVisita({ puede, visita, onVer, onEliminar }) {
   return (
     <div className="flex items-center gap-2">
       <AccionBoton onClick={() => onVer(visita)} title="Ver detalles" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/calendario-visitas/editar/${visita.id}`} title="Editar visita" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('visitas', 'editar', visita) && (<AccionBoton href={`/admin/calendario-visitas/editar/${visita.id}`} title="Editar visita" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
-      <AccionBoton onClick={() => onEliminar(visita.id, visita.empresa)} title="Eliminar visita" colorClasses="text-red-600 bg-red-50 hover:bg-red-100">
+      </AccionBoton>)}
+      {puede('visitas', 'eliminar', visita) && (<AccionBoton onClick={() => onEliminar(visita.id, visita.empresa)} title="Eliminar visita" colorClasses="text-red-600 bg-red-50 hover:bg-red-100">
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
@@ -74,6 +75,7 @@ export default function CalendarioVisitas() {
   const [visitaSeleccionada, setVisitaSeleccionada] = useState(null);
   const [busqueda, setBusqueda] = useState('');
   const router = useRouter();
+  const { puede } = useMisPermisos();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -219,13 +221,13 @@ export default function CalendarioVisitas() {
               {visitas.length} {visitas.length === 1 ? 'visita' : 'visitas'} en {MESES[fechaActual.getMonth()]} {fechaActual.getFullYear()}
             </p>
           </div>
-          <Link
+          {puede('visitas', 'crear') && (<Link
             href="/admin/calendario-visitas/nueva"
             className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
           >
             <Plus size={18} className="mr-2" />
             Nueva Visita
-          </Link>
+          </Link>)}
         </div>
 
         {/* Navegación de mes + búsqueda */}
@@ -386,20 +388,24 @@ export default function CalendarioVisitas() {
                     >
                       Cerrar
                     </button>
-                    <Link
-                      href={`/admin/calendario-visitas/editar/${visitaSeleccionada.id}`}
-                      className="flex items-center px-4 py-2 text-white transition-colors bg-orange-600 rounded-xl hover:bg-orange-700"
-                    >
-                      <Edit size={16} className="mr-2" />
-                      Editar
-                    </Link>
-                    <button
-                      onClick={() => eliminarVisita(visitaSeleccionada.id, visitaSeleccionada.empresa)}
-                      className="flex items-center px-4 py-2 text-white transition-colors bg-red-600 rounded-xl hover:bg-red-700"
-                    >
-                      <Trash2 size={16} className="mr-2" />
-                      Eliminar
-                    </button>
+                    {puede('visitas', 'editar', visitaSeleccionada) && (
+                      <Link
+                        href={`/admin/calendario-visitas/editar/${visitaSeleccionada.id}`}
+                        className="flex items-center px-4 py-2 text-white transition-colors bg-orange-600 rounded-xl hover:bg-orange-700"
+                      >
+                        <Edit size={16} className="mr-2" />
+                        Editar
+                      </Link>
+                    )}
+                    {puede('visitas', 'eliminar', visitaSeleccionada) && (
+                      <button
+                        onClick={() => eliminarVisita(visitaSeleccionada.id, visitaSeleccionada.empresa)}
+                        className="flex items-center px-4 py-2 text-white transition-colors bg-red-600 rounded-xl hover:bg-red-700"
+                      >
+                        <Trash2 size={16} className="mr-2" />
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -409,13 +415,13 @@ export default function CalendarioVisitas() {
                     <div className="text-center text-gray-500">
                       <Calendar size={48} className="mx-auto mb-4 opacity-50" />
                       <p>No hay visitas programadas para este día</p>
-                      <Link
+                      {puede('visitas', 'crear') && (<Link
                         href="/admin/calendario-visitas/nueva"
                         className="inline-flex items-center px-4 py-2 mt-4 text-white rounded-xl bg-primary hover:bg-red-700"
                       >
                         <Plus size={16} className="mr-2" />
                         Programar Visita
-                      </Link>
+                      </Link>)}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -435,7 +441,7 @@ export default function CalendarioVisitas() {
                                 <p className="mt-1 text-sm text-gray-500">{visita.detalle}</p>
                               )}
                             </div>
-                            <AccionesVisita
+                            <AccionesVisita puede={puede}
                               visita={visita}
                               onVer={(v) => setVisitaSeleccionada(v)}
                               onEliminar={eliminarVisita}

@@ -20,6 +20,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todos' };
 
@@ -44,15 +45,15 @@ function AccionBoton({ href, onClick, disabled, title, colorClasses, children })
   );
 }
 
-function AccionesEstado({ estado, descargando, onDescargar, onEliminar }) {
+function AccionesEstado({ puede, estado, descargando, onDescargar, onEliminar }) {
   return (
     <div className="flex items-center gap-2">
       <AccionBoton href={`/admin/estados/${estado.id}`} title="Ver estado" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/estados/editar/${estado.id}`} title="Editar estado" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('estados', 'editar', estado) && (<AccionBoton href={`/admin/estados/editar/${estado.id}`} title="Editar estado" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
       <AccionBoton
         onClick={() => onDescargar(estado)}
         disabled={descargando === estado.id}
@@ -61,19 +62,20 @@ function AccionesEstado({ estado, descargando, onDescargar, onEliminar }) {
       >
         <Download size={18} />
       </AccionBoton>
-      <AccionBoton
+      {puede('estados', 'eliminar', estado) && (<AccionBoton
         onClick={() => onEliminar(estado.id, estado.numero)}
         title="Eliminar estado"
         colorClasses="text-red-600 bg-red-50 hover:bg-red-100"
       >
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
 
 export default function EstadosCuenta() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [estados, setEstados] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -248,13 +250,13 @@ export default function EstadosCuenta() {
               {estadosFiltrados.length} de {estados.length} {estados.length === 1 ? 'estado' : 'estados'}
             </p>
           </div>
-          <Link
+          {puede('estados', 'crear') && (<Link
             href="/admin/estados/nuevo"
             className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
           >
             <Plus size={18} className="mr-2" />
             Nuevo Estado de Cuenta
-          </Link>
+          </Link>)}
         </div>
 
         {/* Búsqueda + filtros + vista */}
@@ -368,13 +370,13 @@ export default function EstadosCuenta() {
               }
             </p>
             {!searchTerm && !hayFiltrosActivos && (
-              <Link
+              puede('estados', 'crear') && (<Link
                 href="/admin/estados/nuevo"
                 className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
               >
                 <Plus size={18} className="mr-2" />
                 Crear Primer Estado de Cuenta
-              </Link>
+              </Link>)
             )}
           </div>
         ) : vista === 'cards' ? (
@@ -407,7 +409,7 @@ export default function EstadosCuenta() {
                   </p>
                 </div>
 
-                <AccionesEstado
+                <AccionesEstado puede={puede}
                   estado={estado}
                   descargando={descargando}
                   onDescargar={handleDescargarPDF}
@@ -474,7 +476,7 @@ export default function EstadosCuenta() {
                         </td>
                         <td className="px-4 py-4 text-center whitespace-nowrap">
                           <div className="flex justify-center">
-                            <AccionesEstado
+                            <AccionesEstado puede={puede}
                               estado={estado}
                               descargando={descargando}
                               onDescargar={handleDescargarPDF}

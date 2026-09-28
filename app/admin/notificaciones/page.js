@@ -234,7 +234,7 @@ export default function NotificacionesAdmin() {
     );
   }
 
-  const puedeGestionar = perfil?.rol === 'admin' || perfil?.rol === 'tecnico';
+  const puedeGestionar = ['admin', 'tecnico', 'secretaria'].includes(perfil?.rol);
   const puedeEliminar = perfil?.rol === 'admin';
 
   return (

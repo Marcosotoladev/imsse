@@ -19,6 +19,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { obtenerMisPermisos, puedeCon, useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 import { PRIORIDAD_CLASES_SUAVE } from '../../../lib/constants/planAccion';
 
 function DonutEjecucion({ pct, size = 110, strokeWidth = 13 }) {
@@ -52,6 +53,7 @@ const FILTROS_INICIALES = { prioridad: 'Todas', estado: 'Todos', sede: 'Todas' }
 
 export default function ListaPlanAccion() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [propuestas, setPropuestas] = useState([]);
   const [busqueda, setBusqueda] = useState('');
@@ -66,9 +68,8 @@ export default function ListaPlanAccion() {
         return;
       }
       try {
-        const perfil = await apiService.obtenerPerfilUsuario(currentUser.uid);
-        if (perfil.rol !== 'admin') {
-          router.push(perfil.rol === 'tecnico' ? '/admin/dashboard-tecnico' : '/cliente/dashboard');
+        if (!puedeCon(await obtenerMisPermisos(), 'planaccion', 'ver')) {
+          router.push('/admin/panel-control');
           return;
         }
         await cargarPropuestas();
@@ -157,12 +158,14 @@ export default function ListaPlanAccion() {
             <span className="text-gray-700">Plan de Acción</span>
           </div>
 
-          <Link
-            href="/admin/plan-accion/nueva"
-            className="flex items-center px-4 py-2 mb-4 text-white transition-colors rounded-md bg-primary hover:bg-primary-light"
-          >
-            <FilePlus size={18} className="mr-2" /> Nueva Propuesta
-          </Link>
+          {puede('planaccion', 'crear') && (
+            <Link
+              href="/admin/plan-accion/nueva"
+              className="flex items-center px-4 py-2 mb-4 text-white transition-colors rounded-md bg-primary hover:bg-primary-light"
+            >
+              <FilePlus size={18} className="mr-2" /> Nueva Propuesta
+            </Link>
+          )}
         </div>
 
         <h2 className="mb-1 text-2xl font-bold font-montserrat text-primary">Plan de Acción</h2>
@@ -300,12 +303,16 @@ export default function ListaPlanAccion() {
                             <button onClick={() => setItemVer(item)} title="Ver detalle" className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-green-600">
                               <Eye size={16} />
                             </button>
-                            <Link href={`/admin/plan-accion/editar/${item.id}`} title="Editar" className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-secondary">
-                              <Edit size={16} />
-                            </Link>
-                            <button onClick={() => setConfirmarEliminar(item)} title="Eliminar" className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-red-600">
-                              <Trash2 size={16} />
-                            </button>
+                            {puede('planaccion', 'editar', item) && (
+                              <Link href={`/admin/plan-accion/editar/${item.id}`} title="Editar" className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-secondary">
+                                <Edit size={16} />
+                              </Link>
+                            )}
+                            {puede('planaccion', 'eliminar', item) && (
+                              <button onClick={() => setConfirmarEliminar(item)} title="Eliminar" className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-red-600">
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -344,12 +351,16 @@ export default function ListaPlanAccion() {
                       <button onClick={() => setItemVer(item)} className="flex items-center gap-1 px-3 py-1.5 text-xs text-green-700 bg-green-50 rounded-md">
                         <Eye size={14} /> Ver
                       </button>
-                      <Link href={`/admin/plan-accion/editar/${item.id}`} className="flex items-center gap-1 px-3 py-1.5 text-xs text-secondary bg-gray-100 rounded-md">
-                        <Edit size={14} /> Editar
-                      </Link>
-                      <button onClick={() => setConfirmarEliminar(item)} className="flex items-center gap-1 px-3 py-1.5 text-xs text-red-600 bg-red-50 rounded-md">
-                        <Trash2 size={14} />
-                      </button>
+                      {puede('planaccion', 'editar', item) && (
+                        <Link href={`/admin/plan-accion/editar/${item.id}`} className="flex items-center gap-1 px-3 py-1.5 text-xs text-secondary bg-gray-100 rounded-md">
+                          <Edit size={14} /> Editar
+                        </Link>
+                      )}
+                      {puede('planaccion', 'eliminar', item) && (
+                        <button onClick={() => setConfirmarEliminar(item)} className="flex items-center gap-1 px-3 py-1.5 text-xs text-red-600 bg-red-50 rounded-md">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

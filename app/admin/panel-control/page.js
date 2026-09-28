@@ -16,11 +16,14 @@ import {
   Plus,
   ClipboardCheck,
   ListChecks,
-  ClipboardList
+  ClipboardList,
+  ShieldCheck
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { ROLES_PERSONAL } from '../../../lib/permisosRoles';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 // Numerito de no leídas, igual al del sidebar
 function BadgeNoLeidos({ count }) {
@@ -41,28 +44,42 @@ const DOCUMENTOS_SUB = [
   { key: 'facturas', nombre: 'Facturas', disabled: true }
 ];
 
-// Configuración específica por rol: un solo listado de tarjetas (sin "acciones rápidas" separadas)
-const configuracionModulos = {
-  admin: [
-    { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },
-    { key: 'inspecciones', nombre: 'Visita Técnica', icono: ClipboardCheck, color: 'orange', listUrl: '/admin/inspecciones', nuevoUrl: '/admin/inspecciones/nueva' },
-    { key: 'plantillas', nombre: 'Plantillas', icono: ListChecks, color: 'cyan', listUrl: '/admin/plantillas', nuevoUrl: '/admin/plantillas/nueva' },
-    { key: 'planaccion', nombre: 'Plan de Acción', icono: ClipboardList, color: 'purple', listUrl: '/admin/plan-accion', nuevoUrl: '/admin/plan-accion/nueva' },
-    { key: 'asistencia', nombre: 'Control de Asistencia', icono: Clock, color: 'teal', listUrl: '/admin/control-asistencia/admin' },
-    { key: 'notificaciones', nombre: 'Notificaciones', icono: BellRing, color: 'indigo', listUrl: '/admin/notificaciones' },
-    { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' },
-    { key: 'documentos', nombre: 'Documentos', icono: Folder, esDocumentos: true, sub: DOCUMENTOS_SUB },
-    { key: 'empresas', nombre: 'Empresas', icono: Building2, color: 'purple', listUrl: '/admin/empresas', nuevoUrl: '/admin/empresas?crear=true' },
-    { key: 'usuarios', nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios', nuevoUrl: '/admin/usuarios?crear=true' },
-    { key: 'suscripcion', nombre: 'Suscripción', icono: Crown, color: 'yellow', listUrl: '/admin/suscripcion' }
-  ],
-  tecnico: [
-    { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },
-    { key: 'inspecciones', nombre: 'Visita Técnica', icono: ClipboardCheck, color: 'orange', listUrl: '/admin/inspecciones', nuevoUrl: '/admin/inspecciones/nueva' },
-    { key: 'asistencia', nombre: 'Control de Asistencia', icono: Clock, color: 'teal', listUrl: '/admin/control-asistencia', nuevoUrl: '/admin/control-asistencia/marcar' },
-    { key: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' }
-  ]
-};
+// Configuración específica por rol: un solo listado de tarjetas (sin "acciones rápidas" separadas).
+// `tipo`: la tarjeta se muestra si el rol puede ver ese tipo de documento, y "Nuevo" si puede crearlo
+// (grilla de Roles y permisos). `roles`: tarjetas que no son documentos, por rol.
+const MODULOS_PANEL = [
+  { key: 'ordenes', tipo: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, color: 'red', listUrl: '/admin/ordenes', nuevoUrl: '/admin/ordenes/nuevo' },
+  { key: 'inspecciones', tipo: 'inspecciones', nombre: 'Visita Técnica', icono: ClipboardCheck, color: 'orange', listUrl: '/admin/inspecciones', nuevoUrl: '/admin/inspecciones/nueva' },
+  { key: 'plantillas', tipo: 'plantillas', nombre: 'Plantillas', icono: ListChecks, color: 'cyan', listUrl: '/admin/plantillas', nuevoUrl: '/admin/plantillas/nueva' },
+  { key: 'planaccion', tipo: 'planaccion', nombre: 'Plan de Acción', icono: ClipboardList, color: 'purple', listUrl: '/admin/plan-accion', nuevoUrl: '/admin/plan-accion/nueva' },
+  { key: 'asistencia', roles: ['admin'], nombre: 'Control de Asistencia', icono: Clock, color: 'teal', listUrl: '/admin/control-asistencia/admin' },
+  { key: 'asistencia-tecnico', roles: ['tecnico'], nombre: 'Control de Asistencia', icono: Clock, color: 'teal', listUrl: '/admin/control-asistencia', nuevoUrl: '/admin/control-asistencia/marcar' },
+  { key: 'notificaciones', roles: ['admin', 'secretaria'], nombre: 'Notificaciones', icono: BellRing, color: 'indigo', listUrl: '/admin/notificaciones' },
+  { key: 'recordatorios', tipo: 'recordatorios', nombre: 'Recordatorios', icono: Bell, color: 'yellow', listUrl: '/admin/recordatorios', nuevoUrl: '/admin/recordatorios/nuevo' },
+  { key: 'documentos', nombre: 'Documentos', icono: Folder, esDocumentos: true, sub: DOCUMENTOS_SUB },
+  { key: 'empresas', roles: ['admin', 'secretaria'], nombre: 'Empresas', icono: Building2, color: 'purple', listUrl: '/admin/empresas', nuevoUrl: '/admin/empresas?crear=true' },
+  { key: 'usuarios', roles: ['admin'], nombre: 'Usuarios', icono: Users, color: 'slate', listUrl: '/admin/usuarios', nuevoUrl: '/admin/usuarios?crear=true' },
+  { key: 'roles', roles: ['admin'], nombre: 'Roles y permisos', icono: ShieldCheck, color: 'slate', listUrl: '/admin/roles' },
+  { key: 'suscripcion', roles: ['admin'], nombre: 'Suscripción', icono: Crown, color: 'yellow', listUrl: '/admin/suscripcion' }
+];
+
+// Tarjetas visibles para el rol, con "Nuevo" solo si puede crear
+function modulosPara(rol, puede) {
+  return MODULOS_PANEL
+    .map((modulo) => {
+      if (modulo.esDocumentos) {
+        const sub = modulo.sub.filter((item) => item.disabled || puede(item.key, 'ver'))
+          .map((item) => ({ ...item, puedeCrear: !item.disabled && puede(item.key, 'crear') }));
+        return sub.some((item) => !item.disabled) ? { ...modulo, sub } : null;
+      }
+      if (modulo.tipo) {
+        if (!puede(modulo.tipo, 'ver')) return null;
+        return puede(modulo.tipo, 'crear') ? modulo : { ...modulo, nuevoUrl: null };
+      }
+      return modulo.roles.includes(rol) ? modulo : null;
+    })
+    .filter(Boolean);
+}
 
 // Paleta moderna: badges de icono en color sólido sobre tarjetas blancas
 const getIconBadgeClasses = (color) => {
@@ -107,17 +124,19 @@ function DocumentosCard({ modulo }) {
         <p className="text-sm font-semibold text-gray-900 truncate">{modulo.nombre}</p>
       </button>
 
-      <button
-        type="button"
-        onClick={() => setOpenMenu(openMenu === 'nuevo' ? null : 'nuevo')}
-        className="inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
-      >
-        <Plus size={14} /> Nuevo
-      </button>
+      {modulo.sub.some((item) => item.puedeCrear) && (
+        <button
+          type="button"
+          onClick={() => setOpenMenu(openMenu === 'nuevo' ? null : 'nuevo')}
+          className="inline-flex items-center flex-shrink-0 gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+        >
+          <Plus size={14} /> Nuevo
+        </button>
+      )}
 
       {openMenu && (
         <div className="absolute left-4 right-4 top-full mt-1 z-20 overflow-hidden bg-white border border-gray-100 rounded-xl shadow-lg">
-          {modulo.sub.map((item) =>
+          {modulo.sub.filter((item) => openMenu !== 'nuevo' || item.disabled || item.puedeCrear).map((item) =>
             item.disabled ? (
               <div
                 key={item.key}
@@ -149,6 +168,7 @@ export default function PanelControl() {
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notifCount, setNotifCount] = useState(0);
+  const { puede, cargando: cargandoPermisos } = useMisPermisos();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -156,7 +176,7 @@ export default function PanelControl() {
         try {
           const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
 
-          if (perfilUsuario.rol !== 'admin' && perfilUsuario.rol !== 'tecnico') {
+          if (!ROLES_PERSONAL.includes(perfilUsuario.rol)) {
             router.push('/cliente/dashboard');
             return;
           }
@@ -186,7 +206,7 @@ export default function PanelControl() {
     return () => unsubscribe();
   }, [router]);
 
-  if (loading) {
+  if (loading || cargandoPermisos) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
@@ -197,7 +217,8 @@ export default function PanelControl() {
     );
   }
 
-  const configuracion = configuracionModulos[perfil?.rol] || configuracionModulos.tecnico;
+  const configuracion = modulosPara(perfil?.rol, puede);
+  const TITULO_PANEL = { admin: 'Panel de Administración', secretaria: 'Panel de Secretaría', tecnico: 'Panel Técnico' };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -210,7 +231,9 @@ export default function PanelControl() {
           <p className="text-gray-600">
             {perfil?.rol === 'admin'
               ? 'Panel completo de administración del sistema IMSSE'
-              : 'Gestiona tus órdenes de trabajo, recordatorios y calendario de visitas'
+              : perfil?.rol === 'secretaria'
+                ? 'Gestiona documentos, empresas y comunicaciones con los clientes'
+                : 'Gestiona tus órdenes de trabajo, recordatorios y calendario de visitas'
             }
           </p>
         </div>
@@ -281,7 +304,7 @@ export default function PanelControl() {
             <p className="text-white/80">Sistema de gestión completo - Protección contra incendios</p>
             <p className="mt-2">
               <span className="font-medium">
-                {perfil?.rol === 'admin' ? 'Panel de Administración' : 'Panel Técnico'}
+                {TITULO_PANEL[perfil?.rol] || 'Panel Técnico'}
               </span>
               {perfil?.rol === 'tecnico' && (
                 <span className="text-white/80"> - Órdenes, recordatorios y calendario de visitas</span>

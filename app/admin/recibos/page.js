@@ -21,6 +21,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 const FILTROS_INICIALES = { desde: '', hasta: '' };
 
@@ -45,15 +46,15 @@ function AccionBoton({ href, onClick, disabled, title, colorClasses, children })
   );
 }
 
-function AccionesRecibo({ recibo, descargando, onDescargar, onEliminar }) {
+function AccionesRecibo({ puede, recibo, descargando, onDescargar, onEliminar }) {
   return (
     <div className="flex items-center gap-2">
       <AccionBoton href={`/admin/recibos/${recibo.id}`} title="Ver recibo" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/recibos/editar/${recibo.id}`} title="Editar recibo" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('recibos', 'editar', recibo) && (<AccionBoton href={`/admin/recibos/editar/${recibo.id}`} title="Editar recibo" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
       <AccionBoton
         onClick={() => onDescargar(recibo)}
         disabled={descargando === recibo.id}
@@ -62,19 +63,20 @@ function AccionesRecibo({ recibo, descargando, onDescargar, onEliminar }) {
       >
         <Download size={18} />
       </AccionBoton>
-      <AccionBoton
+      {puede('recibos', 'eliminar', recibo) && (<AccionBoton
         onClick={() => onEliminar(recibo.id, recibo.numero)}
         title="Eliminar recibo"
         colorClasses="text-red-600 bg-red-50 hover:bg-red-100"
       >
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
 
 export default function ListaRecibos() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [recibos, setRecibos] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -247,13 +249,13 @@ export default function ListaRecibos() {
               {recibosFiltrados.length} de {recibos.length} {recibos.length === 1 ? 'recibo' : 'recibos'}
             </p>
           </div>
-          <Link
+          {puede('recibos', 'crear') && (<Link
             href="/admin/recibos/nuevo"
             className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
           >
             <FilePlus size={18} className="mr-2" />
             Nuevo Recibo
-          </Link>
+          </Link>)}
         </div>
 
         {/* Búsqueda + filtros + vista */}
@@ -354,13 +356,13 @@ export default function ListaRecibos() {
               }
             </p>
             {!searchTerm && !hayFiltrosActivos && (
-              <Link
+              puede('recibos', 'crear') && (<Link
                 href="/admin/recibos/nuevo"
                 className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
               >
                 <FilePlus size={18} className="mr-2" />
                 Crear Primer Recibo
-              </Link>
+              </Link>)
             )}
           </div>
         ) : vista === 'cards' ? (
@@ -390,7 +392,7 @@ export default function ListaRecibos() {
                   </p>
                 </div>
 
-                <AccionesRecibo
+                <AccionesRecibo puede={puede}
                   recibo={recibo}
                   descargando={descargando}
                   onDescargar={handleDescargarPDF}
@@ -442,7 +444,7 @@ export default function ListaRecibos() {
                         </td>
                         <td className="px-4 py-4 text-center whitespace-nowrap">
                           <div className="flex justify-center">
-                            <AccionesRecibo
+                            <AccionesRecibo puede={puede}
                               recibo={recibo}
                               descargando={descargando}
                               onDescargar={handleDescargarPDF}

@@ -1,5 +1,5 @@
 // pages/api/empresas/index.js - CRUD de Empresas (clientes) y sus Sedes
-import { withAuth, ROLES } from '../../../lib/auth-middleware';
+import { withAuth, ROLES_PERSONAL, ROLES_GESTION_EMPRESAS } from '../../../lib/auth-middleware';
 import { firestore } from '../../../lib/firebase-admin';
 import admin from '../../../lib/firebase-admin';
 
@@ -18,8 +18,8 @@ async function handler(req, res) {
 
 async function getEmpresas(req, res, user) {
   try {
-    // Admin gestiona Empresas; técnico solo necesita leerlas para elegir Sede al crear una orden
-    if (user.role !== ROLES.ADMIN && user.role !== ROLES.TECNICO) {
+    // Admin y secretaria gestionan Empresas; el técnico solo las lee para elegir Empresa/Sede en sus documentos
+    if (!ROLES_PERSONAL.includes(user.role)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -44,7 +44,7 @@ async function getEmpresas(req, res, user) {
 
 async function createEmpresa(req, res, user) {
   try {
-    if (user.role !== ROLES.ADMIN) {
+    if (!ROLES_GESTION_EMPRESAS.includes(user.role)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

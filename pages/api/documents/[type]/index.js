@@ -1,7 +1,11 @@
-// pages/api/documents/[type]/index.js - MODIFICADO para que técnicos vean TODOS los documentos
-import { withAuth, PERMISSIONS, ROLES } from '../../../../lib/auth-middleware';
+// pages/api/documents/[type]/index.js - Listado y alta de documentos (cliente: por accesos a
+// Empresa/Sede; técnico/secretaria: por la grilla de permisos por rol; admin: todo)
+import { withAuth, ROLES } from '../../../../lib/auth-middleware';
+import { permisoParaUsuario } from '../../../../lib/permisosRolesServer';
 import { firestore } from '../../../../lib/firebase-admin';
 import admin from '../../../../lib/firebase-admin';
+import { obtenerDocumentosCliente } from '../../../../lib/documentosCliente';
+import { resolverEmpresaSede } from '../../../../lib/empresaSede';
 
 const COLLECTIONS = {
   presupuestos: 'presupuestos',
@@ -16,11 +20,6 @@ const COLLECTIONS = {
   planaccion: 'plan_accion'
 };
 
-// Tipos a los que el técnico tiene acceso de lectura (incluye 'plantillas': necesita
-// listarlas para adjuntarlas a una inspección, aunque no pueda crearlas/editarlas)
-const TECNICO_LECTURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones', 'plantillas'];
-// Tipos a los que el técnico tiene acceso de escritura (crear/editar/borrar)
-const TECNICO_ESCRITURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones'];
 
 async function handler(req, res) {
   const { type } = req.query;
@@ -48,73 +47,31 @@ async function getDocuments(req, res, type, user) {
 
     // Aplicar filtros según el rol
     if (user.role === ROLES.CLIENTE) {
-      // Cliente: solo los documentos de su Empresa y verificar permisos
+      // Cliente: los documentos de las Empresas/Sedes a las que tiene acceso para este tipo
       const userProfile = await firestore.collection('usuarios').doc(user.uid).get();
       const perfilData = userProfile.data() || {};
-      const permisos = perfilData.permisos || {};
 
-      if (!permisos[type]) {
+      const visibles = await obtenerDocumentosCliente({ coleccion: collection, tipo: type, perfil: perfilData, uid: user.uid });
+      if (visibles === null) {
         return res.status(403).json({ error: 'Access denied to this document type' });
       }
-
-      // Filtramos por empresaId (todos los contactos de la misma Empresa ven los mismos documentos).
-      // Fallback a clienteId === uid para contactos que todavía no tengan empresaId (por ejemplo, si
-      // la migración de datos históricos no corrió todavía).
-      const empresaId = perfilData.empresaId || null;
-
-      try {
-        // Intentar con índice optimizado
-        const snapshot = empresaId
-          ? await query.where('empresaId', '==', empresaId).orderBy('fechaCreacion', 'desc').limit(50).get()
-          : await query.where('clienteId', '==', user.uid).orderBy('fechaCreacion', 'desc').limit(50).get();
-
-        documents = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
-            fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
-          };
-        });
-
-      } catch (indexError) {
-        console.warn(`Índice compuesto no disponible para ${type}, usando filtro en memoria:`, indexError.message);
-
-        // Fallback: Obtener todos y filtrar en memoria
-        const snapshot = await query.get();
-
-        documents = snapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
-              fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
-            };
-          })
-          .filter(doc => (empresaId ? doc.empresaId === empresaId : doc.clienteId === user.uid))
-          .sort((a, b) => {
-            const fechaA = new Date(a.fechaCreacion || 0);
-            const fechaB = new Date(b.fechaCreacion || 0);
-            return fechaB - fechaA;
-          })
-          .slice(0, 50); // Limitar resultados
-      }
+      documents = visibles;
 
       // Observaciones internas: comunicación técnico-admin, nunca visible para el cliente
       documents = documents.map(({ observacionesImsse, ...doc }) => doc);
 
-    } else if (user.role === ROLES.TECNICO) {
-      // ✅ CAMBIO PRINCIPAL: Técnico puede ver TODOS los documentos de órdenes, recordatorios y visitas
-      if (!TECNICO_LECTURA.includes(type)) {
+    } else if (user.role !== ROLES.ADMIN) {
+      // Técnico / Secretaria: según la grilla de permisos por rol (todos, solo los propios o ninguno)
+      const permiso = await permisoParaUsuario(user, type);
+      if (permiso.ver === 'no') {
         return res.status(403).json({ error: 'Access denied' });
       }
-      
+
       try {
-        // ✅ NUEVO: Obtener TODOS los documentos, sin filtrar por técnico asignado
-        const snapshot = await query.orderBy('fechaCreacion', 'desc').limit(100).get();
+        // "Propios" = los que creó este usuario. Igualdad sola (sin orderBy) no necesita índice compuesto.
+        const snapshot = permiso.ver === 'propios'
+          ? await query.where('creadoPor', '==', user.uid).get()
+          : await query.orderBy('fechaCreacion', 'desc').limit(100).get();
         
         documents = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -127,10 +84,10 @@ async function getDocuments(req, res, type, user) {
         });
         
       } catch (error) {
-        console.warn(`Error en consulta técnico, fallback:`, error.message);
-        
+        console.warn(`Error en consulta de ${user.role}, fallback:`, error.message);
+
         const snapshot = await query.get();
-        
+
         documents = snapshot.docs
           .map(doc => {
             const data = doc.data();
@@ -141,15 +98,14 @@ async function getDocuments(req, res, type, user) {
               fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
             };
           })
-          .sort((a, b) => {
-            const fechaA = new Date(a.fechaCreacion || 0);
-            const fechaB = new Date(b.fechaCreacion || 0);
-            return fechaB - fechaA;
-          })
-          .slice(0, 100);
+          .filter(doc => permiso.ver === 'todos' || doc.creadoPor === user.uid);
       }
-      
-    } else if (user.role === ROLES.ADMIN) {
+
+      documents = documents
+        .sort((a, b) => new Date(b.fechaCreacion || 0) - new Date(a.fechaCreacion || 0))
+        .slice(0, 100);
+
+    } else {
       // ADMIN: acceso completo
       const { status, clientId, dateFrom, dateTo } = req.query;
       
@@ -253,13 +209,18 @@ async function createDocument(req, res, type, user) {
       return res.status(403).json({ error: 'Clients cannot create documents' });
     }
 
-    if (user.role === ROLES.TECNICO && !TECNICO_ESCRITURA.includes(type)) {
+    if (!(await permisoParaUsuario(user, type)).crear) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // VALIDACIÓN CRÍTICA: Verificar clienteId si se proporciona, y resolver la Empresa del contacto
-    // (empresaId) para que el documento sea visible a todos los contactos de esa misma Empresa.
-    let empresaId = null;
+    // El formulario elige Empresa + Sede (empresaId/sedeId): eso decide qué contactos lo ven, según
+    // sus accesos. Si solo viene clienteId (documentos cargados offline antes de este cambio), la
+    // Empresa se toma de la del contacto.
+    const vinculo = await resolverEmpresaSede(data);
+    if (vinculo.error) {
+      return res.status(400).json({ error: vinculo.error });
+    }
+    let empresaId = vinculo.empresaId;
     if (data.clienteId) {
       try {
         const clienteRef = await firestore.collection('usuarios').doc(data.clienteId).get();
@@ -272,7 +233,7 @@ async function createDocument(req, res, type, user) {
           return res.status(400).json({ error: 'El ID proporcionado no corresponde a un cliente' });
         }
 
-        empresaId = clienteData.empresaId || null;
+        if (!empresaId) empresaId = clienteData.empresaId || null;
 
         console.log(`Documento ${type} será asignado al cliente: ${clienteData.empresa} (${data.clienteId})`);
       } catch (error) {
@@ -285,6 +246,7 @@ async function createDocument(req, res, type, user) {
     const docData = {
       ...data,
       empresaId,
+      sedeId: empresaId ? vinculo.sedeId : null,
       creadoPor: user.uid,
       fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
       fechaModificacion: admin.firestore.FieldValue.serverTimestamp(),

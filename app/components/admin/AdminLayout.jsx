@@ -25,40 +25,57 @@ import {
   Crown,
   ClipboardCheck,
   ListChecks,
-  ClipboardList
+  ClipboardList,
+  ShieldCheck
 } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { ROLES_PERSONAL } from '../../../lib/permisosRoles';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
-// Submenú de Documentos (compartido entre el panel "Más" y el sidebar desktop)
+// Submenú de Documentos (compartido entre el panel "Más" y el sidebar desktop).
+// `tipo`: el ítem se muestra si el rol puede ver ese tipo de documento (grilla de permisos por rol).
 const DOCUMENTOS_SUB = [
-  { name: 'Presupuestos', path: '/admin/presupuestos', icon: FileText },
-  { name: 'Recibos', path: '/admin/recibos', icon: Receipt },
-  { name: 'Remitos', path: '/admin/remitos', icon: Truck },
-  { name: 'Estados de Cuenta', path: '/admin/estados', icon: CreditCard },
+  { name: 'Presupuestos', path: '/admin/presupuestos', icon: FileText, tipo: 'presupuestos' },
+  { name: 'Recibos', path: '/admin/recibos', icon: Receipt, tipo: 'recibos' },
+  { name: 'Remitos', path: '/admin/remitos', icon: Truck, tipo: 'remitos' },
+  { name: 'Estados de Cuenta', path: '/admin/estados', icon: CreditCard, tipo: 'estados' },
   { name: 'Facturas', disabled: true, icon: FileText }
 ];
 
-// Los 4-5 accesos directos de la bottom nav en mobile. Lo que no entra queda en "Más" (solo admin).
+// Los 4-5 accesos directos de la bottom nav en mobile. Lo que no entra queda en "Más" (admin y secretaria).
 const BOTTOM_NAV = {
   admin: [
     { name: 'Inicio', path: '/admin/panel-control', icon: BarChart3 },
-    { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench },
+    { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench, tipo: 'ordenes' },
     { name: 'Asistencia', path: '/admin/control-asistencia/admin', icon: Clock },
+    { name: 'Notificaciones', path: '/admin/notificaciones', icon: BellRing }
+  ],
+  secretaria: [
+    { name: 'Inicio', path: '/admin/panel-control', icon: BarChart3 },
     { name: 'Notificaciones', path: '/admin/notificaciones', icon: BellRing }
   ],
   tecnico: [
     { name: 'Inicio', path: '/admin/dashboard-tecnico', icon: BarChart3 },
-    { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench },
+    { name: 'Órdenes', path: '/admin/ordenes', icon: Wrench, tipo: 'ordenes' },
     { name: 'Asistencia', path: '/admin/control-asistencia', icon: Clock },
-    { name: 'Recordatorios', path: '/admin/recordatorios', icon: Bell }
+    { name: 'Recordatorios', path: '/admin/recordatorios', icon: Bell, tipo: 'recordatorios' }
   ]
 };
 
-// Nombres del sidebar (menuItemsConfig) que ya están cubiertos por la bottom nav de admin:
-// el resto del menú (Recordatorios, Documentos, Usuarios) cae dentro de "Más"
-const BOTTOM_NAV_ADMIN_NAMES = new Set(['Panel de Control', 'Órdenes de Trabajo', 'Control de Asistencia', 'Notificaciones']);
+// Nombres del sidebar (menuItemsConfig) que ya están cubiertos por la bottom nav:
+// el resto del menú cae dentro de "Más"
+const BOTTOM_NAV_NAMES = {
+  admin: new Set(['Panel de Control', 'Órdenes de Trabajo', 'Control de Asistencia', 'Notificaciones']),
+  secretaria: new Set(['Panel de Control', 'Notificaciones'])
+};
+
+const ETIQUETA_ROL = {
+  admin: { texto: 'Admin', clase: 'bg-red-600' },
+  tecnico: { texto: 'Técnico', clase: 'bg-teal-600' },
+  secretaria: { texto: 'Secretaria', clase: 'bg-indigo-600' }
+};
 
 function isPathActive(pathname, path) {
   return !!path && (pathname === path || pathname.startsWith(`${path}/`));
@@ -214,6 +231,7 @@ export default function AdminLayout({ children }) {
   const menuRef = useRef(null);
   const router = useRouter();
   const pathname = usePathname();
+  const { puede, cargando: cargandoPermisos } = useMisPermisos();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -222,8 +240,8 @@ export default function AdminLayout({ children }) {
           // Obtener perfil del usuario para conocer su rol
           const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
 
-          // Verificar que tenga acceso al panel admin
-          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+          // Verificar que tenga acceso al panel admin (personal: admin, técnico, secretaria)
+          if (!ROLES_PERSONAL.includes(perfilUsuario.rol)) {
             router.push('/cliente/dashboard');
             return;
           }
@@ -322,13 +340,14 @@ export default function AdminLayout({ children }) {
     }
   };
 
-  // Menú completo (sidebar desktop) con configuración de acceso por rol
+  // Menú completo (sidebar desktop). `roles`: quién ve el ítem; `tipo`: además (o en vez de
+  // roles, para técnico/secretaria) se muestra si su rol puede ver ese tipo de documento.
   const menuItemsConfig = [
     {
       name: 'Panel de Control',
       path: '/admin/panel-control',
       icon: BarChart3,
-      roles: ['admin']
+      roles: ['admin', 'secretaria']
     },
     {
       name: 'Panel de Control',
@@ -340,25 +359,25 @@ export default function AdminLayout({ children }) {
       name: 'Órdenes de Trabajo',
       path: '/admin/ordenes',
       icon: Wrench,
-      roles: ['admin', 'tecnico']
+      tipo: 'ordenes'
     },
     {
       name: 'Visita Técnica',
       path: '/admin/inspecciones',
       icon: ClipboardCheck,
-      roles: ['admin', 'tecnico']
+      tipo: 'inspecciones'
     },
     {
       name: 'Plantillas',
       path: '/admin/plantillas',
       icon: ListChecks,
-      roles: ['admin']
+      tipo: 'plantillas'
     },
     {
       name: 'Plan de Acción',
       path: '/admin/plan-accion',
       icon: ClipboardList,
-      roles: ['admin']
+      tipo: 'planaccion'
     },
     {
       name: 'Control de Asistencia',
@@ -376,30 +395,35 @@ export default function AdminLayout({ children }) {
       name: 'Notificaciones',
       path: '/admin/notificaciones',
       icon: BellRing,
-      roles: ['admin', 'tecnico']
+      roles: ['admin', 'tecnico', 'secretaria']
     },
     {
       name: 'Recordatorios',
       path: '/admin/recordatorios',
       icon: Bell,
-      roles: ['admin', 'tecnico']
+      tipo: 'recordatorios'
     },
     {
       name: 'Documentos',
       icon: Folder,
-      roles: ['admin'],
       children: DOCUMENTOS_SUB
     },
     {
       name: 'Empresas',
       path: '/admin/empresas',
       icon: Building2,
-      roles: ['admin']
+      roles: ['admin', 'secretaria']
     },
     {
       name: 'Usuarios',
       path: '/admin/usuarios',
       icon: Users,
+      roles: ['admin']
+    },
+    {
+      name: 'Roles y permisos',
+      path: '/admin/roles',
+      icon: ShieldCheck,
       roles: ['admin']
     },
     {
@@ -410,16 +434,29 @@ export default function AdminLayout({ children }) {
     }
   ];
 
-  // Filtrar menú según el rol del usuario, agregando el numerito de no leídas a Notificaciones
+  // Filtrar menú según rol y permisos, agregando el numerito de no leídas a Notificaciones
+  const visible = (item) => {
+    if (!perfil) return false;
+    if (item.tipo) return !cargandoPermisos && puede(item.tipo, 'ver');
+    return (item.roles || []).includes(perfil.rol);
+  };
   const conBadge = (item) => (item.name === 'Notificaciones' ? { ...item, badge: notifCount } : item);
   const menuItems = menuItemsConfig
-    .filter(item => perfil && item.roles.includes(perfil.rol))
+    .map((item) => {
+      if (!item.children) return visible(item) ? item : null;
+      // Grupo "Documentos": se muestra si queda algún documento habilitado (Facturas es solo "Pronto")
+      const children = item.children.filter((child) => child.disabled || visible(child));
+      return children.some((child) => !child.disabled) ? { ...item, children } : null;
+    })
+    .filter(Boolean)
     .map(conBadge);
 
-  const rol = perfil?.rol === 'tecnico' ? 'tecnico' : 'admin';
-  const bottomNavItems = BOTTOM_NAV[rol].map(conBadge);
-  // Para admin: lo que no entra en la bottom nav queda en el panel "Más"
-  const moreItems = rol === 'admin' ? menuItems.filter((item) => !BOTTOM_NAV_ADMIN_NAMES.has(item.name)) : [];
+  const rol = BOTTOM_NAV[perfil?.rol] ? perfil.rol : 'admin';
+  const bottomNavItems = BOTTOM_NAV[rol].filter((item) => !item.tipo || visible(item)).map(conBadge);
+  // Admin y secretaria: lo que no entra en la bottom nav queda en el panel "Más"
+  const tieneMas = !!BOTTOM_NAV_NAMES[rol];
+  const moreItems = tieneMas ? menuItems.filter((item) => !BOTTOM_NAV_NAMES[rol].has(item.name)) : [];
+  const etiquetaRol = ETIQUETA_ROL[perfil?.rol] || ETIQUETA_ROL.admin;
 
   if (loading) {
     return (
@@ -548,10 +585,8 @@ export default function AdminLayout({ children }) {
                 <p className="text-sm font-medium text-gray-900 truncate">{perfil?.nombreCompleto}</p>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-gray-500 capitalize">{perfil?.rol}</span>
-                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full text-white ${
-                    perfil?.rol === 'admin' ? 'bg-red-600' : 'bg-teal-600'
-                  }`}>
-                    {perfil?.rol === 'admin' ? 'Admin' : 'Técnico'}
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full text-white ${etiquetaRol.clase}`}>
+                    {etiquetaRol.texto}
                   </span>
                 </div>
               </div>
@@ -572,7 +607,7 @@ export default function AdminLayout({ children }) {
         {bottomNavItems.map((item) => (
           <BottomNavEntry key={item.name} item={item} pathname={pathname} />
         ))}
-        {rol === 'admin' && (
+        {tieneMas && (
           <BottomNavEntry
             item={{ name: 'Más', isMore: true }}
             pathname={pathname}

@@ -29,11 +29,14 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
-  RotateCcw
+  RotateCcw,
+  Wrench
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import AccesosUsuario from '../../components/admin/AccesosUsuario';
+import { accesosEfectivos, permisosDesdeAccesos } from '../../../lib/accesos';
 
 const CARGO_OPCIONES = [
   'Propietario',
@@ -115,15 +118,13 @@ export default function GestionUsuarios() {
     showConfirm: false
   });
 
-  // Estados para permisos
-  const [permisosTemporales, setPermisosTemporales] = useState({});
-
   // Iconos para cada tipo de documento
   const iconosDocumentos = {
     presupuestos: FileText,
     recibos: Receipt,
     remitos: Truck,
     estados: CreditCard,
+    ordenes: Wrench,
     recordatorios: Bell,
     inspecciones: ClipboardCheck,
     planaccion: ClipboardList
@@ -135,6 +136,7 @@ export default function GestionUsuarios() {
     recibos: 'Recibos',
     remitos: 'Remitos',
     estados: 'Estados de Cuenta',
+    ordenes: 'Órdenes de Trabajo',
     recordatorios: 'Recordatorios',
     inspecciones: 'Visita Técnica',
     planaccion: 'Plan de Acción'
@@ -228,16 +230,6 @@ export default function GestionUsuarios() {
   // Funciones para el modal
   const abrirModal = (usuario) => {
     setUsuarioSeleccionado(usuario);
-    // Inicializar permisos temporales con los permisos actuales del usuario
-    setPermisosTemporales(usuario.permisos || {
-      presupuestos: false,
-      recibos: false,
-      remitos: false,
-      estados: false,
-      recordatorios: false,
-      inspecciones: false,
-      planaccion: false
-    });
     setModalAbierto(true);
     setUsuarioEditando(null); // Cerrar dropdown si estaba abierto
   };
@@ -245,7 +237,6 @@ export default function GestionUsuarios() {
   const cerrarModal = () => {
     setModalAbierto(false);
     setUsuarioSeleccionado(null);
-    setPermisosTemporales({});
   };
 
   const handleCambiarRolModal = async (nuevoRol) => {
@@ -292,66 +283,15 @@ export default function GestionUsuarios() {
     }
   };
 
-  // Función para cambiar un permiso específico
-  const handleCambiarPermiso = (tipoDocumento, valor) => {
-    setPermisosTemporales(prev => ({
-      ...prev,
-      [tipoDocumento]: valor
-    }));
-  };
-
-  // Activa el permiso "Visita Técnica" para todos los clientes existentes que
-  // todavía no lo tengan (los usuarios nuevos ya lo reciben por defecto al crearse).
-  const [activandoInspeccionesMasivo, setActivandoInspeccionesMasivo] = useState(false);
-  const handleActivarInspeccionesTodos = async () => {
-    const clientesSinPermiso = usuarios.filter(
-      (u) => u.rol === 'cliente' && u.permisos?.inspecciones !== true
-    );
-
-    if (clientesSinPermiso.length === 0) {
-      alert('Todos los clientes ya tienen activado el permiso de Visita Técnica.');
-      return;
-    }
-
-    if (!confirm(`Se va a activar "Visita Técnica" para ${clientesSinPermiso.length} cliente(s) que todavía no lo tienen. ¿Continuar?`)) {
-      return;
-    }
-
-    setActivandoInspeccionesMasivo(true);
-    try {
-      for (const cliente of clientesSinPermiso) {
-        await apiService.actualizarUsuario(cliente.id, {
-          permisos: { ...cliente.permisos, inspecciones: true }
-        });
-      }
-      await cargarDatos();
-      alert(`✅ Permiso activado para ${clientesSinPermiso.length} cliente(s).`);
-    } catch (error) {
-      console.error('Error al activar permisos de forma masiva:', error);
-      alert('❌ Hubo un error activando el permiso para algunos clientes. Revisá la lista e intentá de nuevo.');
-    } finally {
-      setActivandoInspeccionesMasivo(false);
-    }
-  };
-
-  // Función para guardar los permisos
-  const handleGuardarPermisos = async () => {
+  // Guarda la grilla de accesos (Empresa → Sede → tipos). El servidor deriva `permisos` de
+  // ellos; acá se actualiza la lista en memoria para no recargar (y cerrar) el modal.
+  const handleGuardarAccesos = async (accesos) => {
     if (!usuarioSeleccionado) return;
-
-    setProcesando(true);
-    try {
-      await apiService.actualizarUsuario(usuarioSeleccionado.id, {
-        permisos: permisosTemporales
-      });
-      await cargarDatos();
-      alert('✅ Permisos actualizados correctamente');
-      cerrarModal();
-    } catch (error) {
-      console.error('Error al actualizar permisos:', error);
-      alert('❌ Error al actualizar los permisos');
-    } finally {
-      setProcesando(false);
-    }
+    const id = usuarioSeleccionado.id;
+    await apiService.actualizarUsuario(id, { accesos });
+    const cambios = { accesos, permisos: permisosDesdeAccesos(accesos) };
+    setUsuarios(prev => prev.map(u => (u.id === id ? { ...u, ...cambios } : u)));
+    setUsuarioSeleccionado(prev => (prev?.id === id ? { ...prev, ...cambios } : prev));
   };
 
   // Función para eliminar usuario
@@ -567,15 +507,6 @@ export default function GestionUsuarios() {
     }
   };
 
-  // Función para activar/desactivar todos los permisos
-  const handleToggleTodosPermisos = (activar) => {
-    const nuevosPermisos = {};
-    Object.keys(nombresDocumentos).forEach(tipo => {
-      // Recordatorios siempre false para clientes
-      nuevosPermisos[tipo] = tipo === 'recordatorios' ? false : activar;
-    });
-    setPermisosTemporales(nuevosPermisos);
-  };
 
   const formatearFecha = (timestamp) => {
     if (!timestamp) return 'N/A';
@@ -594,6 +525,7 @@ export default function GestionUsuarios() {
       rol: {
         admin: 'bg-red-100 text-red-800',
         tecnico: 'bg-blue-100 text-blue-800',
+        secretaria: 'bg-indigo-100 text-indigo-800',
         cliente: 'bg-green-100 text-green-800'
       },
       estado: {
@@ -636,15 +568,6 @@ export default function GestionUsuarios() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleActivarInspeccionesTodos}
-              disabled={activandoInspeccionesMasivo}
-              title="Activa el permiso de Visita Técnica para los clientes existentes que todavía no lo tengan"
-              className="flex items-center px-4 py-2 text-sm font-medium transition-colors bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <ClipboardCheck size={18} className="mr-2" />
-              {activandoInspeccionesMasivo ? 'Activando...' : 'Activar Visita Técnica (clientes existentes)'}
-            </button>
             <button
               onClick={handleAbrirCrearModal}
               className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors rounded-xl bg-primary hover:bg-red-700 shadow-sm"
@@ -729,6 +652,7 @@ export default function GestionUsuarios() {
                       <option value="todos">Todos los roles</option>
                       <option value="admin">Administradores</option>
                       <option value="tecnico">Técnicos</option>
+                      <option value="secretaria">Secretarias</option>
                       <option value="cliente">Clientes</option>
                     </select>
                   </div>
@@ -986,7 +910,7 @@ export default function GestionUsuarios() {
       {/* Modal de gestión de usuarios CON PERMISOS GRANULARES Y ELIMINACIÓN */}
       {modalAbierto && usuarioSeleccionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className={`w-full ${usuarioSeleccionado.rol === 'cliente' ? 'max-w-4xl' : 'max-w-lg'} mx-4 bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto`}>
             {/* Header del modal */}
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -1051,8 +975,8 @@ export default function GestionUsuarios() {
               {/* Cambiar rol */}
               <div className="mb-6">
                 <h4 className="mb-3 text-sm font-medium text-gray-700">Cambiar Rol</h4>
-                <div className="grid grid-cols-3 gap-2">
-                  {['admin', 'tecnico', 'cliente'].map(rol => (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {['admin', 'tecnico', 'secretaria', 'cliente'].map(rol => (
                     <button
                       key={rol}
                       onClick={() => handleCambiarRolModal(rol)}
@@ -1091,99 +1015,33 @@ export default function GestionUsuarios() {
                 </div>
               </div>
 
-              {/* PERMISOS GRANULARES - Solo para clientes */}
+              {/* ACCESOS POR EMPRESA / SEDE / TIPO - Solo para clientes */}
               {usuarioSeleccionado.rol === 'cliente' && (
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-gray-700">Permisos de Documentos</h4>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleToggleTodosPermisos(true)}
-                        className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200"
-                        disabled={procesando}
-                      >
-                        Activar todos
-                      </button>
-                      <button
-                        onClick={() => handleToggleTodosPermisos(false)}
-                        className="px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded hover:bg-red-200"
-                        disabled={procesando}
-                      >
-                        Desactivar todos
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <p className="mb-3 text-xs text-gray-600">
-                      Selecciona qué tipos de documentos puede ver este cliente:
-                    </p>
-
-                    <div className="space-y-3">
-                      {Object.entries(nombresDocumentos).map(([tipo, nombre]) => {
-                        const IconoComponente = iconosDocumentos[tipo];
-                        const esRecordatorio = tipo === 'recordatorios';
-
-                        return (
-                          <label
-                            key={tipo}
-                            className={`flex items-center p-3 border rounded-md transition-colors ${esRecordatorio
-                                ? 'bg-gray-100 border-gray-200 cursor-not-allowed'
-                                : permisosTemporales[tipo]
-                                  ? 'bg-blue-50 border-blue-200'
-                                  : 'bg-white border-gray-200 hover:bg-gray-50 cursor-pointer'
-                              }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={permisosTemporales[tipo] || false}
-                              onChange={(e) => handleCambiarPermiso(tipo, e.target.checked)}
-                              disabled={procesando || esRecordatorio}
-                              className={`mr-3 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded ${esRecordatorio ? 'cursor-not-allowed' : 'cursor-pointer'
-                                }`}
-                            />
-                            <IconoComponente size={18} className={`mr-3 ${esRecordatorio ? 'text-gray-400' : permisosTemporales[tipo] ? 'text-blue-600' : 'text-gray-500'
-                              }`} />
-                            <div className="flex-1">
-                              <span className={`text-sm font-medium ${esRecordatorio ? 'text-gray-400' : 'text-gray-700'
-                                }`}>
-                                {nombre}
-                              </span>
-                              {esRecordatorio && (
-                                <p className="mt-1 text-xs text-gray-400">
-                                  Solo disponible para administradores y técnicos
-                                </p>
-                              )}
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-
-                    <div className="p-3 mt-4 border border-yellow-200 rounded-md bg-yellow-50">
-                      <p className="text-xs text-yellow-800">
-                        <strong>Nota:</strong> Los usuarios pueden ver únicamente los documentos que tengan asignados y para los cuales tengan permisos habilitados.
-                      </p>
-                    </div>
-                  </div>
+                  <AccesosUsuario
+                    key={usuarioSeleccionado.id}
+                    accesosIniciales={accesosEfectivos(usuarioSeleccionado)}
+                    empresas={empresas}
+                    onGuardar={handleGuardarAccesos}
+                  />
                 </div>
               )}
 
-              {/* Información adicional para admin/técnico */}
-              {(usuarioSeleccionado.rol === 'admin' || usuarioSeleccionado.rol === 'tecnico') && (
+              {/* Información de permisos para el personal (admin, técnico, secretaria) */}
+              {['admin', 'tecnico', 'secretaria'].includes(usuarioSeleccionado.rol) && (
                 <div className="mb-6">
                   <h4 className="mb-3 text-sm font-medium text-gray-700">Permisos</h4>
                   <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
                     <div className="flex items-center">
                       <Shield className="w-5 h-5 mr-2 text-blue-600" />
                       <span className="text-sm font-medium text-blue-800">
-                        {usuarioSeleccionado.rol === 'admin' ? 'Acceso completo al sistema' : 'Acceso a todos los documentos'}
+                        {usuarioSeleccionado.rol === 'admin' ? 'Acceso completo al sistema' : 'Según su rol'}
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-blue-700">
                       {usuarioSeleccionado.rol === 'admin'
                         ? 'Los administradores pueden gestionar usuarios, documentos y configuraciones del sistema.'
-                        : 'Los técnicos pueden ver y gestionar todos los documentos, y comunicarse con administradores.'
+                        : <>Qué documentos ve y gestiona se configura para todo el rol en <Link href="/admin/roles" className="font-medium underline">Roles y permisos</Link>.</>
                       }
                     </p>
                   </div>
@@ -1215,17 +1073,6 @@ export default function GestionUsuarios() {
                   >
                     {procesando ? 'Procesando...' : 'Cerrar'}
                   </button>
-
-                  {/* Botón para guardar permisos - Solo para clientes */}
-                  {usuarioSeleccionado.rol === 'cliente' && (
-                    <button
-                      onClick={handleGuardarPermisos}
-                      disabled={procesando}
-                      className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md bg-primary hover:bg-red-700 disabled:opacity-50"
-                    >
-                      {procesando ? 'Guardando...' : 'Guardar Permisos'}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -1248,10 +1095,11 @@ export default function GestionUsuarios() {
             <form onSubmit={handleCrearUsuario} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Rol del Usuario</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
                     { id: 'cliente', label: 'Cliente (Defecto)' },
                     { id: 'tecnico', label: 'Técnico' },
+                    { id: 'secretaria', label: 'Secretaria' },
                     { id: 'admin', label: 'Administrador' }
                   ].map(r => (
                     <button
@@ -1334,7 +1182,7 @@ export default function GestionUsuarios() {
                 <div>
                   {formDataCrear.rol === 'cliente' ? (
                     <>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1" title="Por defecto verá todas las sedes de esta empresa; se puede ajustar después en Accesos">Empresa principal</label>
                       <select
                         value={formDataCrear.empresaSeleccion}
                         onChange={(e) => setFormDataCrear({ ...formDataCrear, empresaSeleccion: e.target.value })}
@@ -1554,7 +1402,7 @@ export default function GestionUsuarios() {
                 <div>
                   {formDataEditar.rol === 'cliente' ? (
                     <>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Empresa</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1" title="Qué documentos ve se configura en Accesos (Gestionar usuario)">Empresa principal</label>
                       <select
                         value={formDataEditar.empresaSeleccion}
                         onChange={(e) => setFormDataEditar({ ...formDataEditar, empresaSeleccion: e.target.value })}
@@ -1666,6 +1514,7 @@ export default function GestionUsuarios() {
                   >
                     <option value="cliente">Cliente</option>
                     <option value="tecnico">Técnico</option>
+                    <option value="secretaria">Secretaria</option>
                     <option value="admin">Administrador</option>
                   </select>
                 </div>

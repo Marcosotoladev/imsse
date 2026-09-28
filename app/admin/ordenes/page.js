@@ -27,6 +27,7 @@ import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
 import offlineApiService from '../../../lib/services/offlineApiService';
 import { richTextToPlainText } from '../../../lib/utils/richText';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todas' };
 
@@ -51,15 +52,15 @@ function AccionBoton({ href, onClick, disabled, title, colorClasses, children })
   );
 }
 
-function AccionesOrden({ orden, descargando, onDescargar, onEliminar, isOffline }) {
+function AccionesOrden({ puede, orden, descargando, onDescargar, onEliminar, isOffline }) {
   return (
     <div className="flex items-center gap-2">
       <AccionBoton href={`/admin/ordenes/${orden.id}`} title="Ver orden" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/ordenes/editar/${orden.id}`} title={`Editar orden${isOffline ? ' (offline)' : ''}`} colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('ordenes', 'editar', orden) && (<AccionBoton href={`/admin/ordenes/editar/${orden.id}`} title={`Editar orden${isOffline ? ' (offline)' : ''}`} colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
       <AccionBoton
         onClick={() => onDescargar(orden)}
         disabled={descargando === orden.id}
@@ -68,19 +69,20 @@ function AccionesOrden({ orden, descargando, onDescargar, onEliminar, isOffline 
       >
         <Download size={18} />
       </AccionBoton>
-      <AccionBoton
+      {puede('ordenes', 'eliminar', orden) && (<AccionBoton
         onClick={() => onEliminar(orden.id, orden.numero)}
         title={`Eliminar orden${isOffline ? ' (marcará para eliminar)' : ''}`}
         colorClasses="text-red-600 bg-red-50 hover:bg-red-100"
       >
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
 
 export default function ListaOrdenesTrabajo() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [ordenes, setOrdenes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -289,13 +291,13 @@ export default function ListaOrdenesTrabajo() {
                 <span>{sincronizando ? 'Sincronizando...' : 'Sincronizar'}</span>
               </button>
             )}
-            <Link
+            {puede('ordenes', 'crear') && (<Link
               href="/admin/ordenes/nuevo"
               className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
             >
               <FilePlus size={18} className="mr-2" />
               Nueva Orden
-            </Link>
+            </Link>)}
           </div>
         </div>
 
@@ -426,13 +428,13 @@ export default function ListaOrdenesTrabajo() {
               }
             </p>
             {!searchTerm && !hayFiltrosActivos && (
-              <Link
+              puede('ordenes', 'crear') && (<Link
                 href="/admin/ordenes/nuevo"
                 className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
               >
                 <FilePlus size={18} className="mr-2" />
                 Crear {isOffline ? 'Orden (Offline)' : 'Primera Orden'}
-              </Link>
+              </Link>)
             )}
           </div>
         ) : vista === 'cards' ? (
@@ -478,7 +480,7 @@ export default function ListaOrdenesTrabajo() {
                   </p>
                 </div>
 
-                <AccionesOrden
+                <AccionesOrden puede={puede}
                   orden={orden}
                   descargando={descargando}
                   onDescargar={handleDescargarPDF}
@@ -568,7 +570,7 @@ export default function ListaOrdenesTrabajo() {
                         </td>
                         <td className="px-4 py-4 text-center whitespace-nowrap">
                           <div className="flex justify-center">
-                            <AccionesOrden
+                            <AccionesOrden puede={puede}
                               orden={orden}
                               descargando={descargando}
                               onDescargar={handleDescargarPDF}

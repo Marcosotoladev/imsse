@@ -18,6 +18,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../../lib/firebase';
 import apiService from '../../../../../lib/services/apiService';
 import { PRIORIDADES, PRIORIDAD_CLASES } from '../../../../../lib/constants/planAccion';
+import EmpresaSedeSelector from '../../../../components/admin/EmpresaSedeSelector';
+import { ROLES_PERSONAL } from '../../../../../lib/permisosRoles';
+import { obtenerMisPermisos, puedeCon } from '../../../../../lib/hooks/useMisPermisos';
 
 export default function EditarPropuestaPlanAccion({ params }) {
   const { id } = use(params);
@@ -28,14 +31,12 @@ export default function EditarPropuestaPlanAccion({ params }) {
   const [guardando, setGuardando] = useState(false);
   const loading = loadingAuth || loadingData;
 
-  const [clientesDisponibles, setClientesDisponibles] = useState([]);
   const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
   const [tipoCliente, setTipoCliente] = useState('existente');
-  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
-  const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
 
   const [propuesta, setPropuesta] = useState({
-    clienteId: '',
+    empresaId: '',
+    sedeId: null,
     cliente: { empresa: '', nombre: '', sedeNombre: '', direccion: '' },
     fecha: '',
     detalle: '',
@@ -53,8 +54,13 @@ export default function EditarPropuestaPlanAccion({ params }) {
       }
       try {
         const perfil = await apiService.obtenerPerfilUsuario(currentUser.uid);
-        if (perfil.rol !== 'admin') {
-          router.push(perfil.rol === 'tecnico' ? '/admin/dashboard-tecnico' : '/cliente/dashboard');
+        if (!ROLES_PERSONAL.includes(perfil.rol)) {
+          router.push('/cliente/dashboard');
+          return;
+        }
+        // Si solo puede editar las propias, el servidor rechaza el guardado de las demás
+        if (!puedeCon(await obtenerMisPermisos(), 'planaccion', 'editar')) {
+          router.push('/admin/plan-accion');
           return;
         }
         setLoadingAuth(false);
@@ -72,14 +78,11 @@ export default function EditarPropuestaPlanAccion({ params }) {
 
     (async () => {
       try {
-        const [usuariosData, empresasData, propuestaData] = await Promise.all([
-          apiService.obtenerUsuarios(),
+        const [empresasData, propuestaData] = await Promise.all([
           apiService.obtenerEmpresas().catch(() => ({ empresas: [] })),
           apiService.obtenerPlanAccionPorId(id)
         ]);
 
-        const clientes = usuariosData.users.filter(u => u.rol === 'cliente' && u.estado === 'activo');
-        setClientesDisponibles(clientes);
         setEmpresasDisponibles(empresasData.empresas || []);
 
         if (!propuestaData) {
@@ -88,8 +91,17 @@ export default function EditarPropuestaPlanAccion({ params }) {
           return;
         }
 
+        const empresas = empresasData.empresas || [];
+        const empresaIdOriginal = propuestaData.empresaId || '';
+        const empresaOriginal = empresas.find(e => e.id === empresaIdOriginal) || null;
+        // Sin sedeId guardado: se busca la sede por el nombre que quedó en el documento
+        const sedeIdOriginal = propuestaData.sedeId
+          || empresaOriginal?.sedes?.find(s => s.nombreObra && s.nombreObra === propuestaData.cliente?.sedeNombre)?.id
+          || null;
+
         setPropuesta({
-          clienteId: propuestaData.clienteId || '',
+          empresaId: empresaIdOriginal,
+          sedeId: sedeIdOriginal,
           cliente: {
             empresa: propuestaData.cliente?.empresa || '',
             nombre: propuestaData.cliente?.nombre || '',
@@ -104,16 +116,7 @@ export default function EditarPropuestaPlanAccion({ params }) {
           fechaRealizacion: propuestaData.fechaRealizacion || ''
         });
 
-        setTipoCliente(propuestaData.tipoCliente || (propuestaData.clienteId ? 'existente' : 'manual'));
-
-        if (propuestaData.clienteId) {
-          const clienteEncontrado = clientes.find(c => c.id === propuestaData.clienteId);
-          if (clienteEncontrado) {
-            setClienteSeleccionado(clienteEncontrado);
-            const empresa = (empresasData.empresas || []).find(e => e.id === clienteEncontrado.empresaId) || null;
-            setEmpresaDelCliente(empresa);
-          }
-        }
+        setTipoCliente(propuestaData.tipoCliente || (propuestaData.clienteId || propuestaData.empresaId ? 'existente' : 'manual'));
 
         setLoadingData(false);
       } catch (error) {
@@ -124,62 +127,28 @@ export default function EditarPropuestaPlanAccion({ params }) {
     })();
   }, [id, loadingAuth, router]);
 
-  const handleSeleccionarCliente = (clienteId) => {
-    if (!clienteId) {
-      setClienteSeleccionado(null);
-      setEmpresaDelCliente(null);
-      setPropuesta(prev => ({
-        ...prev,
-        clienteId: '',
-        cliente: { empresa: '', nombre: '', sedeNombre: '', direccion: '' }
-      }));
-      return;
-    }
-
-    const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
-    if (clienteEncontrado) {
-      const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
-
-      setClienteSeleccionado(clienteEncontrado);
-      setEmpresaDelCliente(empresa);
-      setPropuesta(prev => ({
-        ...prev,
-        clienteId,
-        cliente: {
-          empresa: clienteEncontrado.empresa || '',
-          nombre: clienteEncontrado.nombreCompleto || '',
-          direccion: empresa?.direccionPrincipal || '',
-          sedeNombre: ''
-        }
-      }));
-    }
-  };
-
-  const handleSeleccionarSede = (sedeId) => {
-    if (!sedeId) {
-      setPropuesta(prev => ({
-        ...prev,
-        cliente: { ...prev.cliente, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }
-      }));
-      return;
-    }
-    const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
-    if (sede) {
-      setPropuesta(prev => ({
-        ...prev,
-        cliente: { ...prev.cliente, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }
-      }));
-    }
+  // Empresa + Sede: deciden qué contactos ven la propuesta
+  const handleSeleccionEmpresaSede = ({ empresaId, sedeId, datosCliente }) => {
+    setPropuesta(prev => ({
+      ...prev,
+      empresaId,
+      sedeId,
+      cliente: {
+        ...prev.cliente,
+        empresa: datosCliente.empresa,
+        direccion: datosCliente.direccion,
+        sedeNombre: datosCliente.sedeNombre
+      }
+    }));
   };
 
   const handleCambiarTipoCliente = (tipo) => {
     setTipoCliente(tipo);
     if (tipo === 'manual') {
-      setClienteSeleccionado(null);
-      setEmpresaDelCliente(null);
       setPropuesta(prev => ({
         ...prev,
-        clienteId: '',
+        empresaId: '',
+        sedeId: null,
         cliente: { empresa: '', nombre: '', sedeNombre: '', direccion: '' }
       }));
     }
@@ -188,8 +157,8 @@ export default function EditarPropuestaPlanAccion({ params }) {
   const handleGuardar = async (e) => {
     e.preventDefault();
 
-    if (tipoCliente === 'existente' && !propuesta.clienteId) {
-      alert('Por favor, selecciona un cliente del sistema.');
+    if (tipoCliente === 'existente' && !propuesta.empresaId) {
+      alert('Por favor, selecciona una empresa del sistema.');
       return;
     }
     if (!propuesta.cliente.empresa) {
@@ -204,7 +173,8 @@ export default function EditarPropuestaPlanAccion({ params }) {
     setGuardando(true);
     try {
       const datos = {
-        clienteId: propuesta.clienteId || null,
+        empresaId: propuesta.empresaId || null,
+        sedeId: propuesta.sedeId || null,
         tipoCliente,
         cliente: propuesta.cliente,
         fecha: propuesta.fecha,
@@ -315,39 +285,12 @@ export default function EditarPropuestaPlanAccion({ params }) {
 
               {tipoCliente === 'existente' ? (
                 <div className="p-4 rounded-lg bg-green-50">
-                  <label className="block mb-2 text-sm font-medium text-gray-700">
-                    Seleccionar cliente registrado *
-                  </label>
-                  <select
-                    value={propuesta.clienteId}
-                    onChange={(e) => handleSeleccionarCliente(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="">Seleccionar cliente...</option>
-                    {clientesDisponibles.map(cliente => (
-                      <option key={cliente.id} value={cliente.id}>
-                        {cliente.empresa} - {cliente.nombreCompleto}
-                      </option>
-                    ))}
-                  </select>
-
-                  {empresaDelCliente?.sedes?.length > 0 && (
-                    <div className="mt-3">
-                      <label className="block mb-2 text-sm font-medium text-gray-700">Sede</label>
-                      <select
-                        onChange={(e) => handleSeleccionarSede(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="">Dirección Principal</option>
-                        {empresaDelCliente.sedes.map(sede => (
-                          <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
-                        ))}
-                      </select>
-                      {propuesta.cliente.sedeNombre && (
-                        <p className="mt-1 text-xs text-gray-500">Sede actual: {propuesta.cliente.sedeNombre}</p>
-                      )}
-                    </div>
-                  )}
+                  <EmpresaSedeSelector
+                    empresas={empresasDisponibles}
+                    empresaId={propuesta.empresaId}
+                    sedeId={propuesta.sedeId}
+                    onChange={handleSeleccionEmpresaSede}
+                  />
                 </div>
               ) : (
                 <div className="p-4 rounded-lg bg-gray-50">

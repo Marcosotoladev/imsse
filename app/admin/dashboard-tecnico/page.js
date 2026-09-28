@@ -33,7 +33,7 @@ export default function DashboardTecnico() {
 
           // Verificar que sea técnico
           if (perfilUsuario.rol !== 'tecnico') {
-            if (perfilUsuario.rol === 'admin') {
+            if (['admin', 'secretaria'].includes(perfilUsuario.rol)) {
               router.push('/admin/panel-control');
             } else {
               router.push('/cliente/dashboard');

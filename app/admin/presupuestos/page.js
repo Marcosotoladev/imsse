@@ -22,6 +22,7 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import PresupuestoPDF from '../../components/pdf/PresupuestoPDF';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todos' };
 
@@ -46,15 +47,15 @@ function AccionBoton({ href, onClick, disabled, title, colorClasses, children })
   );
 }
 
-function AccionesPresupuesto({ presupuesto, onEliminar }) {
+function AccionesPresupuesto({ puede, presupuesto, onEliminar }) {
   return (
     <div className="flex items-center gap-2">
       <AccionBoton href={`/admin/presupuestos/${presupuesto.id}`} title="Ver detalles" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/presupuestos/editar/${presupuesto.id}`} title="Editar presupuesto" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('presupuestos', 'editar', presupuesto) && (<AccionBoton href={`/admin/presupuestos/editar/${presupuesto.id}`} title="Editar presupuesto" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
       <PDFDownloadLink
         document={<PresupuestoPDF presupuesto={presupuesto} />}
         fileName={`${presupuesto.numero}.pdf`}
@@ -63,9 +64,9 @@ function AccionesPresupuesto({ presupuesto, onEliminar }) {
       >
         {({ loading }) => <Download size={18} className={loading ? 'animate-pulse' : ''} />}
       </PDFDownloadLink>
-      <AccionBoton onClick={() => onEliminar(presupuesto.id)} title="Eliminar presupuesto" colorClasses="text-red-600 bg-red-50 hover:bg-red-100">
+      {puede('presupuestos', 'eliminar', presupuesto) && (<AccionBoton onClick={() => onEliminar(presupuesto.id)} title="Eliminar presupuesto" colorClasses="text-red-600 bg-red-50 hover:bg-red-100">
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
@@ -78,6 +79,7 @@ export default function HistorialPresupuestos() {
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [vista, setVista] = useState('tabla'); // 'tabla' | 'cards'
   const router = useRouter();
+  const { puede } = useMisPermisos();
 
   useEffect(() => {
     // Verificar autenticación con Firebase
@@ -244,13 +246,13 @@ export default function HistorialPresupuestos() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link
+            {puede('presupuestos', 'crear') && (<Link
               href="/admin/presupuestos/nuevo"
               className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
             >
               <FilePlus size={18} className="mr-2" />
               Nuevo Presupuesto
-            </Link>
+            </Link>)}
           </div>
         </div>
 
@@ -365,13 +367,13 @@ export default function HistorialPresupuestos() {
               }
             </p>
             {!searchTerm && !hayFiltrosActivos && (
-              <Link
+              puede('presupuestos', 'crear') && (<Link
                 href="/admin/presupuestos/nuevo"
                 className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
               >
                 <FilePlus size={18} className="mr-2" />
                 Crear Primer Presupuesto
-              </Link>
+              </Link>)
             )}
           </div>
         ) : vista === 'cards' ? (
@@ -403,7 +405,7 @@ export default function HistorialPresupuestos() {
                   <p className="text-sm font-semibold text-gray-900">{formatCurrency(presupuesto.total)}</p>
                 </div>
 
-                <AccionesPresupuesto presupuesto={presupuesto} onEliminar={handleDeletePresupuesto} />
+                <AccionesPresupuesto puede={puede} presupuesto={presupuesto} onEliminar={handleDeletePresupuesto} />
               </div>
             ))}
           </div>
@@ -456,7 +458,7 @@ export default function HistorialPresupuestos() {
                         </td>
                         <td className="px-4 py-4 text-center whitespace-nowrap">
                           <div className="flex justify-center">
-                            <AccionesPresupuesto presupuesto={presupuesto} onEliminar={handleDeletePresupuesto} />
+                            <AccionesPresupuesto puede={puede} presupuesto={presupuesto} onEliminar={handleDeletePresupuesto} />
                           </div>
                         </td>
                       </tr>

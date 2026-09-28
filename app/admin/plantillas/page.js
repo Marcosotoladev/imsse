@@ -8,9 +8,11 @@ import { FilePlus, ClipboardCheck, Home, Search, Edit, Trash2 } from 'lucide-rea
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { obtenerMisPermisos, puedeCon, useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 export default function ListaPlantillas() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [plantillas, setPlantillas] = useState([]);
   const [filtro, setFiltro] = useState('');
@@ -22,8 +24,7 @@ export default function ListaPlantillas() {
         return;
       }
       try {
-        const perfil = await apiService.obtenerPerfilUsuario(currentUser.uid);
-        if (perfil.rol !== 'admin') {
+        if (!puedeCon(await obtenerMisPermisos(), 'plantillas', 'ver')) {
           router.push('/admin/panel-control');
           return;
         }
@@ -96,12 +97,14 @@ export default function ListaPlantillas() {
             <span className="text-gray-700">Plantillas de Inspección</span>
           </div>
 
-          <Link
-            href="/admin/plantillas/nueva"
-            className="flex items-center px-4 py-2 mb-4 text-white transition-colors rounded-md bg-primary hover:bg-primary-light"
-          >
-            <FilePlus size={18} className="mr-2" /> Nueva Plantilla
-          </Link>
+          {puede('plantillas', 'crear') && (
+            <Link
+              href="/admin/plantillas/nueva"
+              className="flex items-center px-4 py-2 mb-4 text-white transition-colors rounded-md bg-primary hover:bg-primary-light"
+            >
+              <FilePlus size={18} className="mr-2" /> Nueva Plantilla
+            </Link>
+          )}
         </div>
 
         <h2 className="mb-1 text-2xl font-bold font-montserrat text-primary">
@@ -151,22 +154,28 @@ export default function ListaPlantillas() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex justify-end gap-2 pt-3 mt-3 border-t border-gray-100">
-                          <Link
-                            href={`/admin/plantillas/editar/${plantilla.id}`}
-                            title="Editar"
-                            className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-secondary"
-                          >
-                            <Edit size={16} />
-                          </Link>
-                          <button
-                            onClick={() => handleEliminar(plantilla.id)}
-                            title="Eliminar"
-                            className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-red-600"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {(puede('plantillas', 'editar', plantilla) || puede('plantillas', 'eliminar', plantilla)) && (
+                          <div className="flex justify-end gap-2 pt-3 mt-3 border-t border-gray-100">
+                            {puede('plantillas', 'editar', plantilla) && (
+                              <Link
+                                href={`/admin/plantillas/editar/${plantilla.id}`}
+                                title="Editar"
+                                className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-secondary"
+                              >
+                                <Edit size={16} />
+                              </Link>
+                            )}
+                            {puede('plantillas', 'eliminar', plantilla) && (
+                              <button
+                                onClick={() => handleEliminar(plantilla.id)}
+                                title="Eliminar"
+                                className="inline-flex items-center justify-center w-9 h-9 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-red-600"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

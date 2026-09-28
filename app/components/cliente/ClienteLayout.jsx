@@ -29,6 +29,7 @@ import apiService from '../../../lib/services/apiService';
 // Configuración de módulos para clientes (Documentos agrupa los distintos tipos)
 const MODULOS_DISPONIBLES = [
   { key: 'dashboard', nombre: 'Inicio', icono: Home, path: '/cliente/dashboard', siempre: true },
+  { key: 'ordenes', nombre: 'Órdenes de Trabajo', icono: Wrench, path: '/cliente/ordenes' },
   { key: 'inspecciones', nombre: 'Visita Técnica', icono: ClipboardCheck, path: '/cliente/inspecciones' },
   { key: 'planaccion', nombre: 'Plan de Acción', icono: ClipboardList, path: '/cliente/plan-accion' },
   {

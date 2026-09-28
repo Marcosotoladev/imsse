@@ -36,6 +36,10 @@ async function handler(req, res) {
       return res.status(400).json({ error: 'El nombre es obligatorio' });
     }
 
+    if (!Object.values(ROLES).includes(rol)) {
+      return res.status(400).json({ error: 'Rol no válido' });
+    }
+
     if (!password || password.length < 6) {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
     }
@@ -109,6 +113,7 @@ async function handler(req, res) {
         recibos: true,
         remitos: true,
         estados: true,
+        ordenes: true,
         recordatorios: true,
         inspecciones: true,
         planaccion: true

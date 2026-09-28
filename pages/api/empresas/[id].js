@@ -1,5 +1,5 @@
 // pages/api/empresas/[id].js
-import { withAuth, ROLES } from '../../../lib/auth-middleware';
+import { withAuth, ROLES_PERSONAL, ROLES_GESTION_EMPRESAS } from '../../../lib/auth-middleware';
 import { firestore } from '../../../lib/firebase-admin';
 import admin from '../../../lib/firebase-admin';
 
@@ -21,8 +21,8 @@ async function handler(req, res) {
 
 async function getEmpresa(req, res, id, user) {
   try {
-    // Admin ve cualquiera; un contacto puede leer los datos de su propia empresa
-    if (user.role !== ROLES.ADMIN && user.clientId !== id) {
+    // Todo el personal puede leer una empresa; gestionarla, solo admin y secretaria
+    if (!ROLES_PERSONAL.includes(user.role)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -46,7 +46,7 @@ async function getEmpresa(req, res, id, user) {
 
 async function updateEmpresa(req, res, id, user) {
   try {
-    if (user.role !== ROLES.ADMIN) {
+    if (!ROLES_GESTION_EMPRESAS.includes(user.role)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -92,7 +92,7 @@ async function updateEmpresa(req, res, id, user) {
 
 async function deleteEmpresa(req, res, id, user) {
   try {
-    if (user.role !== ROLES.ADMIN) {
+    if (!ROLES_GESTION_EMPRESAS.includes(user.role)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -101,16 +101,17 @@ async function deleteEmpresa(req, res, id, user) {
       return res.status(404).json({ error: 'Empresa no encontrada' });
     }
 
-    // No permitir eliminar una empresa con contactos (usuarios) vinculados
-    const contactosSnapshot = await firestore
-      .collection('usuarios')
-      .where('empresaId', '==', id)
-      .limit(1)
-      .get();
+    // No permitir eliminar una empresa con contactos (usuarios) vinculados: como empresa principal
+    // o con accesos a sus documentos
+    const clientesSnapshot = await firestore.collection('usuarios').where('rol', '==', 'cliente').get();
+    const tieneContactos = clientesSnapshot.docs.some((doc) => {
+      const data = doc.data();
+      return data.empresaId === id || !!data.accesos?.[id];
+    });
 
-    if (!contactosSnapshot.empty) {
+    if (tieneContactos) {
       return res.status(400).json({
-        error: 'No se puede eliminar: hay contactos vinculados a esta empresa. Reasigná o eliminá esos contactos primero.'
+        error: 'No se puede eliminar: hay contactos vinculados a esta empresa. Reasigná esos contactos o quitales los accesos a esta empresa primero.'
       });
     }
 

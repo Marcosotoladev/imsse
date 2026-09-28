@@ -41,6 +41,9 @@ import SignatureCanvas from 'react-signature-canvas';
 import { archivoABase64 } from '../../../../lib/imagenes';
 import { extraerObservacionesChecklist, sincronizarObservaciones } from '../../../../lib/utils/observacionesChecklist';
 import RichTextEditor from '../../../components/ui/RichTextEditor';
+import { ROLES_PERSONAL } from '../../../../lib/permisosRoles';
+import { obtenerMisPermisos, puedeCon } from '../../../../lib/hooks/useMisPermisos';
+import EmpresaSedeSelector from '../../../components/admin/EmpresaSedeSelector';
 
 export default function CrearInspeccionTecnica() {
   const [user, setUser] = useState(null);
@@ -49,12 +52,9 @@ export default function CrearInspeccionTecnica() {
   const [perfil, setPerfil] = useState(null);
   const router = useRouter();
 
-  const [clientesDisponibles, setClientesDisponibles] = useState([]);
   const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
-  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [cargandoEmpresas, setCargandoEmpresas] = useState(false);
   const [tipoCliente, setTipoCliente] = useState('existente');
-  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
-  const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
 
   const [plantillasDisponibles, setPlantillasDisponibles] = useState([]);
   const [planillasAdjuntas, setPlanillasAdjuntas] = useState([]);
@@ -74,7 +74,8 @@ export default function CrearInspeccionTecnica() {
 
   const [inspeccion, setInspeccion] = useState({
     numero: '',
-    clienteId: '',
+    empresaId: '',
+    sedeId: null,
     cliente: {
       empresa: '',
       nombre: '',
@@ -124,8 +125,12 @@ export default function CrearInspeccionTecnica() {
         try {
           const perfilUsuario = await apiService.obtenerPerfilUsuario(currentUser.uid);
 
-          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+          if (!ROLES_PERSONAL.includes(perfilUsuario.rol)) {
             router.push('/cliente/dashboard');
+            return;
+          }
+          if (!puedeCon(await obtenerMisPermisos(), 'inspecciones', 'crear')) {
+            router.push('/admin/inspecciones');
             return;
           }
 
@@ -141,7 +146,7 @@ export default function CrearInspeccionTecnica() {
             fechaTrabajo: now.toISOString().split('T')[0]
           }));
 
-          cargarClientesDisponibles(perfilUsuario);
+          cargarEmpresas();
           cargarPlantillas();
           cargarTecnicos();
 
@@ -207,96 +212,43 @@ export default function CrearInspeccionTecnica() {
     }
   };
 
-  const cargarClientesDisponibles = async (perfilUsuario) => {
-    setCargandoClientes(true);
+  // Empresas y sus Sedes: todo el personal puede leerlas
+  const cargarEmpresas = async () => {
+    setCargandoEmpresas(true);
     try {
-      let clientes = [];
-
-      if (perfilUsuario && perfilUsuario.rol === 'tecnico') {
-        const clientesData = await tecnicoService.obtenerClientes();
-        clientes = clientesData.users || clientesData.clientes || [];
-      } else {
-        const usuariosData = await apiService.obtenerUsuarios();
-        clientes = usuariosData.users.filter(u =>
-          u.rol === 'cliente' && u.estado === 'activo'
-        );
-      }
-
-      setClientesDisponibles(clientes);
-
-      try {
-        const empresasData = await apiService.obtenerEmpresas();
-        setEmpresasDisponibles(empresasData.empresas || []);
-      } catch (empresaError) {
-        console.error('Error al cargar empresas:', empresaError);
-        setEmpresasDisponibles([]);
-      }
+      const empresasData = await apiService.obtenerEmpresas();
+      setEmpresasDisponibles(empresasData.empresas || []);
     } catch (error) {
-      console.error('Error al cargar clientes:', error);
-      setClientesDisponibles([]);
+      console.error('Error al cargar empresas:', error);
+      setEmpresasDisponibles([]);
     } finally {
-      setCargandoClientes(false);
+      setCargandoEmpresas(false);
     }
   };
 
-  const handleSeleccionarCliente = (clienteId) => {
-    if (!clienteId) {
-      setClienteSeleccionado(null);
-      setEmpresaDelCliente(null);
-      setInspeccion(prev => ({
-        ...prev,
-        clienteId: '',
-        cliente: { empresa: '', nombre: '', telefono: '', direccion: '', sedeNombre: '', solicitadoPor: '' }
-      }));
-      return;
-    }
-
-    const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
-    if (clienteEncontrado) {
-      const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
-
-      setClienteSeleccionado(clienteEncontrado);
-      setEmpresaDelCliente(empresa);
-      setInspeccion(prev => ({
-        ...prev,
-        clienteId,
-        cliente: {
-          empresa: clienteEncontrado.empresa || '',
-          nombre: clienteEncontrado.nombreCompleto || '',
-          telefono: clienteEncontrado.telefono || '',
-          direccion: empresa?.direccionPrincipal || '',
-          sedeNombre: '',
-          solicitadoPor: ''
-        }
-      }));
-    }
-  };
-
-  const handleSeleccionarSede = (sedeId) => {
-    if (!sedeId) {
-      setInspeccion(prev => ({
-        ...prev,
-        cliente: { ...prev.cliente, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }
-      }));
-      return;
-    }
-    const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
-    if (sede) {
-      setInspeccion(prev => ({
-        ...prev,
-        cliente: { ...prev.cliente, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }
-      }));
-    }
+  // Empresa + Sede: deciden qué contactos ven la visita. El contacto se escribe a mano.
+  const handleSeleccionEmpresaSede = ({ empresaId, sedeId, empresa, datosCliente }) => {
+    setInspeccion(prev => ({
+      ...prev,
+      empresaId,
+      sedeId,
+      cliente: {
+        ...prev.cliente,
+        empresa: datosCliente.empresa,
+        telefono: datosCliente.telefono,
+        direccion: datosCliente.direccion,
+        sedeNombre: datosCliente.sedeNombre
+      }
+    }));
   };
 
   const handleCambiarTipoCliente = (tipo) => {
     setTipoCliente(tipo);
     if (tipo === 'manual') {
-      setClienteSeleccionado(null);
-      setEmpresaDelCliente(null);
       setInspeccion(prev => ({
         ...prev,
-        clienteId: '',
+        empresaId: '',
+        sedeId: null,
         cliente: { empresa: '', nombre: '', telefono: '', direccion: '', sedeNombre: '', solicitadoPor: '' }
       }));
     }
@@ -426,8 +378,8 @@ export default function CrearInspeccionTecnica() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (tipoCliente === 'existente' && !inspeccion.clienteId) {
-      alert('Por favor, selecciona un cliente del sistema.');
+    if (tipoCliente === 'existente' && !inspeccion.empresaId) {
+      alert('Por favor, selecciona una empresa del sistema.');
       return;
     }
 
@@ -456,7 +408,8 @@ export default function CrearInspeccionTecnica() {
     try {
       const datos = {
         numero: inspeccion.numero,
-        clienteId: inspeccion.clienteId || null,
+        empresaId: inspeccion.empresaId || null,
+        sedeId: inspeccion.sedeId || null,
         tipoCliente,
         cliente: inspeccion.cliente,
         fechaTrabajo: inspeccion.fechaTrabajo,
@@ -661,45 +614,13 @@ export default function CrearInspeccionTecnica() {
 
               {tipoCliente === 'existente' && (
                 <div className="p-4 rounded-lg bg-green-50">
-                  <label className="block mb-2 text-sm font-medium text-gray-700">
-                    Seleccionar cliente registrado *
-                  </label>
-                  <select
-                    value={inspeccion.clienteId}
-                    onChange={(e) => handleSeleccionarCliente(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
-                    disabled={cargandoClientes}
-                  >
-                    <option value="">
-                      {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
-                    </option>
-                    {clientesDisponibles.map(cliente => (
-                      <option key={cliente.id} value={cliente.id}>
-                        {cliente.empresa} - {cliente.nombreCompleto}
-                      </option>
-                    ))}
-                  </select>
-
-                  {clienteSeleccionado && (
-                    <div className="p-3 mt-3 bg-white border border-green-200 rounded">
-                      <div className="text-sm">
-                        <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
-                        <p className="text-gray-600">{clienteSeleccionado.email}</p>
-                        {clienteSeleccionado.telefono && (
-                          <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {clientesDisponibles.length === 0 && !cargandoClientes && (
-                    <p className="mt-2 text-sm text-yellow-600">
-                      No hay clientes activos en el sistema.
-                      <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
-                        Crear cliente aquí
-                      </Link>
-                    </p>
-                  )}
+                  <EmpresaSedeSelector
+                    empresas={empresasDisponibles}
+                    empresaId={inspeccion.empresaId}
+                    sedeId={inspeccion.sedeId}
+                    cargando={cargandoEmpresas}
+                    onChange={handleSeleccionEmpresaSede}
+                  />
                 </div>
               )}
 
@@ -730,7 +651,6 @@ export default function CrearInspeccionTecnica() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Nombre de la empresa"
                   required
-                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
               </div>
 
@@ -744,24 +664,8 @@ export default function CrearInspeccionTecnica() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="Nombre del contacto"
                   required
-                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
               </div>
-
-              {tipoCliente === 'existente' && empresaDelCliente?.sedes?.length > 0 && (
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700">Sede</label>
-                  <select
-                    onChange={(e) => handleSeleccionarSede(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="">Dirección Principal</option>
-                    {empresaDelCliente.sedes.map(sede => (
-                      <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">Dirección del Trabajo</label>

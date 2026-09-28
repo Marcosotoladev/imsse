@@ -68,6 +68,7 @@ export default function Login() {
     switch (perfil.rol) {
       case 'admin':
       case 'tecnico':
+      case 'secretaria':
         router.push('/admin/panel-control');
         break;
       case 'cliente':

@@ -25,6 +25,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todos', prioridad: 'todos' };
 
@@ -49,16 +50,18 @@ function AccionBoton({ href, onClick, disabled, title, colorClasses, children })
   );
 }
 
-function AccionesRecordatorio({ recordatorio, onToggleCompletado, onEliminar }) {
+function AccionesRecordatorio({ puede, recordatorio, onToggleCompletado, onEliminar }) {
   const completado = recordatorio.estadoCalculado === 'completado';
 
   return (
     <div className="flex items-center gap-2">
+      {/* Marcar como completado es editar el recordatorio */}
       <button
         type="button"
         onClick={() => onToggleCompletado(recordatorio.id, recordatorio.estado)}
+        disabled={!puede('recordatorios', 'editar', recordatorio)}
         title={completado ? 'Marcar como pendiente' : 'Marcar como completado'}
-        className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-colors ${
+        className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
           completado ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 text-transparent hover:border-green-500'
         }`}
       >
@@ -67,22 +70,23 @@ function AccionesRecordatorio({ recordatorio, onToggleCompletado, onEliminar }) 
       <AccionBoton href={`/admin/recordatorios/${recordatorio.id}`} title="Ver recordatorio" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/recordatorios/editar/${recordatorio.id}`} title="Editar recordatorio" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('recordatorios', 'editar', recordatorio) && (<AccionBoton href={`/admin/recordatorios/editar/${recordatorio.id}`} title="Editar recordatorio" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
-      <AccionBoton
+      </AccionBoton>)}
+      {puede('recordatorios', 'eliminar', recordatorio) && (<AccionBoton
         onClick={() => onEliminar(recordatorio.id, recordatorio.titulo)}
         title="Eliminar recordatorio"
         colorClasses="text-red-600 bg-red-50 hover:bg-red-100"
       >
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
 
 export default function ListaRecordatorios() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [recordatorios, setRecordatorios] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -299,13 +303,13 @@ export default function ListaRecordatorios() {
               {recordatoriosFiltrados.length} de {recordatorios.length} {recordatorios.length === 1 ? 'recordatorio' : 'recordatorios'}
             </p>
           </div>
-          <Link
+          {puede('recordatorios', 'crear') && (<Link
             href="/admin/recordatorios/nuevo"
             className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
           >
             <Plus size={18} className="mr-2" />
             Nuevo Recordatorio
-          </Link>
+          </Link>)}
         </div>
 
         {/* Búsqueda + filtros + vista */}
@@ -432,13 +436,13 @@ export default function ListaRecordatorios() {
               }
             </p>
             {!searchTerm && !hayFiltrosActivos && (
-              <Link
+              puede('recordatorios', 'crear') && (<Link
                 href="/admin/recordatorios/nuevo"
                 className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
               >
                 <Plus size={18} className="mr-2" />
                 Crear Primer Recordatorio
-              </Link>
+              </Link>)
             )}
           </div>
         ) : vista === 'cards' ? (
@@ -487,7 +491,7 @@ export default function ListaRecordatorios() {
                     </span>
                   </div>
 
-                  <AccionesRecordatorio
+                  <AccionesRecordatorio puede={puede}
                     recordatorio={recordatorio}
                     onToggleCompletado={handleToggleCompletado}
                     onEliminar={handleDelete}
@@ -554,7 +558,7 @@ export default function ListaRecordatorios() {
                           </td>
                           <td className="px-4 py-4 text-center whitespace-nowrap">
                             <div className="flex justify-center">
-                              <AccionesRecordatorio
+                              <AccionesRecordatorio puede={puede}
                                 recordatorio={recordatorio}
                                 onToggleCompletado={handleToggleCompletado}
                                 onEliminar={handleDelete}

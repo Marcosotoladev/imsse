@@ -1,6 +1,6 @@
 // pages/api/tecnico/tecnicos.js - Lista de usuarios con rol técnico, para el
 // desplegable de "Técnicos" en Órdenes de Trabajo / Inspección Técnica.
-import { verifyAuth, ROLES } from '../../../lib/auth-middleware';
+import { verifyAuth, ROLES_PERSONAL } from '../../../lib/auth-middleware';
 import { db } from '../../../lib/firebase-admin';
 
 export default async function handler(req, res) {
@@ -11,8 +11,8 @@ export default async function handler(req, res) {
   try {
     const user = await verifyAuth(req);
 
-    // Solo admins y técnicos pueden acceder
-    if (![ROLES.ADMIN, ROLES.TECNICO].includes(user.role)) {
+    // Solo el personal (admin, técnico, secretaria) puede acceder
+    if (!ROLES_PERSONAL.includes(user.role)) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
 

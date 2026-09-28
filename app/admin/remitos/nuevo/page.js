@@ -10,6 +10,7 @@ import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
 import SignatureCanvas from 'react-signature-canvas';
 import RichTextEditor from '../../../components/ui/RichTextEditor';
+import EmpresaSedeSelector from '../../../components/admin/EmpresaSedeSelector';
 
 
 export default function NuevoRemito() {
@@ -21,12 +22,10 @@ export default function NuevoRemito() {
     const [descargando, setDescargando] = useState(false);
     const sigCanvas = useRef({});
 
-    // NUEVO: Estados para gestión de clientes
-    const [clientesDisponibles, setClientesDisponibles] = useState([]);
+    // Empresa + Sede a la que se emite el remito
     const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
-    const [cargandoClientes, setCargandoClientes] = useState(false);
+    const [cargandoEmpresas, setCargandoEmpresas] = useState(false);
     const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
-    const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
     const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
 
     // Estado para el modal de descripción
@@ -49,7 +48,8 @@ export default function NuevoRemito() {
     const [remito, setRemito] = useState({
         numero: `REM-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
         fecha: new Date().toISOString().split('T')[0],
-        clienteId: '', // ← NUEVO CAMPO CRÍTICO
+        empresaId: '',
+        sedeId: null,
         items: [
             { id: 1, descripcion: '', cantidad: '', unidad: 'unidad' }
         ],
@@ -66,7 +66,7 @@ export default function NuevoRemito() {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
-                cargarClientesDisponibles(); // ← Agregar carga de clientes
+                cargarEmpresas();
                 setLoading(false);
             } else {
                 router.push('/admin');
@@ -76,66 +76,24 @@ export default function NuevoRemito() {
         return () => unsubscribe();
     }, [router]);
 
-    // NUEVA FUNCIÓN: Cargar clientes activos del sistema
-    const cargarClientesDisponibles = async () => {
-        setCargandoClientes(true);
+    const cargarEmpresas = async () => {
+        setCargandoEmpresas(true);
         try {
-            const [usuariosData, empresasData] = await Promise.all([
-                apiService.obtenerUsuarios(),
-                apiService.obtenerEmpresas()
-            ]);
-            const clientes = usuariosData.users.filter(u =>
-                u.rol === 'cliente' && u.estado === 'activo'
-            );
-            setClientesDisponibles(clientes);
+            const empresasData = await apiService.obtenerEmpresas();
             setEmpresasDisponibles(empresasData.empresas || []);
-            console.log('Clientes disponibles:', clientes);
         } catch (error) {
-            console.error('Error al cargar clientes:', error);
+            console.error('Error al cargar empresas:', error);
         } finally {
-            setCargandoClientes(false);
+            setCargandoEmpresas(false);
         }
     };
 
-    // NUEVA FUNCIÓN: Manejar selección de cliente existente
-    const handleSeleccionarCliente = (clienteId) => {
-        if (!clienteId) {
-            setClienteSeleccionado(null);
-            setEmpresaDelCliente(null);
-            setRemito({ ...remito, clienteId: '' });
-            setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '', sedeNombre: '' });
-            return;
-        }
-
-        const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
-        if (clienteEncontrado) {
-            const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
-
-            setClienteSeleccionado(clienteEncontrado);
-            setEmpresaDelCliente(empresa);
-            setRemito({ ...remito, clienteId: clienteId });
-            // Auto-llenar datos del cliente
-            setCliente({
-                nombre: clienteEncontrado.nombreCompleto || '',
-                empresa: clienteEncontrado.empresa || '',
-                email: clienteEncontrado.email || '',
-                telefono: clienteEncontrado.telefono || '',
-                direccion: empresa?.direccionPrincipal || '',
-                sedeNombre: ''
-            });
-        }
-    };
-
-    // Cambia la dirección cargada según la Sede elegida (o vuelve a la Dirección Principal)
-    const handleSeleccionarSede = (sedeId) => {
-        if (!sedeId) {
-            setCliente(prev => ({ ...prev, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }));
-            return;
-        }
-        const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
-        if (sede) {
-            setCliente(prev => ({ ...prev, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }));
-        }
+    // Empresa + Sede: deciden qué contactos ven el remito. La persona de contacto se escribe a mano.
+    const handleSeleccionEmpresaSede = ({ empresaId, sedeId, empresa, datosCliente }) => {
+        const { email, telefono, direccion, sedeNombre } = datosCliente;
+        setEmpresaDelCliente(empresa);
+        setRemito(prev => ({ ...prev, empresaId, sedeId }));
+        setCliente(prev => ({ ...prev, empresa: datosCliente.empresa, email, telefono, direccion, sedeNombre }));
     };
 
     // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
@@ -143,9 +101,8 @@ export default function NuevoRemito() {
         setTipoCliente(tipo);
         if (tipo === 'manual') {
             // Limpiar selección y permitir edición manual
-            setClienteSeleccionado(null);
             setEmpresaDelCliente(null);
-            setRemito({ ...remito, clienteId: '' });
+            setRemito({ ...remito, empresaId: '', sedeId: null });
             setCliente({ nombre: '', empresa: '', email: '', telefono: '', direccion: '', sedeNombre: '' });
         }
     };
@@ -268,8 +225,8 @@ export default function NuevoRemito() {
 
     const handleGuardarRemito = async () => {
         // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
-        if (tipoCliente === 'existente' && !remito.clienteId) {
-            alert('Por favor, selecciona un cliente del sistema.');
+        if (tipoCliente === 'existente' && !remito.empresaId) {
+            alert('Por favor, selecciona una empresa del sistema.');
             return;
         }
 
@@ -290,7 +247,8 @@ export default function NuevoRemito() {
             const remitoData = {
                 numero: remito.numero,
                 fecha: remito.fecha,
-                clienteId: remito.clienteId || null, // ← CAMPO CRÍTICO
+                empresaId: remito.empresaId || null,
+                sedeId: remito.sedeId || null,
                 tipoCliente: tipoCliente, // Para referencia
                 estado: remito.estado,
                 destino: remito.destino,
@@ -508,46 +466,13 @@ export default function NuevoRemito() {
                             {/* Selector de cliente existente */}
                             {tipoCliente === 'existente' && (
                                 <div className="p-4 rounded-lg bg-green-50">
-                                    <label className="block mb-2 text-sm font-medium text-gray-700">
-                                        Seleccionar cliente registrado *
-                                    </label>
-                                    <select
-                                        value={remito.clienteId}
-                                        onChange={(e) => handleSeleccionarCliente(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
-                                        disabled={cargandoClientes}
-                                    >
-                                        <option value="">
-                                            {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
-                                        </option>
-                                        {clientesDisponibles.map(cliente => (
-                                            <option key={cliente.id} value={cliente.id}>
-                                                {cliente.empresa} - {cliente.nombreCompleto}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    
-                                    {/* Información del cliente seleccionado */}
-                                    {clienteSeleccionado && (
-                                        <div className="p-3 mt-3 bg-white border border-green-200 rounded">
-                                            <div className="text-sm">
-                                                <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
-                                                <p className="text-gray-600">{clienteSeleccionado.email}</p>
-                                                {clienteSeleccionado.telefono && (
-                                                    <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                    
-                                    {clientesDisponibles.length === 0 && !cargandoClientes && (
-                                        <p className="mt-2 text-sm text-yellow-600">
-                                            No hay clientes activos en el sistema. 
-                                            <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
-                                                Crear cliente aquí
-                                            </Link>
-                                        </p>
-                                    )}
+                                    <EmpresaSedeSelector
+                                        empresas={empresasDisponibles}
+                                        empresaId={remito.empresaId}
+                                        sedeId={remito.sedeId}
+                                        cargando={cargandoEmpresas}
+                                        onChange={handleSeleccionEmpresaSede}
+                                    />
                                 </div>
                             )}
 
@@ -579,13 +504,7 @@ export default function NuevoRemito() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="Nombre del contacto"
                                     required
-                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
-                                {tipoCliente === 'existente' && clienteSeleccionado && (
-                                    <p className="mt-1 text-xs text-green-600">
-                                        ✅ Auto-completado desde el cliente seleccionado
-                                    </p>
-                                )}
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Empresa *</label>
@@ -597,13 +516,7 @@ export default function NuevoRemito() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="Nombre de la empresa"
                                     required
-                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
-                                {tipoCliente === 'existente' && clienteSeleccionado && (
-                                    <p className="mt-1 text-xs text-green-600">
-                                        ✅ Auto-completado desde el cliente seleccionado
-                                    </p>
-                                )}
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
@@ -614,13 +527,7 @@ export default function NuevoRemito() {
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="cliente@email.com"
-                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
-                                {tipoCliente === 'existente' && clienteSeleccionado && (
-                                    <p className="mt-1 text-xs text-green-600">
-                                        ✅ Auto-completado desde el cliente seleccionado
-                                    </p>
-                                )}
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Teléfono</label>
@@ -631,13 +538,7 @@ export default function NuevoRemito() {
                                     onChange={handleClienteChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="+54 351 123 4567"
-                                    disabled={tipoCliente === 'existente' && clienteSeleccionado}
                                 />
-                                {tipoCliente === 'existente' && clienteSeleccionado && (
-                                    <p className="mt-1 text-xs text-green-600">
-                                        ✅ Auto-completado desde el cliente seleccionado
-                                    </p>
-                                )}
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block mb-1 text-sm font-medium text-gray-700">Dirección</label>
@@ -653,29 +554,15 @@ export default function NuevoRemito() {
                                     💡 Se autocompleta con la dirección de la Empresa (o la Sede elegida), pero siempre es editable
                                 </p>
                             </div>
-                            {tipoCliente === 'existente' && empresaDelCliente?.sedes?.length > 0 && (
-                                <div className="md:col-span-2">
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Sede</label>
-                                    <select
-                                        onChange={(e) => handleSeleccionarSede(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    >
-                                        <option value="">Dirección Principal</option>
-                                        {empresaDelCliente.sedes.map(sede => (
-                                            <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
                         </div>
-                        
+
                         {/* Indicadores de asignación */}
-                        {tipoCliente === 'existente' && clienteSeleccionado && (
+                        {tipoCliente === 'existente' && empresaDelCliente && (
                             <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
                                 <p className="text-sm text-green-800">
-                                    ✅ <strong>Remito será asignado a:</strong> {clienteSeleccionado.empresa}
+                                    ✅ <strong>Remito será asignado a:</strong> {empresaDelCliente.razonSocial} · {cliente.sedeNombre || 'Dirección principal'}
                                     <br />
-                                    <span className="text-green-600">El cliente podrá ver este remito en su panel.</span>
+                                    <span className="text-green-600">Lo verán los contactos con acceso a esa empresa y sede.</span>
                                 </p>
                             </div>
                         )}

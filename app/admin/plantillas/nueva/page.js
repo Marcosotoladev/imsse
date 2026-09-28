@@ -8,6 +8,7 @@ import { Home, Save, PlusCircle, Trash2, ArrowUp, ArrowDown } from 'lucide-react
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../../lib/firebase';
 import apiService from '../../../../lib/services/apiService';
+import { obtenerMisPermisos, puedeCon } from '../../../../lib/hooks/useMisPermisos';
 import { GRUPOS_INSPECCION, TIPOS_PLANTILLA } from '../../../../lib/constants/plantillas';
 
 export default function NuevaPlantilla() {
@@ -33,9 +34,8 @@ export default function NuevaPlantilla() {
         return;
       }
       try {
-        const perfil = await apiService.obtenerPerfilUsuario(currentUser.uid);
-        if (perfil.rol !== 'admin') {
-          router.push('/admin/panel-control');
+        if (!puedeCon(await obtenerMisPermisos(), 'plantillas', 'crear')) {
+          router.push('/admin/plantillas');
           return;
         }
         setLoading(false);

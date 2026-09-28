@@ -21,6 +21,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import apiService from '../../../lib/services/apiService';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todas' };
 
@@ -45,15 +46,15 @@ function AccionBoton({ href, onClick, disabled, title, colorClasses, children })
   );
 }
 
-function AccionesRemito({ remito, descargando, onDescargar, onEliminar }) {
+function AccionesRemito({ puede, remito, descargando, onDescargar, onEliminar }) {
   return (
     <div className="flex items-center gap-2">
       <AccionBoton href={`/admin/remitos/${remito.id}`} title="Ver remito" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/remitos/editar/${remito.id}`} title="Editar remito" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('remitos', 'editar', remito) && (<AccionBoton href={`/admin/remitos/editar/${remito.id}`} title="Editar remito" colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
       <AccionBoton
         onClick={() => onDescargar(remito)}
         disabled={descargando === remito.id}
@@ -62,19 +63,20 @@ function AccionesRemito({ remito, descargando, onDescargar, onEliminar }) {
       >
         <Download size={18} />
       </AccionBoton>
-      <AccionBoton
+      {puede('remitos', 'eliminar', remito) && (<AccionBoton
         onClick={() => onEliminar(remito.id, remito.numero)}
         title="Eliminar remito"
         colorClasses="text-red-600 bg-red-50 hover:bg-red-100"
       >
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
 
 export default function ListaRemitos() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [remitos, setRemitos] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -246,13 +248,13 @@ export default function ListaRemitos() {
               {remitosFiltrados.length} de {remitos.length} {remitos.length === 1 ? 'remito' : 'remitos'}
             </p>
           </div>
-          <Link
+          {puede('remitos', 'crear') && (<Link
             href="/admin/remitos/nuevo"
             className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
           >
             <FilePlus size={18} className="mr-2" />
             Nuevo Remito
-          </Link>
+          </Link>)}
         </div>
 
         {/* Búsqueda + filtros + vista */}
@@ -366,13 +368,13 @@ export default function ListaRemitos() {
               }
             </p>
             {!searchTerm && !hayFiltrosActivos && (
-              <Link
+              puede('remitos', 'crear') && (<Link
                 href="/admin/remitos/nuevo"
                 className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
               >
                 <FilePlus size={18} className="mr-2" />
                 Crear Primer Remito
-              </Link>
+              </Link>)
             )}
           </div>
         ) : vista === 'cards' ? (
@@ -407,7 +409,7 @@ export default function ListaRemitos() {
                   )}
                 </div>
 
-                <AccionesRemito
+                <AccionesRemito puede={puede}
                   remito={remito}
                   descargando={descargando}
                   onDescargar={handleDescargarPDF}
@@ -462,7 +464,7 @@ export default function ListaRemitos() {
                         </td>
                         <td className="px-4 py-4 text-center whitespace-nowrap">
                           <div className="flex justify-center">
-                            <AccionesRemito
+                            <AccionesRemito puede={puede}
                               remito={remito}
                               descargando={descargando}
                               onDescargar={handleDescargarPDF}

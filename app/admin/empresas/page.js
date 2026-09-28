@@ -35,6 +35,7 @@ export default function GestionEmpresas() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
+  const [esAdmin, setEsAdmin] = useState(false);
   const [empresas, setEmpresas] = useState([]);
   const [busqueda, setBusqueda] = useState('');
 
@@ -48,10 +49,12 @@ export default function GestionEmpresas() {
       if (currentUser) {
         try {
           const perfil = await apiService.obtenerPerfilUsuario(currentUser.uid);
-          if (perfil.rol !== 'admin') {
+          // Gestionan Empresas el admin y la secretaria
+          if (!['admin', 'secretaria'].includes(perfil.rol)) {
             router.push('/admin');
             return;
           }
+          setEsAdmin(perfil.rol === 'admin');
           await cargarDatos();
         } catch (error) {
           console.error('Error al verificar permisos:', error);
@@ -84,6 +87,33 @@ export default function GestionEmpresas() {
       console.error('Error al cargar empresas:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMigrarSedes = async () => {
+    if (!confirm(
+      'Se va a:\n' +
+      '• Asignar la sede a cada documento existente (según el nombre de sede que tenga cargado).\n' +
+      '• Convertir los permisos actuales de cada contacto en accesos a todas las sedes de su empresa.\n\n' +
+      'Nadie pierde acceso a lo que ya veía. Se puede correr más de una vez. ¿Continuar?'
+    )) return;
+
+    setProcesando(true);
+    try {
+      const { resumen } = await apiService.migrarSedesYAccesos();
+      alert(
+        '✅ Migración completada\n\n' +
+        `Contactos migrados: ${resumen.contactosMigrados} (ya migrados: ${resumen.contactosYaMigrados}, sin empresa: ${resumen.contactosSinEmpresa})\n` +
+        `Documentos con sede: ${resumen.documentosConSede}\n` +
+        `Documentos en dirección principal: ${resumen.documentosDireccionPrincipal}\n` +
+        `Documentos ya migrados: ${resumen.documentosYaMigrados}\n` +
+        `Documentos sin empresa: ${resumen.documentosSinEmpresa}`
+      );
+    } catch (error) {
+      console.error('Error en la migración de sedes:', error);
+      alert(`❌ Error en la migración: ${error.message || 'Error desconocido'}`);
+    } finally {
+      setProcesando(false);
     }
   };
 
@@ -277,13 +307,27 @@ export default function GestionEmpresas() {
               Empresas cliente y sus sedes/obras. Los contactos de cada empresa se administran desde Usuarios.
             </p>
           </div>
-          <button
-            onClick={handleAbrirCrear}
-            className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors rounded-xl bg-primary hover:bg-red-700 shadow-sm"
-          >
-            <Plus size={18} className="mr-2" />
-            Nueva Empresa
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Temporal: migración única al modelo de accesos por Sede. Quitar una vez ejecutada. */}
+            {esAdmin && (
+              <button
+                onClick={handleMigrarSedes}
+                disabled={procesando}
+                title="Asigna la sede a los documentos existentes y convierte los permisos actuales de cada contacto en accesos por empresa/sede"
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+              >
+                <MapPin size={18} className="mr-2" />
+                {procesando ? 'Procesando...' : 'Migrar sedes y accesos'}
+              </button>
+            )}
+            <button
+              onClick={handleAbrirCrear}
+              className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors rounded-xl bg-primary hover:bg-red-700 shadow-sm"
+            >
+              <Plus size={18} className="mr-2" />
+              Nueva Empresa
+            </button>
+          </div>
         </div>
 
         <div className="p-3 mb-6 bg-white border border-gray-100 shadow-sm rounded-2xl">

@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Eye,
   ClipboardCheck,
-  ClipboardList
+  ClipboardList,
+  Wrench
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -35,6 +36,7 @@ export default function DashboardCliente() {
     recibos: [],
     remitos: [],
     estados: [],
+    ordenes: [],
     inspecciones: [],
     planaccion: []
   });
@@ -65,6 +67,12 @@ export default function DashboardCliente() {
       icono: CreditCard,
       color: 'orange',
       descripcion: 'Resúmenes de cuenta y estados financieros'
+    },
+    ordenes: {
+      nombre: 'Órdenes de Trabajo',
+      icono: Wrench,
+      color: 'red',
+      descripcion: 'Trabajos realizados en tus instalaciones'
     },
     inspecciones: {
       nombre: 'Visita Técnica',
@@ -108,6 +116,7 @@ export default function DashboardCliente() {
         recibos: 'obtenerRecibos',
         remitos: 'obtenerRemitos',
         estados: 'obtenerEstadosCuenta',
+        ordenes: 'obtenerOrdenesTrabajo',
         inspecciones: 'obtenerInspeccionesTecnicas',
         planaccion: 'obtenerPlanAccion'
       };

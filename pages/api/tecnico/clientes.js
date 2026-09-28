@@ -1,5 +1,5 @@
 // pages/api/tecnico/clientes.js - VERSIÓN CORREGIDA PARA FIREBASE ADMIN
-import { verifyAuth, ROLES } from '../../../lib/auth-middleware';
+import { verifyAuth, ROLES_PERSONAL } from '../../../lib/auth-middleware';
 import { db } from '../../../lib/firebase-admin';
 
 export default async function handler(req, res) {
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     console.log('✅ Usuario autenticado:', user.uid, 'Rol:', user.role);
 
     // Solo admins y técnicos pueden acceder
-    if (![ROLES.ADMIN, ROLES.TECNICO].includes(user.role)) {
+    if (!ROLES_PERSONAL.includes(user.role)) {
       console.log('❌ Acceso denegado para rol:', user.role);
       return res.status(403).json({ error: 'Acceso denegado' });
     }

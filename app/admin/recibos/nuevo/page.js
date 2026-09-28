@@ -11,6 +11,7 @@ import apiService from '../../../../lib/services/apiService';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import ReciboPDF from '../../../components/pdf/ReciboPDF';
 import SignatureCanvas from 'react-signature-canvas';
+import EmpresaSedeSelector from '../../../components/admin/EmpresaSedeSelector';
 
 // Función para convertir números a letras
 const numeroALetras = (numero) => {
@@ -74,12 +75,10 @@ export default function NuevoRecibo() {
   const [mostrarPDF, setMostrarPDF] = useState(false);
   const sigCanvas = useRef({});
 
-  // NUEVO: Estados para gestión de clientes
-  const [clientesDisponibles, setClientesDisponibles] = useState([]);
+  // Empresa + Sede a la que se emite el recibo
   const [empresasDisponibles, setEmpresasDisponibles] = useState([]);
-  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [cargandoEmpresas, setCargandoEmpresas] = useState(false);
   const [tipoCliente, setTipoCliente] = useState('existente'); // 'existente' | 'manual'
-  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [empresaDelCliente, setEmpresaDelCliente] = useState(null);
 
   // Estado para el modal de concepto
@@ -92,7 +91,8 @@ export default function NuevoRecibo() {
   const [recibo, setRecibo] = useState({
     numero: `REC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
     fecha: new Date().toISOString().split('T')[0],
-    clienteId: '', // ← NUEVO CAMPO CRÍTICO
+    empresaId: '',
+    sedeId: null,
     recibiDe: '',
     direccion: '',
     sedeNombre: '',
@@ -107,7 +107,7 @@ export default function NuevoRecibo() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        cargarClientesDisponibles();
+        cargarEmpresas();
         setLoading(false);
       } else {
         router.push('/admin');
@@ -117,62 +117,29 @@ export default function NuevoRecibo() {
     return () => unsubscribe();
   }, [router]);
 
-  // NUEVA FUNCIÓN: Cargar clientes activos del sistema
-  const cargarClientesDisponibles = async () => {
-    setCargandoClientes(true);
+  const cargarEmpresas = async () => {
+    setCargandoEmpresas(true);
     try {
-      const [usuariosData, empresasData] = await Promise.all([
-        apiService.obtenerUsuarios(),
-        apiService.obtenerEmpresas()
-      ]);
-      const clientes = usuariosData.users.filter(u =>
-        u.rol === 'cliente' && u.estado === 'activo'
-      );
-      setClientesDisponibles(clientes);
+      const empresasData = await apiService.obtenerEmpresas();
       setEmpresasDisponibles(empresasData.empresas || []);
-      console.log('Clientes disponibles:', clientes);
     } catch (error) {
-      console.error('Error al cargar clientes:', error);
+      console.error('Error al cargar empresas:', error);
     } finally {
-      setCargandoClientes(false);
+      setCargandoEmpresas(false);
     }
   };
 
-  // NUEVA FUNCIÓN: Manejar selección de cliente existente
-  const handleSeleccionarCliente = (clienteId) => {
-    if (!clienteId) {
-      setClienteSeleccionado(null);
-      setEmpresaDelCliente(null);
-      setRecibo({ ...recibo, clienteId: '', recibiDe: '', direccion: '', sedeNombre: '' });
-      return;
-    }
-
-    const clienteEncontrado = clientesDisponibles.find(c => c.id === clienteId);
-    if (clienteEncontrado) {
-      const empresa = empresasDisponibles.find(e => e.id === clienteEncontrado.empresaId) || null;
-
-      setClienteSeleccionado(clienteEncontrado);
-      setEmpresaDelCliente(empresa);
-      setRecibo({
-        ...recibo,
-        clienteId: clienteId,
-        recibiDe: `${clienteEncontrado.nombreCompleto} - ${clienteEncontrado.empresa}`, // Auto-llenar
-        direccion: empresa?.direccionPrincipal || '',
-        sedeNombre: ''
-      });
-    }
-  };
-
-  // Cambia la dirección cargada según la Sede elegida (o vuelve a la Dirección Principal)
-  const handleSeleccionarSede = (sedeId) => {
-    if (!sedeId) {
-      setRecibo(prev => ({ ...prev, direccion: empresaDelCliente?.direccionPrincipal || '', sedeNombre: '' }));
-      return;
-    }
-    const sede = empresaDelCliente?.sedes?.find(s => s.id === sedeId);
-    if (sede) {
-      setRecibo(prev => ({ ...prev, direccion: sede.direccion || '', sedeNombre: sede.nombreObra || '' }));
-    }
+  // Empresa + Sede: deciden qué contactos ven el recibo. "Recibí de" queda editable.
+  const handleSeleccionEmpresaSede = ({ empresaId, sedeId, empresa, datosCliente }) => {
+    setEmpresaDelCliente(empresa);
+    setRecibo(prev => ({
+      ...prev,
+      empresaId,
+      sedeId,
+      recibiDe: datosCliente.empresa,
+      direccion: datosCliente.direccion,
+      sedeNombre: datosCliente.sedeNombre
+    }));
   };
 
   // FUNCIÓN MODIFICADA: Cambiar tipo de cliente
@@ -180,9 +147,8 @@ export default function NuevoRecibo() {
     setTipoCliente(tipo);
     if (tipo === 'manual') {
       // Limpiar selección y permitir edición manual
-      setClienteSeleccionado(null);
       setEmpresaDelCliente(null);
-      setRecibo({ ...recibo, clienteId: '', recibiDe: '', direccion: '', sedeNombre: '' });
+      setRecibo({ ...recibo, empresaId: '', sedeId: null, recibiDe: '', direccion: '', sedeNombre: '' });
     }
   };
 
@@ -238,8 +204,8 @@ export default function NuevoRecibo() {
 
   const handleGuardarRecibo = async () => {
     // VALIDACIÓN: Verificar que hay cliente asignado para clientes existentes
-    if (tipoCliente === 'existente' && !recibo.clienteId) {
-      alert('Por favor, selecciona un cliente del sistema.');
+    if (tipoCliente === 'existente' && !recibo.empresaId) {
+      alert('Por favor, selecciona una empresa del sistema.');
       return;
     }
 
@@ -254,7 +220,8 @@ export default function NuevoRecibo() {
       const reciboData = {
         ...recibo,
         monto: parseFloat(recibo.monto),
-        clienteId: recibo.clienteId || null, // ← CAMPO CRÍTICO
+        empresaId: recibo.empresaId || null,
+        sedeId: recibo.sedeId || null,
         tipoCliente: tipoCliente, // Para referencia
         usuarioCreador: user.email,
         creadoPor: user.email,
@@ -406,46 +373,13 @@ export default function NuevoRecibo() {
               {/* Selector de cliente existente */}
               {tipoCliente === 'existente' && (
                 <div className="p-4 rounded-lg bg-green-50">
-                  <label className="block mb-2 text-sm font-medium text-gray-700">
-                    Seleccionar cliente registrado *
-                  </label>
-                  <select
-                    value={recibo.clienteId}
-                    onChange={(e) => handleSeleccionarCliente(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
-                    disabled={cargandoClientes}
-                  >
-                    <option value="">
-                      {cargandoClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}
-                    </option>
-                    {clientesDisponibles.map(cliente => (
-                      <option key={cliente.id} value={cliente.id}>
-                        {cliente.empresa} - {cliente.nombreCompleto}
-                      </option>
-                    ))}
-                  </select>
-                  
-                  {/* Información del cliente seleccionado */}
-                  {clienteSeleccionado && (
-                    <div className="p-3 mt-3 bg-white border border-green-200 rounded">
-                      <div className="text-sm">
-                        <p className="font-medium">{clienteSeleccionado.nombreCompleto}</p>
-                        <p className="text-gray-600">{clienteSeleccionado.email}</p>
-                        {clienteSeleccionado.telefono && (
-                          <p className="text-gray-600">{clienteSeleccionado.telefono}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {clientesDisponibles.length === 0 && !cargandoClientes && (
-                    <p className="mt-2 text-sm text-yellow-600">
-                      No hay clientes activos en el sistema. 
-                      <Link href="/admin/usuarios" className="underline hover:text-yellow-800">
-                        Crear cliente aquí
-                      </Link>
-                    </p>
-                  )}
+                  <EmpresaSedeSelector
+                    empresas={empresasDisponibles}
+                    empresaId={recibo.empresaId}
+                    sedeId={recibo.sedeId}
+                    cargando={cargandoEmpresas}
+                    onChange={handleSeleccionEmpresaSede}
+                  />
                 </div>
               )}
 
@@ -476,39 +410,17 @@ export default function NuevoRecibo() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Nombre completo o razón social del cliente"
                   required
-                  disabled={tipoCliente === 'existente' && clienteSeleccionado}
                 />
-                {tipoCliente === 'existente' && clienteSeleccionado && (
-                  <p className="mt-1 text-xs text-green-600">
-                    ✅ Auto-completado desde el cliente seleccionado
-                  </p>
-                )}
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">Dirección</label>
-                  <input
-                    type="text"
-                    value={recibo.direccion}
-                    onChange={(e) => setRecibo({ ...recibo, direccion: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    placeholder="Dirección"
-                  />
-                </div>
-                {tipoCliente === 'existente' && empresaDelCliente?.sedes?.length > 0 && (
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-700">Sede</label>
-                    <select
-                      onChange={(e) => handleSeleccionarSede(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="">Dirección Principal</option>
-                      {empresaDelCliente.sedes.map(sede => (
-                        <option key={sede.id} value={sede.id}>{sede.nombreObra}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">Dirección</label>
+                <input
+                  type="text"
+                  value={recibo.direccion}
+                  onChange={(e) => setRecibo({ ...recibo, direccion: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="Dirección"
+                />
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
@@ -575,12 +487,12 @@ export default function NuevoRecibo() {
               </div>
               
               {/* Indicador de asignación */}
-              {tipoCliente === 'existente' && clienteSeleccionado && (
+              {tipoCliente === 'existente' && empresaDelCliente && (
                 <div className="p-3 mt-4 border border-green-200 rounded-md bg-green-50">
                   <p className="text-sm text-green-800">
-                    ✅ <strong>Recibo será asignado a:</strong> {clienteSeleccionado.empresa}
+                    ✅ <strong>Recibo será asignado a:</strong> {empresaDelCliente.razonSocial} · {recibo.sedeNombre || 'Dirección principal'}
                     <br />
-                    <span className="text-green-600">El cliente podrá ver este recibo en su panel.</span>
+                    <span className="text-green-600">Lo verán los contactos con acceso a esa empresa y sede.</span>
                   </p>
                 </div>
               )}

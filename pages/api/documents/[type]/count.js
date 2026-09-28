@@ -1,6 +1,8 @@
 // pages/api/documents/[type]/count.js - MODIFICADO para incluir visitas
 import { withAuth, ROLES } from '../../../../lib/auth-middleware';
 import { firestore } from '../../../../lib/firebase-admin';
+import { obtenerDocumentosCliente } from '../../../../lib/documentosCliente';
+import { permisoParaUsuario } from '../../../../lib/permisosRolesServer';
 
 async function handler(req, res) {
   const { type } = req.query;
@@ -23,8 +25,6 @@ async function handler(req, res) {
     planaccion: 'plan_accion'
   };
 
-  const TECNICO_LECTURA = ['ordenes', 'recordatorios', 'visitas', 'inspecciones', 'plantillas'];
-
   if (!COLLECTIONS[type]) {
     return res.status(400).json({ error: 'Invalid document type' });
   }
@@ -35,30 +35,28 @@ async function handler(req, res) {
 
     // Aplicar filtros según el rol (misma lógica que en index.js)
     if (user.role === ROLES.CLIENTE) {
+      // Los accesos por Sede no se pueden expresar en una sola consulta: se cuentan los visibles
       const userProfile = await firestore.collection('usuarios').doc(user.uid).get();
-      const perfilData = userProfile.data() || {};
-      const permisos = perfilData.permisos || {};
+      const visibles = await obtenerDocumentosCliente({
+        coleccion: collection, tipo: type, perfil: userProfile.data() || {}, uid: user.uid
+      });
 
-      if (!permisos[type]) {
+      if (visibles === null) {
         return res.status(403).json({ error: 'Access denied to this document type' });
       }
 
-      query = perfilData.empresaId
-        ? query.where('empresaId', '==', perfilData.empresaId)
-        : query.where('clienteId', '==', user.uid);
-    } else if (user.role === ROLES.TECNICO) {
-      if (!TECNICO_LECTURA.includes(type)) {
+      const { status } = req.query;
+      const count = status ? visibles.filter((doc) => doc.estado === status).length : visibles.length;
+      return res.status(200).json({ count, type });
+    } else if (user.role !== ROLES.ADMIN) {
+      // Técnico / Secretaria: según la grilla de permisos por rol
+      const permiso = await permisoParaUsuario(user, type);
+      if (permiso.ver === 'no') {
         return res.status(403).json({ error: 'Access denied' });
       }
-
-      // ✅ CAMBIO: Para visitas, no filtrar por técnico asignado
-      // Solo aplicar filtro para órdenes y recordatorios:
-      if (type === 'ordenes') {
-        query = query.where('tecnicoAsignado.id', '==', user.uid);
-      } else if (type === 'recordatorios') {
-        query = query.where('asignadoA', '==', user.uid);
+      if (permiso.ver === 'propios') {
+        query = query.where('creadoPor', '==', user.uid);
       }
-      // Para 'visitas' e 'inspecciones' no aplicamos filtro adicional - técnicos ven todas
     }
 
     // Filtros adicionales

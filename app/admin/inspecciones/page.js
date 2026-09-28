@@ -25,6 +25,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import offlineApiService from '../../../lib/services/offlineApiService';
+import { useMisPermisos } from '../../../lib/hooks/useMisPermisos';
 
 const FILTROS_INICIALES = { desde: '', hasta: '', estado: 'todas' };
 
@@ -49,15 +50,15 @@ function AccionBoton({ href, onClick, disabled, title, colorClasses, children })
   );
 }
 
-function AccionesInspeccion({ inspeccion, descargando, onDescargar, onEliminar, isOffline }) {
+function AccionesInspeccion({ puede, inspeccion, descargando, onDescargar, onEliminar, isOffline }) {
   return (
     <div className="flex items-center gap-2">
       <AccionBoton href={`/admin/inspecciones/${inspeccion.id}`} title="Ver visita" colorClasses="text-blue-600 bg-blue-50 hover:bg-blue-100">
         <Eye size={18} />
       </AccionBoton>
-      <AccionBoton href={`/admin/inspecciones/editar/${inspeccion.id}`} title={`Editar visita${isOffline ? ' (offline)' : ''}`} colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
+      {puede('inspecciones', 'editar', inspeccion) && (<AccionBoton href={`/admin/inspecciones/editar/${inspeccion.id}`} title={`Editar visita${isOffline ? ' (offline)' : ''}`} colorClasses="text-orange-600 bg-orange-50 hover:bg-orange-100">
         <Edit size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
       <AccionBoton
         onClick={() => onDescargar(inspeccion)}
         disabled={descargando === inspeccion.id}
@@ -66,19 +67,20 @@ function AccionesInspeccion({ inspeccion, descargando, onDescargar, onEliminar, 
       >
         <Download size={18} />
       </AccionBoton>
-      <AccionBoton
+      {puede('inspecciones', 'eliminar', inspeccion) && (<AccionBoton
         onClick={() => onEliminar(inspeccion.id, inspeccion.numero)}
         title={`Eliminar visita${isOffline ? ' (marcará para eliminar)' : ''}`}
         colorClasses="text-red-600 bg-red-50 hover:bg-red-100"
       >
         <Trash2 size={18} />
-      </AccionBoton>
+      </AccionBoton>)}
     </div>
   );
 }
 
 export default function ListaInspeccionesTecnicas() {
   const router = useRouter();
+  const { puede } = useMisPermisos();
   const [loading, setLoading] = useState(true);
   const [inspecciones, setInspecciones] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -279,13 +281,13 @@ export default function ListaInspeccionesTecnicas() {
                 <span>{sincronizando ? 'Sincronizando...' : 'Sincronizar'}</span>
               </button>
             )}
-            <Link
+            {puede('inspecciones', 'crear') && (<Link
               href="/admin/inspecciones/nueva"
               className="flex items-center px-4 py-2 text-sm font-medium text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
             >
               <FilePlus size={18} className="mr-2" />
               Nueva Visita
-            </Link>
+            </Link>)}
           </div>
         </div>
 
@@ -416,13 +418,13 @@ export default function ListaInspeccionesTecnicas() {
               }
             </p>
             {!searchTerm && !hayFiltrosActivos && (
-              <Link
+              puede('inspecciones', 'crear') && (<Link
                 href="/admin/inspecciones/nueva"
                 className="inline-flex items-center px-4 py-2 mt-4 text-white transition-colors bg-primary rounded-xl hover:bg-red-700"
               >
                 <FilePlus size={18} className="mr-2" />
                 Crear {isOffline ? 'Visita (Offline)' : 'Primera Visita'}
-              </Link>
+              </Link>)
             )}
           </div>
         ) : vista === 'cards' ? (
@@ -474,7 +476,7 @@ export default function ListaInspeccionesTecnicas() {
                   )}
                 </div>
 
-                <AccionesInspeccion
+                <AccionesInspeccion puede={puede}
                   inspeccion={inspeccion}
                   descargando={descargando}
                   onDescargar={handleDescargarPDF}
@@ -564,7 +566,7 @@ export default function ListaInspeccionesTecnicas() {
                         </td>
                         <td className="px-4 py-4 text-center whitespace-nowrap">
                           <div className="flex justify-center">
-                            <AccionesInspeccion
+                            <AccionesInspeccion puede={puede}
                               inspeccion={inspeccion}
                               descargando={descargando}
                               onDescargar={handleDescargarPDF}

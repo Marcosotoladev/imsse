@@ -1,6 +1,9 @@
 // ============= pages/api/documents/[type]/pdf/[id].js =============
 import { withAuth, ROLES } from '../../../../../lib/auth-middleware';
 import { firestore } from '../../../../../lib/firebase-admin';
+import { contactoPuedeVer } from '../../../../../lib/documentosCliente';
+import { permisoParaUsuario } from '../../../../../lib/permisosRolesServer';
+import { puedeSobre } from '../../../../../lib/permisosRoles';
 
 async function handler(req, res) {
   const { type, id } = req.query;
@@ -33,27 +36,14 @@ async function handler(req, res) {
 
     const docData = doc.data();
 
-    // Verificar permisos de acceso (misma lógica que GET): el propio contacto,
-    // o cualquier contacto de la misma Empresa
+    // Verificar permisos de acceso (misma lógica que GET): accesos del contacto a esa Empresa/Sede
     if (user.role === ROLES.CLIENTE) {
-      let accesoPermitido = docData.clienteId === user.uid;
-
-      if (!accesoPermitido && docData.empresaId) {
-        const userProfile = await firestore.collection('usuarios').doc(user.uid).get();
-        const empresaId = userProfile.data()?.empresaId;
-        accesoPermitido = !!empresaId && empresaId === docData.empresaId;
-      }
-
-      if (!accesoPermitido) {
+      const userProfile = await firestore.collection('usuarios').doc(user.uid).get();
+      if (!contactoPuedeVer(userProfile.data() || {}, user.uid, type, docData)) {
         return res.status(403).json({ error: 'Access denied' });
       }
-    }
-
-    if (user.role === ROLES.TECNICO && type !== 'ordenes') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (user.role === ROLES.TECNICO && type === 'ordenes' && docData.tecnicoAsignado?.id !== user.uid) {
+    } else if (!puedeSobre(await permisoParaUsuario(user, type), 'ver', docData, user.uid)) {
+      // Técnico / Secretaria: según la grilla de permisos por rol
       return res.status(403).json({ error: 'Access denied' });
     }
 

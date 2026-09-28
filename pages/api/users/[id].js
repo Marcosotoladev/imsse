@@ -2,6 +2,7 @@
 import { withAuth, ROLES } from '../../../lib/auth-middleware';
 import { firestore, auth } from '../../../lib/firebase-admin';
 import admin from '../../../lib/firebase-admin';
+import { limpiarAccesos, permisosDesdeAccesos } from '../../../lib/accesos';
 
 async function handler(req, res) {
   const { id } = req.query;
@@ -55,6 +56,7 @@ async function getUser(req, res, id, user) {
       superAdmin: userData.superAdmin === true,
       estado: userData.estado,
       permisos: userData.permisos,
+      accesos: userData.accesos,
       clienteId: userData.clienteId,
       empresaId: userData.empresaId,
       metodoBegistro: userData.metodoBegistro,
@@ -97,6 +99,7 @@ async function updateUser(req, res, id, user) {
       delete updateData.rol;
       delete updateData.estado;
       delete updateData.permisos;
+      delete updateData.accesos;
       delete updateData.clienteId;
       
       // Usuarios normales solo pueden actualizar datos personales
@@ -135,6 +138,13 @@ async function updateUser(req, res, id, user) {
       // Si cambia de cliente a otro rol, limpiar clienteId
       if (updateData.rol && updateData.rol !== ROLES.CLIENTE) {
         updateData.clienteId = null;
+      }
+
+      // Accesos por Empresa/Sede: se guardan limpios y `permisos` (que usa el menú del cliente)
+      // se deriva de ellos, para que no queden desincronizados.
+      if (updateData.accesos !== undefined) {
+        updateData.accesos = limpiarAccesos(updateData.accesos);
+        updateData.permisos = permisosDesdeAccesos(updateData.accesos);
       }
     }
 

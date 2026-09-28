@@ -106,7 +106,7 @@ export default function EditarOrdenTrabajo({ params }) {
 
           // A diferencia de "nueva", esta pantalla no chequeaba rol — cualquier
           // usuario autenticado podía editar cualquier orden.
-          if (!['admin', 'tecnico'].includes(perfilUsuario.rol)) {
+          if (!['admin', 'tecnico', 'secretaria'].includes(perfilUsuario.rol)) {
             router.push('/cliente/dashboard');
             return;
           }
