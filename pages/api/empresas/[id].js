@@ -104,14 +104,22 @@ async function deleteEmpresa(req, res, id, user) {
     // No permitir eliminar una empresa con contactos (usuarios) vinculados: como empresa principal
     // o con accesos a sus documentos
     const clientesSnapshot = await firestore.collection('usuarios').where('rol', '==', 'cliente').get();
-    const tieneContactos = clientesSnapshot.docs.some((doc) => {
-      const data = doc.data();
-      return data.empresaId === id || !!data.accesos?.[id];
-    });
+    const vinculados = clientesSnapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        const motivos = [];
+        if (data.empresaId === id) motivos.push('empresa principal');
+        if (data.accesos?.[id]) motivos.push('accesos');
+        const nombre = data.nombreCompleto || `${data.nombre || ''} ${data.apellido || ''}`.trim() || data.email || doc.id;
+        return motivos.length ? `• ${nombre} (${motivos.join(' y ')})` : null;
+      })
+      .filter(Boolean);
 
-    if (tieneContactos) {
+    if (vinculados.length) {
       return res.status(400).json({
-        error: 'No se puede eliminar: hay contactos vinculados a esta empresa. Reasigná esos contactos o quitales los accesos a esta empresa primero.'
+        error: 'No se puede eliminar: estos contactos están vinculados a la empresa.\n\n' +
+          `${vinculados.join('\n')}\n\n` +
+          'En Usuarios, cambiales la "Empresa principal" y/o quitá esta empresa de sus Accesos, y volvé a intentar.'
       });
     }
 
