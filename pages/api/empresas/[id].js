@@ -19,6 +19,29 @@ async function handler(req, res) {
   }
 }
 
+// Contactos (usuarios cliente) vinculados a la empresa: como empresa principal y/o con accesos
+async function contactosVinculados(empresaId) {
+  const snapshot = await firestore.collection('usuarios').where('rol', '==', 'cliente').get();
+  return snapshot.docs
+    .map((doc) => {
+      const data = doc.data();
+      const motivos = [];
+      if (data.empresaId === empresaId) motivos.push('empresa principal');
+      if (data.accesos?.[empresaId]) motivos.push('accesos');
+      if (!motivos.length) return null;
+      return {
+        id: doc.id,
+        nombre: data.nombreCompleto || `${data.nombre || ''} ${data.apellido || ''}`.trim() || data.email || doc.id,
+        email: data.email || '',
+        cargo: data.cargo || '',
+        estado: data.estado || '',
+        motivos
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
 async function getEmpresa(req, res, id, user) {
   try {
     // Todo el personal puede leer una empresa; gestionarla, solo admin y secretaria
@@ -36,7 +59,9 @@ async function getEmpresa(req, res, id, user) {
       id: doc.id,
       ...data,
       fechaCreacion: data.fechaCreacion?.toDate?.() || data.fechaCreacion,
-      fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion
+      fechaModificacion: data.fechaModificacion?.toDate?.() || data.fechaModificacion,
+      // Quienes la gestionan ven también qué contactos están vinculados a ella
+      ...(ROLES_GESTION_EMPRESAS.includes(user.role) && { contactos: await contactosVinculados(id) })
     });
   } catch (error) {
     console.error('Error getting empresa:', error);
@@ -103,17 +128,8 @@ async function deleteEmpresa(req, res, id, user) {
 
     // No permitir eliminar una empresa con contactos (usuarios) vinculados: como empresa principal
     // o con accesos a sus documentos
-    const clientesSnapshot = await firestore.collection('usuarios').where('rol', '==', 'cliente').get();
-    const vinculados = clientesSnapshot.docs
-      .map((doc) => {
-        const data = doc.data();
-        const motivos = [];
-        if (data.empresaId === id) motivos.push('empresa principal');
-        if (data.accesos?.[id]) motivos.push('accesos');
-        const nombre = data.nombreCompleto || `${data.nombre || ''} ${data.apellido || ''}`.trim() || data.email || doc.id;
-        return motivos.length ? `• ${nombre} (${motivos.join(' y ')})` : null;
-      })
-      .filter(Boolean);
+    const vinculados = (await contactosVinculados(id))
+      .map((c) => `• ${c.nombre} (${c.motivos.join(' y ')})`);
 
     if (vinculados.length) {
       return res.status(400).json({

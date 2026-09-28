@@ -10,7 +10,11 @@ import {
   Edit,
   Trash2,
   MapPin,
-  X
+  X,
+  Eye,
+  Phone,
+  Mail,
+  Users
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
@@ -42,6 +46,10 @@ export default function GestionEmpresas() {
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState(null);
   const [formData, setFormData] = useState(FORM_VACIO);
+
+  // Vista de solo lectura: la empresa elegida y sus contactos vinculados (se piden aparte)
+  const [empresaVer, setEmpresaVer] = useState(null);
+  const [contactosVer, setContactosVer] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -124,7 +132,20 @@ export default function GestionEmpresas() {
     setModalCrearAbierto(true);
   };
 
+  const handleAbrirVer = async (empresa) => {
+    setEmpresaVer(empresa);
+    setContactosVer(null);
+    try {
+      const detalle = await apiService.obtenerEmpresaPorId(empresa.id);
+      setContactosVer(detalle.contactos || []);
+    } catch (error) {
+      console.error('Error al cargar los contactos de la empresa:', error);
+      setContactosVer([]);
+    }
+  };
+
   const handleAbrirEditar = (empresa) => {
+    setEmpresaVer(null);
     setEmpresaSeleccionada(empresa);
     setFormData({
       razonSocial: empresa.razonSocial || '',
@@ -310,7 +331,11 @@ export default function GestionEmpresas() {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {empresasFiltradas.map((empresa) => (
-              <div key={empresa.id} className="p-4 bg-white border border-gray-100 shadow-sm rounded-2xl">
+              <div
+                key={empresa.id}
+                onClick={() => handleAbrirVer(empresa)}
+                className="p-4 bg-white border border-gray-100 shadow-sm cursor-pointer rounded-2xl hover:shadow-md hover:border-gray-200"
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center min-w-0">
                     <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 bg-gray-100 rounded-full">
@@ -321,7 +346,15 @@ export default function GestionEmpresas() {
                       {empresa.cuit && <p className="text-xs text-gray-500 truncate">CUIT: {empresa.cuit}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  {/* stopPropagation: los botones no abren la vista de detalle */}
+                  <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleAbrirVer(empresa)}
+                      className="flex items-center justify-center w-8 h-8 text-gray-500 rounded-lg hover:bg-gray-100"
+                      title="Ver empresa"
+                    >
+                      <Eye size={15} />
+                    </button>
                     <button
                       onClick={() => handleAbrirEditar(empresa)}
                       className="flex items-center justify-center w-8 h-8 text-gray-500 rounded-lg hover:bg-gray-100"
@@ -358,6 +391,123 @@ export default function GestionEmpresas() {
           </div>
         )}
       </div>
+
+      {/* MODAL VER EMPRESA (solo lectura) */}
+      {empresaVer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => setEmpresaVer(null)}>
+          <div className="w-full max-w-lg mx-4 bg-white rounded-xl shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="flex items-center min-w-0 text-lg font-semibold text-gray-900">
+                <Building2 size={20} className="mr-2 text-primary shrink-0" />
+                <span className="truncate">{empresaVer.razonSocial}</span>
+              </h3>
+              <button onClick={() => setEmpresaVer(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">CUIT</p>
+                  <p className="text-gray-900">{empresaVer.cuit || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Teléfono</p>
+                  <p className="flex items-center gap-1 text-gray-900">
+                    {empresaVer.telefono ? <><Phone size={13} className="text-gray-400" /> {empresaVer.telefono}</> : '—'}
+                  </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium text-gray-500">Email</p>
+                  <p className="flex items-center gap-1 text-gray-900 break-all">
+                    {empresaVer.emailPrincipal ? <><Mail size={13} className="text-gray-400 shrink-0" /> {empresaVer.emailPrincipal}</> : '—'}
+                  </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium text-gray-500">Dirección principal</p>
+                  <p className="flex items-start gap-1 text-gray-900">
+                    {empresaVer.direccionPrincipal ? <><MapPin size={13} className="mt-0.5 text-gray-400 shrink-0" /> {empresaVer.direccionPrincipal}</> : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                  Sedes / Obras ({empresaVer.sedes?.length || 0})
+                </p>
+                {empresaVer.sedes?.length > 0 ? (
+                  <ul className="space-y-2">
+                    {empresaVer.sedes.map((sede) => (
+                      <li key={sede.id} className="flex items-start gap-2 p-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50">
+                        <MapPin size={15} className="mt-0.5 text-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900">{sede.nombreObra || 'Sede sin nombre'}</p>
+                          {sede.direccion && <p className="text-xs text-gray-500">{sede.direccion}</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm italic text-gray-400">Sin sedes cargadas: los documentos van a la dirección principal.</p>
+                )}
+              </div>
+
+              <div>
+                <p className="flex items-center gap-1 mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                  <Users size={13} /> Contactos vinculados{contactosVer ? ` (${contactosVer.length})` : ''}
+                </p>
+                {contactosVer === null ? (
+                  <p className="text-sm text-gray-400">Cargando...</p>
+                ) : contactosVer.length === 0 ? (
+                  <p className="text-sm italic text-gray-400">Ningún usuario está vinculado a esta empresa.</p>
+                ) : (
+                  <ul className="border border-gray-200 divide-y divide-gray-100 rounded-lg">
+                    {contactosVer.map((contacto) => (
+                      <li key={contacto.id} className="flex items-start justify-between gap-2 px-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">
+                            {contacto.nombre}
+                            {contacto.estado === 'inactivo' && <span className="ml-1 text-xs font-normal text-gray-400">(inactivo)</span>}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {[contacto.cargo, contacto.email].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap justify-end gap-1 shrink-0">
+                          {contacto.motivos.map((motivo) => (
+                            <span key={motivo} className="px-2 py-0.5 text-[11px] font-medium text-blue-800 bg-blue-100 rounded-full">
+                              {motivo}
+                            </span>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-2 text-xs text-gray-400">Los contactos y sus accesos se administran desde Usuarios.</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEmpresaVer(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAbrirEditar(empresaVer)}
+                  className="flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg bg-primary hover:bg-red-700"
+                >
+                  <Edit size={15} className="mr-1.5" /> Editar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL CREAR EMPRESA */}
       {modalCrearAbierto && (
