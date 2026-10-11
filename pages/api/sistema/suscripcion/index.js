@@ -4,7 +4,7 @@ import admin from '../../../../lib/firebase-admin';
 import {
   subscriptionRef,
   pagosRef,
-  computeBloqueada,
+  getSubscriptionState,
   invalidateSubscriptionCache
 } from '../../../../lib/subscription';
 
@@ -23,9 +23,8 @@ async function handler(req, res) {
 
 async function getSuscripcion(req, res, user) {
   try {
-    const snap = await subscriptionRef().get();
-    const sub = snap.exists ? snap.data() : null;
-    const bloqueada = computeBloqueada(sub);
+    // getSubscriptionState verifica con MercadoPago antes de dar la app por bloqueada.
+    const { sub, bloqueada } = await getSubscriptionState({ skipCache: true });
 
     const response = { bloqueada };
 
